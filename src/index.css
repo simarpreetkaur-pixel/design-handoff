@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * @see /skills.md — single source of truth for OMNI / ACKO (Figma) product tokens.
+ * Figma frame: https://www.figma.com/design/ItV6q2hj272EYkgVUtapxW/OMNI---Post-Sales?node-id=8278-63809
+ * Typography: Euclid Circular B (Figma) — load optional WOFF2 in /public/fonts, then:
+ *   "Euclid Circular B" applies first. Inter remains the webfont fallback for licensed builds.
+ */
+@layer base {
+  :root {
+    /* Euclid Circular B (primary) with geometric sans-serif fallbacks */
+    --font-omni-sans: "Euclid Circular B", "Inter", "Avenir Next", "Avenir", "Proxima Nova", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+
+    --background: 0 0% 100%;
+    --foreground: 248 15% 24%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 248 15% 24%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 248 15% 24%;
+
+    /* Green / G300 (Button / primary) from Figma */
+    --primary: 152 88% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Neutral tints for secondary / muted (UI) */
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 248 15% 24%;
+
+    --muted: 250 5% 96%;
+    --muted-foreground: 248 7% 40%;
+
+    --accent: 250 5% 96%;
+    --accent-foreground: 248 15% 24%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 152 88% 35%;
+
+    --radius: 0.75rem;
+
+    /* Figma: Neutral, Line, surfaces (HSL, no hsl() here) */
+    --omni-n0: 0 0% 100%;
+    --omni-n500: 248 12% 27%;
+    --omni-n600: 249 84% 7%;
+    --omni-n400: 248 8% 40%;
+    /* Line/Primary (N200) in Figma — borders */
+    --omni-n200: 240 6% 90%;
+    --omni-n100: 240 7% 96%;
+    --omni-profile: 220 100% 97.5%;
+    --omni-summary: 255 20% 98.5%;
+    /* Yellow (Last-call badge) */
+    --omni-y50: 38 100% 95.5%;
+    --omni-y500: 28 100% 41.5%;
+    /* Purple (sparkle) */
+    --omni-p300: 255 64% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .font-euclid {
+    font-family: var(--font-omni-sans);
+  }
+  
+  .animate-arrow-bounce {
+    animation: arrow-bounce 1.2s ease-in-out infinite;
+  }
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+/* Euclid Circular B — ACKO Licensed Fonts (WOFF2) */
+@font-face {
+  font-family: "Euclid Circular B";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/EuclidCircularB-Regular-WebXL.woff2") format("woff2"),
+       local("Euclid Circular B");
+}
+
+@font-face {
+  font-family: "Euclid Circular B";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/EuclidCircularB-RegularItalic-WebXL.woff2") format("woff2"),
+       local("Euclid Circular B Italic");
+}
+
+@font-face {
+  font-family: "Euclid Circular B";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/EuclidCircularB-Medium-WebXL.woff2") format("woff2"),
+       local("Euclid Circular B Medium");
+}
+
+@font-face {
+  font-family: "Euclid Circular B";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/EuclidCircularB-MediumItalic-WebXL.woff2") format("woff2"),
+       local("Euclid Circular B Medium Italic");
+}
+
+@font-face {
+  font-family: "Euclid Circular B";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/EuclidCircularB-Semibold-WebXL.woff2") format("woff2"),
+       local("Euclid Circular B Semibold");
+}
+
+@font-face {
+  font-family: "Euclid Circular B";
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/EuclidCircularB-SemiboldItalic-WebXL.woff2") format("woff2"),
+       local("Euclid Circular B Semibold Italic");
+}
+
+/* Inter font is loaded from Google Fonts in index.html as fallback */
+
+/* Call dialing dots animation */
+@keyframes pulse-dot {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Arrow forward-backward animation */
+@keyframes arrow-bounce {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
