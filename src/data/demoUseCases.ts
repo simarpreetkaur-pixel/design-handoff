@@ -78,28 +78,4 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
       },
     ],
   },
-  {
-    id: "payment-query",
-    number: 5,
-    title: "Payment related query",
-    pills: [
-      {
-        label: "Known JTBD",
-        customerId: "amit-patel",
-        crmDemo: { chatMockCase: "default" },
-      },
-    ],
-  },
-  {
-    id: "unknown-caller",
-    number: 6,
-    title: "Unknown caller",
-    pills: [
-      {
-        label: "Different number inbound",
-        customerId: "unknown-caller",
-        crmDemo: { chatMockCase: "default" },
-      },
-    ],
-  },
 ]
