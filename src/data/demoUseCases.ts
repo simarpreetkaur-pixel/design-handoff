@@ -102,16 +102,4 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
       },
     ],
   },
-  {
-    id: "iteration-unknown-jtbd",
-    number: 7,
-    title: "Iteration for Unknown JTBD",
-    pills: [
-      {
-        label: "Raj Kapoor · classify → workspace",
-        customerId: "raj-kapoor",
-        crmDemo: { chatMockCase: "unknown_jtbd_iteration" },
-      },
-    ],
-  },
 ]
