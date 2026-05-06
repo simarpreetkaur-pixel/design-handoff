@@ -148,6 +148,9 @@ export function CRMView() {
   /** Unknown JTBD iteration — full-bleed until split unlock (workflow create/guide, or KYC / something-else). */
   const [unknownJtbdSplitUnlocked, setUnknownJtbdSplitUnlocked] = useState(false)
 
+  /** Raj Kapoor cold-inbound / raise-claim demo — alternate shell (Hello view placeholder). */
+  const [rajKapoorCrmUiVariant, setRajKapoorCrmUiVariant] = useState<"classic" | "hello">("classic")
+
   /** Sunil endorsement demo — AI chat policy chips reveal JTBD */
   const [sunilEndorsementChoice, setSunilEndorsementChoice] = useState<"swift" | "gmc" | null>(null)
   /** JTBD created from AI Companion — endorsement */
@@ -176,6 +179,9 @@ export function CRMView() {
 
   const unknownJtbdFullBleed =
     resolvedChatMockCase === "unknown_jtbd_iteration" && !unknownJtbdSplitUnlocked
+
+  const isRajKapoorRaiseClaimFlow =
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon"
 
   const handleUnknownJtbdSplitUnlock = useCallback(() => {
     const commit = () => {
@@ -229,6 +235,7 @@ export function CRMView() {
     setClaimHandlerModalOpen(false)
     setRaiseClaimFocusRequest(null)
     setUnknownJtbdSplitUnlocked(false)
+    setRajKapoorCrmUiVariant("classic")
   }, [customerId])
 
   const panelJtbds = useMemo(() => {
@@ -667,28 +674,64 @@ export function CRMView() {
           <h1 className="min-w-0 truncate font-euclid text-[28px] font-normal leading-[1.2] text-[#2c2067]">
             OMNI Support
           </h1>
-          <div
-            className="flex min-w-0 max-w-[min(100%,320px)] shrink-0 items-center gap-3 rounded-lg border border-solid border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5"
-            data-node-id="8393:28160"
-          >
-            <p className="flex min-w-0 items-baseline font-euclid text-xs font-normal leading-[18px] text-[#5b5675]">
-              <span className="shrink-0">{`Showing results for: `}</span>
-              <span className="min-w-0 truncate">{displayLookupPhone}</span>
-            </p>
-            <button
-              type="button"
-              onClick={handleEditPhone}
-              className="flex size-4 shrink-0 items-center justify-center text-[#5b5675] transition-colors hover:text-[#040222]"
-              title="Use a different number for lookup"
-              aria-label="Use a different number for lookup"
-              data-name="Edit"
+          <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-3">
+            {isRajKapoorRaiseClaimFlow ? (
+              <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5">
+                <span className="hidden whitespace-nowrap font-euclid text-xs font-medium text-[#5b5675] sm:inline">
+                  Classic view
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={rajKapoorCrmUiVariant === "hello"}
+                  aria-label="Toggle between Classic view and Hello view"
+                  onClick={() =>
+                    setRajKapoorCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
+                  }
+                  className={cn(
+                    "relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/40",
+                    rajKapoorCrmUiVariant === "hello" ? "bg-[#7c47e1]" : "bg-[#d8d6ea]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none absolute top-0.5 left-0.5 block h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out",
+                      rajKapoorCrmUiVariant === "hello" ? "translate-x-5" : "translate-x-0",
+                    )}
+                  />
+                </button>
+                <span className="hidden whitespace-nowrap font-euclid text-xs font-medium text-[#5b5675] sm:inline">
+                  Hello view
+                </span>
+              </div>
+            ) : null}
+            <div
+              className="flex min-w-0 max-w-[min(100%,320px)] shrink-0 items-center gap-3 rounded-lg border border-solid border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5"
+              data-node-id="8393:28160"
             >
-              <Pencil className="size-4" aria-hidden />
-            </button>
+              <p className="flex min-w-0 items-baseline font-euclid text-xs font-normal leading-[18px] text-[#5b5675]">
+                <span className="shrink-0">{`Showing results for: `}</span>
+                <span className="min-w-0 truncate">{displayLookupPhone}</span>
+              </p>
+              <button
+                type="button"
+                onClick={handleEditPhone}
+                className="flex size-4 shrink-0 items-center justify-center text-[#5b5675] transition-colors hover:text-[#040222]"
+                title="Use a different number for lookup"
+                aria-label="Use a different number for lookup"
+                data-name="Edit"
+              >
+                <Pencil className="size-4" aria-hidden />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      {isRajKapoorRaiseClaimFlow && rajKapoorCrmUiVariant === "hello" ? (
+        <div className="relative h-[calc(100vh-72px)] w-full bg-[#fafafa]" aria-label="Hello CRM view" />
+      ) : (
+        <>
       {/* Body — split CRM vs full-bleed AI (unknown JTBD iteration, phase 1) */}
       <div className="relative flex h-[calc(100vh-72px)] w-full min-h-0 flex-col">
         <div
@@ -912,6 +955,8 @@ export function CRMView() {
           </div>
         </div>
       </div>
+        </>
+      )}
 
         {!unknownJtbdFullBleed ? (
           <img
