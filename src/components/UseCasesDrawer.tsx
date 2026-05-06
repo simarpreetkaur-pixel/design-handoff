@@ -1,5 +1,5 @@
-import { ChevronDown, X } from "lucide-react"
-import { useEffect, useId, useState } from "react"
+import { X } from "lucide-react"
+import { useEffect, useId } from "react"
 
 import { DEMO_USE_CASE_SECTIONS } from "@/data/demoUseCases"
 import type { CrmDemoState } from "@/types/navigation"
@@ -15,16 +15,8 @@ type UseCasesDrawerProps = {
   onSelectUseCase: (selection: UseCaseSelection) => void
 }
 
-const pillClass =
-  "rounded-full border border-[#e7e7f0] bg-white px-3 py-1.5 font-euclid text-sm font-normal text-[#36354c] transition-colors hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-
-function initialExpandedState(): Record<string, boolean> {
-  return Object.fromEntries(DEMO_USE_CASE_SECTIONS.map((s) => [s.id, false]))
-}
-
 export function UseCasesDrawer({ open, onOpenChange, onSelectUseCase }: UseCasesDrawerProps) {
   const titleId = useId()
-  const [expandedBySection, setExpandedBySection] = useState<Record<string, boolean>>(initialExpandedState)
 
   useEffect(() => {
     if (!open) return
@@ -34,12 +26,6 @@ export function UseCasesDrawer({ open, onOpenChange, onSelectUseCase }: UseCases
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [open, onOpenChange])
-
-  useEffect(() => {
-    if (!open) {
-      setExpandedBySection(initialExpandedState())
-    }
-  }, [open])
 
   if (!open) {
     return null
@@ -75,50 +61,23 @@ export function UseCasesDrawer({ open, onOpenChange, onSelectUseCase }: UseCases
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {DEMO_USE_CASE_SECTIONS.map((section) => {
-              const expanded = expandedBySection[section.id] ?? false
+              const scenario = section.pills[0]
               return (
-                <div key={section.id} className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setExpandedBySection((prev) => ({
-                        ...prev,
-                        [section.id]: !prev[section.id],
-                      }))
-                    }
-                    className="flex w-full items-center justify-between gap-2 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-                    aria-expanded={expanded}
-                  >
-                    <span className="font-euclid text-sm font-semibold text-[#040222]">
-                      {section.number}. {section.title}
-                    </span>
-                    <ChevronDown
-                      className={`size-4 shrink-0 text-[#5b5675] transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-                      aria-hidden
-                    />
-                  </button>
-                  {expanded ? (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {section.pills.map((pill) => (
-                        <button
-                          key={`${section.id}-${pill.customerId}-${pill.label}`}
-                          type="button"
-                          className={pillClass}
-                          onClick={() =>
-                            onSelectUseCase({
-                              customerId: pill.customerId,
-                              crmDemo: pill.crmDemo,
-                            })
-                          }
-                        >
-                          {pill.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() =>
+                    onSelectUseCase({
+                      customerId: scenario.customerId,
+                      crmDemo: scenario.crmDemo,
+                    })
+                  }
+                  className="flex w-full rounded-sm px-1 py-1 text-left font-euclid text-sm font-semibold text-[#040222] transition-colors hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+                >
+                  {section.number}. {section.title}
+                </button>
               )
             })}
           </div>

@@ -10,7 +10,8 @@ export type DemoUseCaseSection = {
   id: string
   number: number
   title: string
-  pills: DemoPillConfig[]
+  /** Single scenario triggered when the row is clicked (no sub-pills). */
+  pills: [DemoPillConfig]
 }
 
 export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
@@ -20,61 +21,21 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
     title: "Claim Status",
     pills: [
       {
-        label: "Known JTBD",
-        customerId: "rajesh-kumar",
-        crmDemo: { chatMockCase: "default" },
-      },
-      {
-        label: "Previous AI summary",
-        customerId: "anita-sharma-claim-payment-kyc",
-        crmDemo: {
-          chatMockCase: "default",
-          initialSelectedJtbdId: "jtbd-claim-payment-kyc-1",
-        },
-      },
-    ],
-  },
-  {
-    id: "raise-claim",
-    number: 2,
-    title: "Raise a Claim",
-    pills: [
-      {
-        label: "New caller",
+        label: "Raj Kapoor",
         customerId: "raj-kapoor",
         crmDemo: { chatMockCase: "raj_cold_nexon" },
       },
     ],
   },
   {
-    id: "policy-renewal",
-    number: 3,
-    title: "Policy Renewal",
-    pills: [
-      {
-        label: "Known JTBD",
-        customerId: "ayush-singhal",
-        crmDemo: {
-          chatMockCase: "default",
-          initialSelectedJtbdId: "jtbd-ayush-renewal-1",
-        },
-      },
-    ],
-  },
-  {
     id: "policy-endorsement",
-    number: 4,
+    number: 2,
     title: "Edit Policy",
     pills: [
       {
-        label: "New caller",
+        label: "Sunil Gupta",
         customerId: "sunil-gupta",
         crmDemo: { chatMockCase: "sunil_endorsement_edit_name" },
-      },
-      {
-        label: "Known JTBD",
-        customerId: "priyanka-shah",
-        crmDemo: { chatMockCase: "default" },
       },
     ],
   },
