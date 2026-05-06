@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { QuickActionKey } from "@/components/crm/QuickActionDetailPage"
 
 const MENU_ITEMS: { id: QuickActionKey; label: string }[] = [
-  { id: "quick-action-1", label: "Action 1" },
-  { id: "quick-action-2", label: "Action 2" },
-  { id: "quick-action-3", label: "Action 3" },
+  { id: "quick-action-1", label: "Send communication" },
+  { id: "quick-action-2", label: "Request document" },
+  { id: "quick-action-3", label: "Arrange CH Appointment" },
 ]
 
 type QuickActionsButtonProps = {

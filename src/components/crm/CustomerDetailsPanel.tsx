@@ -1,6 +1,7 @@
 import { Pencil, User, FileText, Check } from "lucide-react"
 
 import type { Customer } from "@/types/crm"
+import { canonicalIncomingOngoingIssue } from "@/lib/canonicalOngoingLabels"
 import { Badge } from "@/components/ui/badge"
 
 interface CustomerDetailsPanelProps {
@@ -84,7 +85,10 @@ export function CustomerDetailsPanel({ customer }: CustomerDetailsPanelProps) {
 
         {/* Context Details */}
         <div className="flex w-full flex-col">
-          <DetailRow label="Calling for" value={customer.callContext.reason} />
+          <DetailRow
+            label="Calling for"
+            value={canonicalIncomingOngoingIssue(customer.callContext.reason?.trim() ?? "")}
+          />
           {customer.callContext.vehicle && (
             <div className="mt-[12px]">
               <DetailRow label="Vehicle" value={customer.callContext.vehicle} />
@@ -94,7 +98,7 @@ export function CustomerDetailsPanel({ customer }: CustomerDetailsPanelProps) {
             <div className="mt-[12px]">
               <div className="flex w-full items-center justify-between text-[14px] leading-[0] whitespace-nowrap">
                 <div className="font-euclid font-normal text-[#5b5675]">
-                  <p className="leading-[24px]">Last call</p>
+                  <p className="leading-[24px]">Last call sentiment</p>
                 </div>
                 <div className="text-right">
                   <Badge

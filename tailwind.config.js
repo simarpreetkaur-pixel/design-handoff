@@ -79,10 +79,21 @@ export default {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'raise-claim-tick-pop': {
+          '0%': { opacity: '0', transform: 'scale(0.35)' },
+          '70%': { opacity: '1', transform: 'scale(1.06)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'raise-claim-msg-fade': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'raise-claim-tick-pop': 'raise-claim-tick-pop 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) both',
+        'raise-claim-msg-fade': 'raise-claim-msg-fade 0.5s ease-out 0.28s both',
       },
     },
   },

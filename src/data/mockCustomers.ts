@@ -10,7 +10,7 @@ export const rajeshKumar: Customer = {
   tenureWithAcko: "4 years with ACKO",
   kycStatus: "verified",
   callContext: {
-    reason: "Claim delay",
+    reason: "Claim Status",
     vehicle: "Ford Ecosport Titanium",
   },
 }
@@ -51,8 +51,9 @@ export const rajeshKumarJTBDs: JTBD[] = [
       {
         id: "action-2",
         step: 2,
-        description: "Agent to share garage details with customer on WhatsApp",
-        cta: "Send Communication",
+        description:
+          "Once customer has selected, inform they will get a call from Claim Handler in 1-2 working days.",
+        cta: "",
         completed: false,
       },
     ],
@@ -80,19 +81,12 @@ export const rajeshKumarJTBDs: JTBD[] = [
       {
         id: "renewal-action-1",
         step: 1,
-        description: "Generate renewal quote with NCB",
-        cta: "Send Alert",
-        completed: false,
-      },
-      {
-        id: "renewal-action-2",
-        step: 2,
-        description: "Send renewal link via WhatsApp/SMS",
-        cta: "Send Communication",
+        description: "Transfer the call to the Presales team for renewal quote and payment link.",
+        cta: "Transfer",
         completed: false,
       },
     ],
-    quickActions: ["Send communication", "Acko Alerts", "Raise a Claim"],
+    quickActions: [],
   },
 ]
 
@@ -120,24 +114,24 @@ export const rajeshKumarActivePolicies: Policy[] = [
     id: "policy-comprehensive-1",
     name: "Comprehensive Plan",
     type: "Motor Insurance",
-    policyNumber: "KL 01 BB 0275",
+    policyNumber: "DBCR10468610009/02",
     expiryDate: "22 Mar'27",
-    vehicle: "Ford Ecosport Titanium 2025 1.2Sportz Kappa VTVT CNG",
+    vehicle: "Ford Ecosport Titanium 2025",
     policyHolder: "Rajesh Kumar",
     planDisplayName: "Comprehensive",
     policyPeriodLabel: "22 Mar 2026 - 21 Mar 2027",
     tenureLabel: "1 Year",
   },
   {
-    id: "policy-damage-1",
-    name: "Own Damage Plan",
+    id: "policy-tp-activa-1",
+    name: "Third party plan",
     type: "Motor Insurance",
-    policyNumber: "KL 03 NW 0248",
-    expiryDate: "22 Mar'27",
-    vehicle: "Ford Ecosport Titanium",
+    policyNumber: "ACCR10468614939/02",
+    expiryDate: "15 Aug'27",
+    vehicle: "Honda Activa",
     policyHolder: "Rajesh Kumar",
-    planDisplayName: "Own Damage",
-    policyPeriodLabel: "22 Mar 2026 - 21 Mar 2027",
+    planDisplayName: "Third Party",
+    policyPeriodLabel: "15 Aug 2026 - 14 Aug 2027",
     tenureLabel: "1 Year",
   },
 ]
@@ -211,8 +205,33 @@ export const anitaSharmaJTBDs: JTBD[] = [
       sectionHeading: "AI Summary",
       headerIconVariant: "ai_summary",
       viewDetailsLabel: "VIEW DETAILED SUMMARY",
-      viewDetailsChatPrefill:
-        "Give me a full agent-facing summary: payment vs KYC vs pre-inspection for this Honda Activa 2026 policy issuance, the Aadhaar vs policy name mismatch, repeat-call context, and the exact next actions I should take (Send Communication vs KYC Ops email).",
+      detailedSummaryTimeline: [
+        {
+          title: "Payment",
+          detail:
+            "Cleared 11 Feb’26 · ref ACK-PYMNT-882114. Issuance unblocked on premium — case sits on KYC only.",
+        },
+        {
+          title: "KYC mismatch",
+          detail:
+            "Policy shows married name; Aadhaar shows maiden · fuzzy match failed twice. ID not updated offline yet.",
+        },
+        {
+          title: "Repeat-call risk",
+          detail:
+            "4 inbound attempts since 9 Feb (~6 min avg). Last: Angry — acknowledge before repeating steps.",
+        },
+        {
+          title: "Pre-inspection",
+          detail:
+            "Gate ISS-MOT-014: no PI slot until KYC = Verified. Don’t promise dates verbally.",
+        },
+        {
+          title: "Do next",
+          detail:
+            "Send Communication (re-upload pack). Escalate KYC Ops only after one failed clean upload — attach quote ID + audit screenshots.",
+        },
+      ],
     },
     askInChatPrefill:
       "For this Honda Activa 2026 policy issuance, what’s the right next step to fix the KYC name mismatch (Aadhaar vs policy) before pre-inspection?",
@@ -273,11 +292,14 @@ export const anitaSharmaJTBDs: JTBD[] = [
 export const anitaSharmaActivePolicies: Policy[] = [
   {
     id: "policy-anita-motor-1",
-    name: "Two Wheeler Policy",
+    name: "Third party plan",
     type: "Motor Insurance",
     policyNumber: "KA 12 AB 5678",
     expiryDate: "15 Aug'27",
     vehicle: "Honda Activa 2026",
+    policyHolder: "Anita Sharma",
+    policyPeriodLabel: "16 Aug'26 – 15 Aug'27",
+    tenureLabel: "1 Year",
   },
 ]
 
@@ -289,6 +311,11 @@ export const rajKapoorActivePolicies: Policy[] = [
     policyNumber: "Till 10 Jan'28",
     members: 2,
     expiryDate: "10 Jan'28",
+    policyHolder: "Raj Kapoor",
+    planDisplayName: "Family Floater",
+    totalCoverage: "1 Cr",
+    policyPeriodLabel: "10 Jan'25 – 10 Jan'28",
+    tenureLabel: "1 Year",
   },
   {
     id: "policy-raj-motor-1",
@@ -298,6 +325,8 @@ export const rajKapoorActivePolicies: Policy[] = [
     expiryDate: "28 Sep'27",
     vehicle: "Tata Nexon 2025",
     productCode: "car_comprehensive",
+    policyHolder: "Raj Kapoor",
+    policyPeriodLabel: "29 Sep'24 – 28 Sep'27",
   },
 ]
 
@@ -305,7 +334,7 @@ export const policyActions: PolicyAction[] = [
   { id: "view-policy-doc", label: "View Policy Document", action: "view_policy_document" },
   { id: "share-document", label: "Share policy document", action: "share_document" },
   { id: "raise-claim", label: "Raise a Claim", action: "raise_claim" },
-  { id: "endorsements", label: "Endorsement", action: "endorsements" },
+  { id: "endorsements", label: "Edit Policy", action: "endorsements" },
   { id: "coverages", label: "Coverages", action: "coverages" },
 ]
 
@@ -318,7 +347,7 @@ export const priyankaShah: Customer = {
   email: "priyanka.shah@gmail.com",
   appStatus: "installed",
   callContext: {
-    reason: "Policy renewal",
+    reason: "Edit Policy",
     vehicle: "Honda City",
   },
 }
@@ -331,7 +360,7 @@ export const amitPatel: Customer = {
   email: "amit.patel@yahoo.com",
   appStatus: "not_installed",
   callContext: {
-    reason: "Premium payment issue",
+    reason: "Payment related query",
     vehicle: "Maruti Swift",
   },
 }
@@ -343,11 +372,182 @@ export const sunilGupta: Customer = {
   phone: "+91 76543 21098",
   email: "sunil.gupta@hotmail.com",
   appStatus: "installed",
+  tenureWithAcko: "2 years with ACKO",
+  kycStatus: "verified",
   callContext: {
-    reason: "Add-on coverage inquiry",
-    vehicle: "Hyundai i20",
+    reason: "Unknown",
+    vehicle: "Maruti Suzuki Swift Dzire",
   },
 }
+
+export const sunilGuptaActivePolicies: Policy[] = [
+  {
+    id: "policy-sunil-swift",
+    name: "Comprehensive Plan",
+    type: "Motor Insurance",
+    policyNumber: "DL 08 SG 4412",
+    expiryDate: "30 Nov'27",
+    vehicle: "Maruti Suzuki Swift Dzire 2024",
+    productCode: "car_comprehensive",
+    policyHolder: "Sunil Gupta",
+    planDisplayName: "Car_Comprehensive",
+    policyPeriodLabel: "30 Nov 2025 - 29 Nov 2026",
+    tenureLabel: "1 Year",
+  },
+  {
+    id: "policy-sunil-gmc",
+    name: "ACKO GMC",
+    type: "Health Insurance",
+    policyNumber: "ACK-GMC-2026-88102",
+    members: 3,
+    expiryDate: "10 Feb'28",
+    policyHolder: "Sunil Gupta",
+    planDisplayName: "ACKO Group Medical Cover",
+    totalCoverage: "₹5,00,000",
+    policyPeriodLabel: "10 Feb 2025 - 9 Feb 2028",
+    tenureLabel: "1 Year (renewing)",
+    coveredMembers: [
+      { name: "Sunil Gupta", relation: "Self" },
+      { name: "Neha Gupta", relation: "Spouse" },
+      { name: "Aarav Gupta", relation: "Son" },
+    ],
+  },
+]
+
+/** Revealed after AI chat: Create workflow — edit name on Swift Dzire motor policy */
+export const sunilGuptaSwiftDzireEditNameJtbd: JTBD = {
+  id: "jtbd-sunil-swift-edit-name",
+  type: "claim",
+  title: "Edit name",
+  vehicle: "Swift Dzire",
+  isActive: true,
+  status: [],
+  askInChatPrefill: "What are the steps to complete name edit on Swift Dzire after RC and licence are received?",
+  agentActions: [
+    {
+      id: "sunil-swift-edit-1",
+      step: 1,
+      description:
+        "Request RC copy from the customer over email.",
+      cta: "Request RC",
+      completed: false,
+    },
+    {
+      id: "sunil-swift-edit-2",
+      step: 2,
+      description: "Once the customer responds with the RC copy, download it from email.",
+      cta: "",
+      completed: false,
+    },
+    {
+      id: "sunil-swift-edit-3",
+      step: 3,
+      description:
+        "Open Edit Policy, update the policy holder name, and upload the RC copy.",
+      cta: "Edit Policy",
+      completed: false,
+    },
+    {
+      id: "sunil-swift-edit-4",
+      step: 4,
+      description:
+        "Inform the customer that the update TAT is typically up to 48 hours once inputs are complete.",
+      cta: "",
+      completed: false,
+    },
+  ],
+  quickActions: [],
+}
+
+/** Revealed after AI chat: Create workflow — edit name on GMC health policy */
+export const sunilGuptaGmcEditNameJtbd: JTBD = {
+  id: "jtbd-sunil-gmc-edit-name",
+  type: "claim",
+  title: "Edit name",
+  vehicle: "GMC policy",
+  isActive: true,
+  status: [],
+  askInChatPrefill: "What should I check before updating name on the GMC health policy?",
+  agentActions: [
+    {
+      id: "sunil-gmc-edit-1",
+      step: 1,
+      description:
+        "Send an ACKO Alert to the customer so they can update the insured name on the GMC health plan.",
+      cta: "Send ACKO Alert",
+      completed: false,
+    },
+    {
+      id: "sunil-gmc-edit-2",
+      step: 2,
+      description:
+        "Open Edit Policy and update the insured name per health SOP. RC copy is not required for this change.",
+      cta: "Edit Policy",
+      completed: false,
+    },
+    {
+      id: "sunil-gmc-edit-3",
+      step: 3,
+      description:
+        "Inform the customer that the update TAT is typically up to 48 hours once inputs are complete.",
+      cta: "",
+      completed: false,
+    },
+  ],
+  quickActions: [],
+}
+
+export const ayushSinghal: Customer = {
+  id: "ayush-singhal",
+  name: "Ayush Singhal",
+  language: "English",
+  phone: "+91 98100 11223",
+  email: "ayush.singhal@gmail.com",
+  appStatus: "installed",
+  tenureWithAcko: "3 years with ACKO",
+  kycStatus: "verified",
+  callContext: {
+    reason: "Policy renewal",
+    vehicle: "Maruti Suzuki Swift",
+  },
+}
+
+export const ayushSinghalActivePolicies: Policy[] = [
+  {
+    id: "policy-ayush-swift",
+    name: "Comprehensive Plan",
+    type: "Motor Insurance",
+    policyNumber: "HR 26 AS 7788",
+    expiryDate: "20 Dec'26",
+    vehicle: "Maruti Suzuki Swift 2023",
+    productCode: "car_comprehensive",
+    policyHolder: "Ayush Singhal",
+    planDisplayName: "Car_Comprehensive",
+    policyPeriodLabel: "20 Dec 2025 - 19 Dec 2026",
+    tenureLabel: "1 Year",
+  },
+]
+
+export const ayushSinghalJTBDs: JTBD[] = [
+  {
+    id: "jtbd-ayush-renewal-1",
+    type: "renewal",
+    title: "Renewal",
+    vehicle: "Maruti Suzuki Swift",
+    isActive: true,
+    status: [],
+    agentActions: [
+      {
+        id: "ayush-action-1",
+        step: 1,
+        description: "Transfer this call to the Presales team for further assistance.",
+        cta: "Transfer to Presales",
+        completed: false,
+      },
+    ],
+    quickActions: [],
+  },
+]
 
 /** Simulate live call — Policy Issuance (KYC name mismatch) */
 export const anitaSharma: Customer = {
@@ -360,7 +560,7 @@ export const anitaSharma: Customer = {
   tenureWithAcko: "1 year with ACKO",
   kycStatus: "pending",
   callContext: {
-    reason: "Policy Issuance",
+    reason: "Edit Policy",
     vehicle: "Honda Activa 2026",
   },
   lastCall: {
@@ -368,6 +568,115 @@ export const anitaSharma: Customer = {
     sentiment: "angry",
   },
 }
+
+/**
+ * Use-case drawer only: same person as Anita, but claim approved and payment
+ * held until KYC clears (not issuance / pre-inspection).
+ */
+export const anitaSharmaClaimPaymentKyc: Customer = {
+  id: "anita-sharma-claim-payment-kyc",
+  name: "Anita Sharma",
+  language: "English",
+  phone: "+91 91234 55678",
+  email: "anita.sharma@gmail.com",
+  appStatus: "installed",
+  tenureWithAcko: "1 year with ACKO",
+  kycStatus: "pending",
+  callContext: {
+    reason: "Claim Status",
+    vehicle: "Honda Activa 2026",
+  },
+  lastCall: {
+    label: "Angry",
+    sentiment: "angry",
+  },
+}
+
+const anitaSharmaClaimPaymentKycJTBDs: JTBD[] = [
+  {
+    id: "jtbd-claim-payment-kyc-1",
+    type: "claim",
+    title: "Claim",
+    vehicle: "Honda Activa 2026",
+    isActive: true,
+    aiSummary: {
+      bullets: [
+        "Last call, Anita asked about her claim — document review ran longer than usual after several doc requests",
+        "Documents are now approved and the claim is approved; settlement is on hold until KYC is complete",
+      ],
+      sectionHeading: "AI Summary",
+      headerIconVariant: "ai_summary",
+      viewDetailsLabel: "VIEW DETAILED SUMMARY",
+      stackHeaderWithBullets: true,
+      detailedSummaryTimeline: [
+        {
+          title: "12 Feb'26, 18:05 — Neha Kapoor (CX)",
+          detail:
+            "Anita called again after her 6 Feb check; document review had stretched past usual TAT after multiple document rounds. She asked why payment had not credited though the claim shows approved. Agent confirmed documents are cleared and the OD claim is approved with liability on file; payout is on hold until KYC is complete — policy name vs Aadhaar mismatch — and walked through re-upload / verification.",
+        },
+      ],
+    },
+    askInChatPrefill:
+      "Claim is approved for this Honda Activa but payment is blocked on KYC — what can I say about payout timing and next steps?",
+    status: [
+      {
+        step: "Claim assessment",
+        state: "completed",
+        date: "8 Feb'26",
+      },
+      {
+        step: "Claim approval",
+        state: "completed",
+        date: "10 Feb'26",
+      },
+      {
+        step: "KYC verification",
+        state: "current",
+        date: "12 Feb'26",
+        warning: "KYC pending due to name mismatch — payment release is blocked",
+        calloutMeta: { label: "Action pending on:", value: "Anita Sharma" },
+      },
+      {
+        step: "Payment to customer",
+        state: "pending",
+      },
+    ],
+    agentActions: [
+      {
+        id: "action-claim-pay-kyc-1",
+        step: 1,
+        description:
+          "Ask customer to change their name on ACKO app as per their official government document PAN/Aadhaar.",
+        cta: "",
+        completed: false,
+      },
+      {
+        id: "action-claim-pay-kyc-2",
+        step: 2,
+        description: "Ask customer to complete the KYC process again",
+        cta: "Send Communication",
+        completed: false,
+      },
+      {
+        id: "action-claim-pay-kyc-3",
+        step: 3,
+        description: "Escalate to KYC Ops with claim ID if upload fails again.",
+        cta: "Escalate",
+        completed: false,
+      },
+    ],
+    quickActions: ["Send communication", "Send an email", "Transfer to another team"],
+    relatedSops: [
+      {
+        id: "sop-claim-payment-kyc",
+        label: "Post-approval payment hold when KYC is still pending",
+        detailActionKey: "related_sop_kyc_name",
+        askInChatPrefill:
+          "What is the SOP for claim payment release when KYC name mismatch exists after claim is already approved?",
+      },
+    ] satisfies RelatedSopRow[],
+  },
+]
 
 /** Simulate live call — cold/unknown intent caller */
 export const rajKapoor: Customer = {
@@ -384,7 +693,7 @@ export const rajKapoor: Customer = {
   },
 }
 
-/** Simulate live call — use case to be built out (Process guidance) */
+/** Simulate live call — claim / repair journey guidance */
 export const priyaSharma: Customer = {
   id: "priya-sharma",
   name: "Priya Sharma",
@@ -395,10 +704,42 @@ export const priyaSharma: Customer = {
   tenureWithAcko: "3 years with ACKO",
   kycStatus: "verified",
   callContext: {
-    reason: "Process guidance",
+    reason: "Claim Status",
     vehicle: "Tata Nexon",
   },
 }
+
+const priyaSharmaJTBDs: JTBD[] = [
+  {
+    id: "jtbd-priya-claim-1",
+    type: "claim",
+    title: "Repair guidance",
+    vehicle: "Tata Nexon 2025",
+    isActive: true,
+    status: [
+      {
+        step: "Claim intimated",
+        state: "completed",
+        date: "1 Feb'26",
+      },
+      {
+        step: "Garage shortlist",
+        state: "current",
+        date: "4 Feb'26",
+      },
+    ],
+    agentActions: [
+      {
+        id: "priya-a1",
+        step: 1,
+        description: "Walk through garage options and TATs with the customer in the app",
+        cta: "Send Alert",
+        completed: false,
+      },
+    ],
+    quickActions: ["Send communication", "Send ACKO Alert"],
+  },
+]
 
 /** Home search demo: email / 9555539998 / policy containing 1234 */
 export const simarpreetKaur: Customer = {
@@ -520,40 +861,66 @@ const simarpreetActivePolicies: Policy[] = [
   },
 ]
 
-// Sample JTBDs for other customers (simplified)
-const sampleJTBDs: JTBD[] = [
+const amitPatelJTBDs: JTBD[] = [
   {
-    id: "jtbd-renewal-general",
-    type: "renewal",
-    title: "Policy Renewal",
-    vehicle: "Various",
+    id: "jtbd-amit-payment-query",
+    type: "claim",
+    title: "Premium payment follow-up",
+    vehicle: "Maruti Swift",
     isActive: true,
     status: [
       {
-        step: "Renewal Notice Sent",
-        state: "completed",
-        date: "15 Mar'26",
-      },
-      {
-        step: "Premium Calculation",
+        step: "Invoice verification",
         state: "current",
-        date: "20 Mar'26",
+        date: "12 Feb'26",
       },
       {
-        step: "Payment Processing",
+        step: "Ledger reconciliation",
         state: "pending",
       },
     ],
     agentActions: [
       {
-        id: "renewal-action-1",
+        id: "amit-pay-1",
         step: 1,
-        description: "Send renewal quote to customer",
-        cta: "Send Quote",
+        description: "Validate premium received vs schedule and share a ledger snapshot with the customer",
+        cta: "Send Communication",
         completed: false,
       },
     ],
-    quickActions: ["Send renewal link", "Schedule callback"],
+    quickActions: ["Send communication"],
+  },
+]
+
+const priyankaShahJTBDs: JTBD[] = [
+  {
+    id: "jtbd-priyanka-endorse-1",
+    type: "endorsement",
+    title: "Nominee update",
+    vehicle: "Honda City",
+    isActive: true,
+    status: [
+      {
+        step: "Request received",
+        state: "completed",
+        date: "1 Feb'26",
+      },
+      {
+        step: "Advisor review",
+        state: "current",
+        date: "10 Feb'26",
+      },
+    ],
+    agentActions: [
+      {
+        id: "priyanka-e1",
+        step: 1,
+        description: "Confirm nominee proof and update details in Edit Policy",
+        cta: "Edit Policy",
+        completed: false,
+      },
+    ],
+    quickActions: ["Send communication", "Edit Policy"],
   },
 ]
 
@@ -583,25 +950,37 @@ export const mockCustomers: Record<
   },
   "priyanka-shah": {
     customer: priyankaShah,
-    jtbds: sampleJTBDs,
+    jtbds: priyankaShahJTBDs,
     activePolicies: samplePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
   "amit-patel": {
     customer: amitPatel,
-    jtbds: sampleJTBDs,
+    jtbds: amitPatelJTBDs,
     activePolicies: samplePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
   "sunil-gupta": {
     customer: sunilGupta,
-    jtbds: sampleJTBDs,
-    activePolicies: samplePolicies,
+    jtbds: [],
+    activePolicies: sunilGuptaActivePolicies,
+    inactivePolicies: emptyInactivePolicies,
+  },
+  "ayush-singhal": {
+    customer: ayushSinghal,
+    jtbds: ayushSinghalJTBDs,
+    activePolicies: ayushSinghalActivePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
   "anita-sharma": {
     customer: anitaSharma,
     jtbds: anitaSharmaJTBDs,
+    activePolicies: anitaSharmaActivePolicies,
+    inactivePolicies: emptyInactivePolicies,
+  },
+  "anita-sharma-claim-payment-kyc": {
+    customer: anitaSharmaClaimPaymentKyc,
+    jtbds: anitaSharmaClaimPaymentKycJTBDs,
     activePolicies: anitaSharmaActivePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
@@ -613,7 +992,7 @@ export const mockCustomers: Record<
   },
   "priya-sharma": {
     customer: priyaSharma,
-    jtbds: sampleJTBDs,
+    jtbds: priyaSharmaJTBDs,
     activePolicies: samplePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
@@ -651,7 +1030,12 @@ export function searchCustomer(
   if (!query.trim()) return null
   
   const cleanQuery = query.trim().toLowerCase()
-  
+
+  /** Demo shortcut from “Unknown caller” resolution screen (policy id fragment). */
+  if (cleanQuery === "1234") {
+    return mockCustomers["rajesh-kumar"]
+  }
+
   // Search through all customers
   for (const customerData of Object.values(mockCustomers)) {
     const { customer } = customerData

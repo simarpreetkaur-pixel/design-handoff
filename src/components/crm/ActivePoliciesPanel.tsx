@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react"
-import { ArrowRight } from "lucide-react"
 
 import { policyActions } from "@/data/mockCustomers"
 import type { Policy } from "@/types/crm"
@@ -20,7 +19,11 @@ const HEALTH_MEMBERS: Record<string, { name: string; relation: string }[]> = {
 
 function policyIconPath(policy: Policy): string {
   if (policy.type === "Health Insurance") return "/icons/policy-health-line.png"
-  if (policy.id === "policy-damage-1" || policy.name.toLowerCase().includes("own damage")) {
+  if (
+    policy.id === "policy-damage-1" ||
+    policy.name.toLowerCase().includes("own damage") ||
+    /\bactiva\b/i.test(policy.vehicle ?? "")
+  ) {
     return "/icons/policy-bike-line.png"
   }
   return "/icons/policy-car-line.png"
@@ -34,19 +37,24 @@ function formatExpiry(expiry: string) {
   return /^till /i.test(expiry) ? expiry : `Till ${expiry}`
 }
 
+/** Motor chip subtitle: car/bike name from `vehicle`; policy number if missing. */
+function motorPolicyChipSubtitle(policy: Policy): string {
+  const v = policy.vehicle?.trim()
+  if (v) return v
+  return policy.policyNumber
+}
+
 type ActivePoliciesPanelProps = {
   policies: Policy[]
   /** Second arg is the policy row (needed for raise-claim context). */
   onPolicyActionClick?: (action: string, policy: Policy) => void
-  /** Handler for "Summarise in Chat" button */
-  onSummarisePolicyInChat?: (policy: Policy, policyKind: "health" | "motor") => void
 }
 
 /**
  * Active policy selector + detail panel — Figma node 8395:28364
  * @see https://www.figma.com/design/ItV6q2hj272EYkgVUtapxW/OMNI---Post-Sales?node-id=8395-28364
  */
-export function ActivePoliciesPanel({ policies, onPolicyActionClick, onSummarisePolicyInChat }: ActivePoliciesPanelProps) {
+export function ActivePoliciesPanel({ policies, onPolicyActionClick }: ActivePoliciesPanelProps) {
   const [selectedPolicyId, setSelectedPolicyId] = useState<string>(policies[0]?.id || "")
 
   useEffect(() => {
@@ -67,7 +75,7 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick, onSummarise
 
   return (
     <div className="flex w-full flex-col gap-6">
-      {/* Policy chips — Figma: gap 16px, flex-[1_0_0], selected keeps border #e7e7f0 */}
+      {/* Policy chips — match ongoing JTBD cards: min 228px, max 280px per chip, gap 16 */}
       <div className="flex w-full flex-wrap gap-4">
         {policies.map((policy) => {
           const isSelected = selectedPolicyId === policy.id
@@ -80,13 +88,13 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick, onSummarise
               type="button"
               onClick={() => setSelectedPolicyId(policy.id)}
               className={cn(
-                "flex min-w-0 flex-[1_0_0] basis-[200px] flex-col items-start overflow-hidden rounded-[12px] border border-solid border-[#e7e7f0] px-4 py-3 text-left shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] transition-all",
+                "flex min-w-[228px] flex-1 max-w-[280px] flex-col items-start overflow-hidden rounded-[12px] border border-[#e7e7f0] px-[16px] py-[12px] text-left shadow-[0px_2px_4px_0px_rgba(0,0,0,0.08)] transition-all cursor-pointer",
                 isSelected
                   ? "bg-gradient-to-b from-[#7c47e1] to-[#44277b] to-[156.94%]"
                   : "bg-white hover:shadow-[0px_4px_8px_0px_rgba(0,0,0,0.12)]",
               )}
             >
-              <div className="flex w-full min-w-0 max-w-[280px] flex-col gap-2">
+              <div className="flex w-full min-w-0 flex-col gap-2">
                 <div className="flex w-full items-center gap-1">
                   <div className="relative size-5 shrink-0 overflow-hidden">
                     <img
@@ -120,7 +128,7 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick, onSummarise
                     </>
                   ) : (
                     <>
-                      <span className="min-w-0 break-words">{policy.policyNumber}</span>
+                      <span className="min-w-0 break-words">{motorPolicyChipSubtitle(policy)}</span>
                       <span aria-hidden>•</span>
                       <span>{formatExpiry(policy.expiryDate)}</span>
                     </>
@@ -137,7 +145,6 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick, onSummarise
           policy={selectedPolicy}
           isHealth={isHealthPolicy(selectedPolicy)}
           onPolicyActionClick={onPolicyActionClick}
-          onSummarisePolicyInChat={onSummarisePolicyInChat}
         />
       ) : null}
     </div>
@@ -148,7 +155,6 @@ type PolicyDetailPanelProps = {
   policy: Policy
   isHealth: boolean
   onPolicyActionClick?: (action: string, policy: Policy) => void
-  onSummarisePolicyInChat?: (policy: Policy, policyKind: "health" | "motor") => void
 }
 
 function PolicyField({ label, value }: { label: string; value: string }) {
@@ -164,30 +170,18 @@ function PolicyDetailPanel({
   policy,
   isHealth,
   onPolicyActionClick,
-  onSummarisePolicyInChat,
 }: PolicyDetailPanelProps) {
   const members = policy.coveredMembers ?? HEALTH_MEMBERS[policy.id] ?? []
-
-  const handleSummariseClick = () => {
-    onSummarisePolicyInChat?.(policy, isHealth ? "health" : "motor")
-  }
+  const healthPolicyHolderDisplay =
+    policy.policyHolder?.trim() ||
+    members.find((m) => m.relation.toLowerCase() === "self")?.name ||
+    "—"
 
   return (
     <div className="flex w-full flex-col gap-6 rounded-[12px] border border-[#e7e7f0] bg-white px-5 py-6 font-euclid">
-      {/* View Policy Details + Summarise — Figma gap 12px between header block and inner card */}
       <div className="flex w-full flex-col gap-3">
         <div className="flex w-full items-center justify-between gap-3">
           <h3 className="text-[14px] font-medium leading-5 text-[#36354c]">View Policy Details</h3>
-          {onSummarisePolicyInChat ? (
-            <button
-              type="button"
-              onClick={handleSummariseClick}
-              className="flex shrink-0 items-center gap-1 text-[12px] font-medium tracking-[0.18px] text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/20 rounded-sm"
-            >
-              <span className="leading-[14px]">Summarise in Chat</span>
-              <ArrowRight className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            </button>
-          ) : null}
         </div>
 
         {/* Key-value: grid columns; labels 14 N400; values 14 medium N500 */}
@@ -195,7 +189,7 @@ function PolicyDetailPanel({
           {isHealth ? (
             <>
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-3">
-                <PolicyField label="Policy Holder" value={policy.policyHolder || "—"} />
+                <PolicyField label="Policy Holder" value={healthPolicyHolderDisplay} />
                 <PolicyField label="Policy Type" value={policy.planDisplayName || policy.name} />
                 <PolicyField label="Total coverage" value={policy.totalCoverage || "—"} />
               </div>

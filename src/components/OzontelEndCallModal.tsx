@@ -71,12 +71,6 @@ export function OzontelEndCallModal({
                   <span className="font-semibold">ON CALL</span>
                 </div>
               )}
-              {callState.state === "viewing_crm" && (
-                <div className="flex items-center gap-1 text-[12px] text-[#7c47e1]">
-                  <div className="h-2 w-2 rounded-full bg-[#7c47e1]" />
-                  <span className="font-semibold">IN SESSION</span>
-                </div>
-              )}
             </div>
             <button
               onClick={onClose}
@@ -125,11 +119,6 @@ export function OzontelEndCallModal({
                   <p className="text-xs font-bold text-black">
                     {displayPhone}
                   </p>
-                  {customer?.language && (
-                    <p className="text-xs text-[#6c6c80] mt-1">
-                      Language: {customer.language}
-                    </p>
-                  )}
                 </div>
               </div>
 

@@ -3,6 +3,8 @@ import { INCOMING_CALL_FIGMA_URL } from "@/design/figma-incoming-call"
 import { useCall } from "@/context/CallContext"
 import { mockCustomers } from "@/data/mockCustomers"
 import { getIncomingCallModalViewModel } from "@/data/simulateCallScenarios"
+import { mergeUseCaseIncomingPreview } from "@/data/useCaseIncomingPreview"
+import { canonicalIncomingOngoingIssue } from "@/lib/canonicalOngoingLabels"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,6 +34,10 @@ type IncomingCallModalProps = {
   onOpenChange: (open: boolean) => void
   onAnswerCall?: () => void
   onTimeout?: () => void
+  /**
+   * When set (e.g. Use cases drawer), show this customer in the modal instead of the active ringing customer.
+   */
+  previewCustomerId?: string | null
 }
 
 function CallingDots() {
@@ -125,20 +131,35 @@ function getLastCallBadgeVariant(variant: "default" | "angry" | "warning") {
   }
 }
 
+/** Do not imply a specific vehicle when the inbound reason is not yet known. */
+function isUnknownCallReason(ongoingIssue: string): boolean {
+  const t = ongoingIssue.trim().toLowerCase()
+  return t === "unknown" || t.startsWith("unknown /") || t.startsWith("unknown —")
+}
+
 export function IncomingCallModal({
   open,
   onOpenChange,
   onAnswerCall,
   onTimeout,
+  previewCustomerId,
 }: IncomingCallModalProps) {
   const { data: callData } = useCall()
   const [secondsLeft, setSecondsLeft] = useState(60)
 
   const viewModel = useMemo(() => {
-    const id = callData.customerId
-    const customer = id ? mockCustomers[id]?.customer : undefined
-    return getIncomingCallModalViewModel(id, customer)
-  }, [callData.customerId])
+    const effectiveId = previewCustomerId ?? callData.customerId
+    const customer = effectiveId ? mockCustomers[effectiveId]?.customer : undefined
+    let vm = getIncomingCallModalViewModel(effectiveId, customer)
+    if (previewCustomerId) {
+      vm = mergeUseCaseIncomingPreview(previewCustomerId, vm)
+    }
+    vm = { ...vm, ongoingIssue: canonicalIncomingOngoingIssue(vm.ongoingIssue) }
+    if (isUnknownCallReason(vm.ongoingIssue)) {
+      return { ...vm, showCallVehicle: false }
+    }
+    return vm
+  }, [previewCustomerId, callData.customerId])
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null
@@ -211,40 +232,42 @@ export function IncomingCallModal({
                   {viewModel.avatarInitials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1">
                 <p className="w-[min(100%,187px)] text-center text-[28px] font-semibold leading-9 tracking-[-0.1px] text-omni-n500">
                   {viewModel.name}
                 </p>
-                <div className="flex flex-wrap items-center justify-center gap-x-[18px] gap-y-2 opacity-80">
-                  <div className="flex items-center gap-1">
-                    <div className="h-4 w-4 shrink-0">
-                      <img
-                        src={ICONS.translate}
-                        alt=""
-                        className="h-full w-full object-contain"
-                        width={16}
-                        height={16}
-                      />
+                {viewModel.showLanguageAndTenure ? (
+                  <div className="flex flex-wrap items-center justify-center gap-x-[18px] gap-y-2 opacity-80">
+                    <div className="flex items-center gap-1">
+                      <div className="h-4 w-4 shrink-0">
+                        <img
+                          src={ICONS.translate}
+                          alt=""
+                          className="h-full w-full object-contain"
+                          width={16}
+                          height={16}
+                        />
+                      </div>
+                      <span className="text-sm font-normal leading-5 text-omni-n400">
+                        {viewModel.language}
+                      </span>
                     </div>
-                    <span className="text-sm font-normal leading-5 text-omni-n400">
-                      {viewModel.language}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="h-4 w-4 shrink-0">
-                      <img
-                        src={ICONS.award}
-                        alt=""
-                        className="h-full w-full object-contain"
-                        width={16}
-                        height={16}
-                      />
+                    <div className="flex items-center gap-1">
+                      <div className="h-4 w-4 shrink-0">
+                        <img
+                          src={ICONS.award}
+                          alt=""
+                          className="h-full w-full object-contain"
+                          width={16}
+                          height={16}
+                        />
+                      </div>
+                      <span className="text-sm font-normal leading-5 text-omni-n400">
+                        {viewModel.yearsWithAcko}
+                      </span>
                     </div>
-                    <span className="text-sm font-normal leading-5 text-omni-n400">
-                      {viewModel.yearsWithAcko}
-                    </span>
                   </div>
-                </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -275,7 +298,7 @@ export function IncomingCallModal({
                 {viewModel.showLastCall && (
                   <div className="grid w-full grid-cols-1 items-start gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr] min-[400px]:items-center">
                     <p className="w-full text-omni-n400 opacity-80 sm:w-[132px]">
-                      Last call
+                      Last call sentiment
                     </p>
                     <div className="min-w-0">
                       <Badge

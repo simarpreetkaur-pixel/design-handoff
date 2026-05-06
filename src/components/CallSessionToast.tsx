@@ -1,12 +1,12 @@
-import { PhoneOff } from "lucide-react"
+import { PhoneForwarded, PhoneOff } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-export type CallSessionToastVariant = "timeout" | "dispose"
+export type CallSessionToastVariant = "timeout" | "dispose" | "transfer_success"
 
-/** Passed with `navigate("/", { state })` from CRM when the agent ends a call. */
+/** Passed with `navigate("/", { state })` from CRM when the agent ends or transfers a call. */
 export type OmniHomeLocationState = {
-  omniCallToast?: "dispose"
+  omniCallToast?: "dispose" | "transfer_success"
 }
 
 interface CallSessionToastProps {
@@ -20,6 +20,8 @@ interface CallSessionToastProps {
  */
 export function CallSessionToast({ variant, onDismiss }: CallSessionToastProps) {
   const isTimeout = variant === "timeout"
+  const isTransferSuccess = variant === "transfer_success"
+  const iconBg = isTimeout ? "bg-yellow-100" : "bg-[#efe9fb]"
 
   return (
     <div
@@ -30,25 +32,29 @@ export function CallSessionToast({ variant, onDismiss }: CallSessionToastProps) 
         <div
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-            isTimeout ? "bg-yellow-100" : "bg-[#efe9fb]",
+            iconBg,
           )}
         >
           {isTimeout ? (
             <span className="text-lg" aria-hidden>
               ⚠️
             </span>
+          ) : isTransferSuccess ? (
+            <PhoneForwarded className="h-4 w-4 text-[#5920c5]" aria-hidden />
           ) : (
             <PhoneOff className="h-4 w-4 text-[#5920c5]" aria-hidden />
           )}
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-semibold text-omni-n600">
-            {isTimeout ? "Call Timeout" : "Call ended"}
+            {isTimeout ? "Call Timeout" : isTransferSuccess ? "Call transferred" : "Call ended"}
           </h4>
           <p className="mt-1 text-sm text-omni-n400">
             {isTimeout
               ? "Call has been transferred to another agent due to inactivity."
-              : "The call will be disposed automatically."}
+              : isTransferSuccess
+                ? "The call has been transferred successfully."
+                : "The call will be disposed automatically."}
           </p>
         </div>
         <button

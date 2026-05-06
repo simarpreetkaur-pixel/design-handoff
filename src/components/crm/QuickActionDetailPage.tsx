@@ -11,22 +11,22 @@ export function quickActionKeyForIndex(index: number): QuickActionKey {
 
 const PAGE_COPY: Record<QuickActionKey, { title: string; subtitle: string; description: string }> = {
   "quick-action-1": {
-    title: "Action 1",
-    subtitle: "First quick path for this case",
+    title: "Send communication",
+    subtitle: "Message the customer",
     description:
-      "Use this when you need the primary shortcut from Quick Actions. Details and live integrations will be wired here.",
+      "Send an update to the customer via the channel you choose (e.g. SMS, email, or in-app), with the right template and context for this case.",
   },
   "quick-action-2": {
-    title: "Action 2",
-    subtitle: "Second quick path for this case",
+    title: "Request document",
+    subtitle: "Ask for a file or proof",
     description:
-      "Use this for the secondary workflow. The agent returns to the previous CRM view after Go back.",
+      "Request a specific document from the customer (e.g. RC, ID, or claim proof), track what was asked, and follow up when the file is received.",
   },
   "quick-action-3": {
-    title: "Action 3",
-    subtitle: "Third quick path for this case",
+    title: "Arrange CH Appointment",
+    subtitle: "Schedule claim handler",
     description:
-      "Use this for the tertiary option. This screen is a placeholder for the full experience.",
+      "Book or adjust a claim handler (CH) appointment for the customer, add notes, and confirm the slot with them on the call.",
   },
 }
 

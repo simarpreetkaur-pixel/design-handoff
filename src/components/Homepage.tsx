@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { Search, Phone, AlertCircle } from "lucide-react"
+import { Search, Phone, AlertCircle, Menu } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import { CallSessionToast, type CallSessionToastVariant } from "@/components/CallSessionToast"
@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { IncomingCallModal } from "@/components/IncomingCallModal"
 import { OzontelDialer } from "@/components/OzontelDialer"
 import { SimulateCallPickerDialog } from "@/components/SimulateCallPickerDialog"
+import { UseCasesDrawer, type UseCaseSelection } from "@/components/UseCasesDrawer"
 import { useCall } from "@/context/CallContext"
+import { mockCustomers } from "@/data/mockCustomers"
 import type { SimulateLiveScenarioId } from "@/data/simulateCallScenarios"
 import { performCustomerSearch } from "@/utils/customerSearch"
 
@@ -21,15 +23,21 @@ export function Homepage() {
   const [sessionToast, setSessionToast] = useState<CallSessionToastVariant | null>(null)
   const [searchError, setSearchError] = useState("")
   const [isSearching, setIsSearching] = useState(false)
+  const [useCasesOpen, setUseCasesOpen] = useState(false)
+  const [pendingUseCase, setPendingUseCase] = useState<UseCaseSelection | null>(null)
+  const [useCaseIncomingOpen, setUseCaseIncomingOpen] = useState(false)
   /** Avoid clearing active call when the incoming modal closes right after "Answer" */
   const skipIncomingCloseResetRef = useRef(false)
+  /** Same pattern for use-case preview modal → CRM navigation */
+  const skipUseCaseCloseResetRef = useRef(false)
 
   useEffect(() => {
-    const s = location.state as { omniCallToast?: string } | undefined
-    if (s?.omniCallToast !== "dispose") return
+    const s = location.state as { omniCallToast?: CallSessionToastVariant } | undefined
+    const toast = s?.omniCallToast
+    if (toast !== "dispose" && toast !== "transfer_success") return
     navigate("/", { replace: true })
     queueMicrotask(() => {
-      setSessionToast("dispose")
+      setSessionToast(toast)
     })
   }, [location.state, navigate])
 
@@ -56,12 +64,14 @@ export function Homepage() {
       const searchResult = performCustomerSearch(query)
       
       if (searchResult.found && searchResult.result) {
-        // Customer found - navigate to CRM view in viewing_crm state
-        callState.openCRMForCustomer(
-          searchResult.result.customer.id,
-          searchResult.result
-        )
-        navigate(`/crm/call/${searchResult.result.customer.id}`)
+        const id = searchResult.result.customer.id
+        callState.openCRMForCustomer(id, searchResult.result)
+        navigate(`/crm/call/${id}`, {
+          state:
+            id === "sunil-gupta"
+              ? { crmDemo: { chatMockCase: "sunil_endorsement_edit_name" as const } }
+              : undefined,
+        })
       } else {
         // Customer not found
         setSearchError("Customer not found. Please check the phone number, email, or name.")
@@ -81,6 +91,8 @@ export function Homepage() {
   }
 
   const handleSelectSimulateScenario = (customerId: SimulateLiveScenarioId) => {
+    setPendingUseCase(null)
+    setUseCaseIncomingOpen(false)
     callState.startRing(customerId)
   }
 
@@ -165,6 +177,62 @@ export function Homepage() {
     }
   }
 
+  const handleSelectUseCase = (selection: UseCaseSelection) => {
+    if (selection.customerId === "unknown-caller") {
+      setPendingUseCase(selection)
+      setUseCaseIncomingOpen(true)
+      setUseCasesOpen(false)
+      return
+    }
+    const bundle = mockCustomers[selection.customerId]
+    if (!bundle) return
+    setPendingUseCase(selection)
+    setUseCaseIncomingOpen(true)
+    setUseCasesOpen(false)
+  }
+
+  const handleAnswerUseCaseIncoming = () => {
+    if (!pendingUseCase) return
+    if (pendingUseCase.customerId === "unknown-caller") {
+      skipUseCaseCloseResetRef.current = true
+      callState.answerCall("unknown-caller")
+      navigate(`/crm/call/unknown-caller`, {
+        state: { crmDemo: pendingUseCase.crmDemo },
+        replace: true,
+      })
+      setPendingUseCase(null)
+      setUseCaseIncomingOpen(false)
+      return
+    }
+    const bundle = mockCustomers[pendingUseCase.customerId]
+    if (!bundle) return
+
+    skipUseCaseCloseResetRef.current = true
+    callState.openCRMForCustomer(pendingUseCase.customerId, bundle)
+    navigate(`/crm/call/${pendingUseCase.customerId}`, {
+      state: { crmDemo: pendingUseCase.crmDemo },
+      replace: true,
+    })
+    setPendingUseCase(null)
+    setUseCaseIncomingOpen(false)
+  }
+
+  const handleUseCaseIncomingOpenChange = (open: boolean) => {
+    if (!open) {
+      if (skipUseCaseCloseResetRef.current) {
+        skipUseCaseCloseResetRef.current = false
+        return
+      }
+      setPendingUseCase(null)
+      setUseCaseIncomingOpen(false)
+    }
+  }
+
+  const handleUseCaseIncomingTimeout = () => {
+    setPendingUseCase(null)
+    setUseCaseIncomingOpen(false)
+  }
+
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-[#f8f7fc] via-[#f3f7ff] to-[#f8fdff]">
       {/* Top Navigation */}
@@ -182,10 +250,26 @@ export function Homepage() {
         <div className="h-8 w-px bg-gray-300" />
 
         {/* OMNI Support text */}
-        <h1 className="text-[28px] font-normal leading-tight text-[#2c2067]">
+        <h1 className="min-w-0 flex-1 text-[28px] font-normal leading-tight text-[#2c2067]">
           OMNI Support
         </h1>
+
+        <button
+          type="button"
+          onClick={() => setUseCasesOpen(true)}
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-[#2c2067] transition-colors hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          aria-label="Open use cases menu"
+          aria-expanded={useCasesOpen}
+        >
+          <Menu className="h-6 w-6" aria-hidden />
+        </button>
       </div>
+
+      <UseCasesDrawer
+        open={useCasesOpen}
+        onOpenChange={setUseCasesOpen}
+        onSelectUseCase={handleSelectUseCase}
+      />
 
       {/* Main Content */}
       <div className="flex min-h-[calc(100vh-72px)] flex-col items-center justify-center px-4 py-20">
@@ -283,6 +367,14 @@ export function Homepage() {
         onOpenChange={handleIncomingModalOpenChange}
         onAnswerCall={handleAnswerCallFromModal}
         onTimeout={handleCallTimeout}
+      />
+
+      <IncomingCallModal
+        open={useCaseIncomingOpen && !!pendingUseCase && callState.state !== "ringing"}
+        onOpenChange={handleUseCaseIncomingOpenChange}
+        onAnswerCall={handleAnswerUseCaseIncoming}
+        onTimeout={handleUseCaseIncomingTimeout}
+        previewCustomerId={pendingUseCase?.customerId ?? null}
       />
       
       {/* Ozontel Dialer - only show when not on active call */}

@@ -1,11 +1,38 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react"
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useId,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react"
 import { Send, User, Sparkles } from "lucide-react"
 
-import type { JTBDType } from "@/types/crm"
+import type { EndorsementEditKind, JTBDType, Policy } from "@/types/crm"
 import type { FlowActionValue } from "@/components/crm/ActionDetailPage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { parseChatWorkflowCreationIntent } from "@/lib/chatWorkflowCreationIntent"
+import {
+  buildEndorsementWizardBootstrap,
+  editKindToDisplayLabel,
+  editKindToShortCopyHint,
+  endorsementEditRadioOptions,
+  formatEndorsementPolicyRadioLabel,
+  listPoliciesForEndorsementPolicyPick,
+} from "@/lib/endorsementChatWizard"
+import { formatPolicyChatRadioEcho, PolicyChatRadioContent } from "@/lib/policyChatRadioLabel"
+import { buildRaiseClaimWizardBootstrap, parseRaiseClaimChatIntent } from "@/lib/raiseClaimChatWizard"
+import { RaiseClaimChatGuidanceSection } from "@/components/crm/RaiseClaimGuidanceUI"
 import { cn } from "@/lib/utils"
+
+function customerFirstNameOrFull(full: string): string {
+  const t = full.trim()
+  if (!t) return "the customer"
+  const parts = t.split(/\s+/).filter(Boolean)
+  return parts[0] ?? t
+}
 
 /** One crisp line + optional short subline */
 interface BotStepLine {
@@ -28,6 +55,15 @@ interface ChatInsightBlock {
   body: string
 }
 
+export type EndorsementWizardState =
+  | { phase: "policy_pick"; customerName: string; policies: Policy[] }
+  | { phase: "edit_pick"; customerName: string; policy: Policy }
+  | { phase: "mode_pick"; customerName: string; policy: Policy; editKind: EndorsementEditKind }
+
+export type RaiseClaimWizardState =
+  | { phase: "policy_pick"; customerName: string; policies: Policy[] }
+  | { phase: "workflow_pick"; customerName: string; policy: Policy }
+
 interface ChatMessage {
   id: string
   role: "user" | "bot"
@@ -36,9 +72,30 @@ interface ChatMessage {
   insightBlocks?: ChatInsightBlock[]
   /** Short label tying the reply to the ask (ACKO purple, above timeline) */
   contextLabel?: string
+  /** Sunil endorsement demo — pick motor vs health policy */
+  policyChoices?: { key: string; label: string }[]
+  /** Multi-step endorsement wizard (policy → edit → mode) */
+  endorsementWizard?: EndorsementWizardState
+  /** Raise claim wizard (policy → mode) */
+  raiseClaimWizard?: RaiseClaimWizardState
+  /** Garage-selection help: CTA opens claim handler appointment modal in CRMView */
+  claimHandlerScheduler?: boolean
+  /** After “on customer’s behalf” — CTA opens Active policies → raise claim for this policy */
+  raiseClaimGoToPanel?: { policyId: string }
+  /** Raise-claim guide / on-behalf follow-up: shared talktrack + steps layout (not nested insight cards). */
+  raiseClaimGuidanceLayout?: boolean
+  /** Unknown JTBD iteration demo — classify caller intent before showing JTBD rail */
+  intentDiscoveryPick?: {
+    options: { key: string; label: string }[]
+  }
 }
 
-export type ChatMockCase = "default" | "kyc_issuance" | "raj_cold_nexon"
+export type ChatMockCase =
+  | "default"
+  | "kyc_issuance"
+  | "raj_cold_nexon"
+  | "sunil_endorsement_edit_name"
+  | "unknown_jtbd_iteration"
 
 interface AIChatPanelProps {
   isActive?: boolean
@@ -51,24 +108,228 @@ interface AIChatPanelProps {
   caseContext?: AIChatCaseContext | null
   /** Open an in-CRM action (left panel) — e.g. Send Alert from a timeline step */
   onCrmFlowAction?: (action: FlowActionValue) => void
+  /** Sunil endorsement demo: user chose Swift vs GMC in chat — parent reveals JTBD */
+  onEndorsementPolicySelected?: (policyKey: "swift" | "gmc") => void
+  /**
+   * Customer + JTBD-aware opener; falls back to generic helper when empty/undefined.
+   * Parent should remount this panel (key) when customer or primary JTBD changes.
+   */
+  contextualWelcomeText?: string
+  /** When set, chat can offer creating endorsement JTBDs from natural language */
+  workflowChatContext?: {
+    customerName: string
+    activePolicies: Policy[]
+    callContextVehicle?: string
+  }
+  /** Fires when the agent picks “Yes, create new workflow” in the raise-claim chat wizard. */
+  onChatRaiseClaimWorkflowCreated?: (payload: { policy: Policy }) => void
+  /** Fires after the agent picks “create workflow” in chat (2s shimmer handled in CRMView). */
+  onChatEndorsementWorkflowCreated?: (payload: { policy: Policy; editKind: EndorsementEditKind }) => void
+  /** @deprecated No longer used; raise-claim chat injects a JTBD instead of opening the panel. */
+  onGoToRaiseClaimForPolicy?: (payload: { policyId: string }) => void
+  /** @deprecated */
+  onRaiseClaimFlowLoadingChange?: (loading: boolean) => void
+  /** Bumps to focus the chat input without prefilling (Agent “Ask in the chat”). */
+  chatComposerFocusNonce?: number
+  /** Opens claim handler scheduling from a bot CTA. */
+  onOpenClaimHandlerAppointment?: () => void
+  /** Unknown JTBD demo: unlock split layout (profile + JTBD left, chat right). */
+  onUnknownJtbdSplitUnlock?: () => void
+  /** Extra classes on the composer footer (e.g. safe inset when a fixed FAB overlaps the input). */
+  composerFooterClassName?: string
+  /** Unknown JTBD state 0: render beside the composer (e.g. Ozontel) so the bar reads as one chat control strip. */
+  fullBleedComposerAccessory?: ReactNode
 }
 
 const WELCOME_BOT_TEXT =
   "Ask in plain language. I’ll keep replies short—bullets or a tiny timeline when it helps."
 
-const initialMessages: ChatMessage[] = [
-  {
-    id: "welcome",
+function buildUnknownJtbdIterationOpen(): ChatMessage {
+  return {
+    id: "unknown-jtbd-intent-open",
     role: "bot",
-    text: WELCOME_BOT_TEXT,
-  },
-]
+    contextLabel: "Intent",
+    text: "What is the customer calling about? Pick one so we can open the right workspace—or choose Something else if it doesn’t fit a standard journey.",
+    intentDiscoveryPick: {
+      options: [
+        { key: "raise_claim", label: "Raise a Claim" },
+        { key: "kyc_status", label: "KYC / verification issue" },
+        { key: "edit_policy", label: "Edit Policy" },
+        { key: "something_else", label: "Something else" },
+      ],
+    },
+  }
+}
 
-type BotReplyPayload = Pick<ChatMessage, "text" | "steps" | "insightBlocks" | "contextLabel">
+function buildInitialMessages(welcomeText: string): ChatMessage[] {
+  return [{ id: "welcome", role: "bot", text: welcomeText }]
+}
+
+type BotReplyPayload = Pick<
+  ChatMessage,
+  | "text"
+  | "steps"
+  | "insightBlocks"
+  | "contextLabel"
+  | "policyChoices"
+  | "endorsementWizard"
+  | "raiseClaimWizard"
+  | "claimHandlerScheduler"
+  | "raiseClaimGoToPanel"
+  | "raiseClaimGuidanceLayout"
+>
+
+function buildSunilFollowUpBotReply(policyKey: "swift" | "gmc"): BotReplyPayload {
+  if (policyKey === "swift") {
+    return {
+      contextLabel: "Swift Dzire · edit name",
+      text: "Name correction — quick path:",
+      steps: [
+        {
+          title: "Documents",
+          detail: "Ask for RC and driving licence — customer can email copies or you upload in Advisor UI.",
+        },
+        {
+          title: "Verify",
+          detail: "Match documents to the insured name before submitting the policy edit.",
+        },
+        {
+          title: "Left rail",
+          detail: "Use Send RC & licence email and Advisor UI in Agent next actions when ready.",
+        },
+      ],
+    }
+  }
+  return {
+    contextLabel: "GMC policy · edit name",
+    text: "Name correction — quick path:",
+    steps: [
+      {
+        title: "Scope",
+        detail: "Confirm which insured member(s) need the name update on the GMC plan.",
+      },
+      {
+        title: "Documents",
+        detail: "Collect proof per health SOP — email to customer or upload via Advisor UI.",
+      },
+      {
+        title: "Left rail",
+        detail: "Follow the Edit name JTBD actions — same email and Advisor UI steps as motor when applicable.",
+      },
+    ],
+  }
+}
+
+function PolicyEndorsementPick({
+  options,
+  disabled,
+  onCreateWorkflow,
+}: {
+  options: { key: string; label: string }[]
+  disabled: boolean
+  onCreateWorkflow: (policyKey: "swift" | "gmc") => void
+}) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const groupName = useId()
+
+  return (
+    <div className="space-y-3 pt-1">
+      <fieldset disabled={disabled} className="m-0 space-y-2.5 border-0 p-0">
+        <legend className="sr-only">Which policy</legend>
+        {options.map((opt) => (
+          <label
+            key={opt.key}
+            className={cn(
+              "flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e7e7f0] bg-[#fbfbfd] px-3 py-2.5 font-euclid text-[13px] leading-5 text-[#36354c] transition-colors duration-[400ms] ease-out",
+              disabled && "cursor-not-allowed opacity-60",
+              selected === opt.key && "border-[#7c47e1] bg-[#f5f3fc]",
+            )}
+          >
+            <input
+              type="radio"
+              name={groupName}
+              value={opt.key}
+              checked={selected === opt.key}
+              onChange={() => setSelected(opt.key)}
+              className="mt-0.5 size-4 shrink-0 accent-[#7c47e1]"
+            />
+            <span>{opt.label}</span>
+          </label>
+        ))}
+      </fieldset>
+      <Button
+        type="button"
+        disabled={disabled || !selected}
+        className="h-10 w-full rounded-lg bg-[#7c47e1] font-euclid text-[13px] font-semibold text-white hover:bg-[#7c47e1]/90 disabled:bg-[#e7e7f0] disabled:text-[#9c9aaf]"
+        onClick={() => onCreateWorkflow(selected === "gmc" ? "gmc" : "swift")}
+      >
+        Create workflow
+      </Button>
+    </div>
+  )
+}
+
+function WorkflowOfferPick({
+  options,
+  disabled,
+  onPick,
+}: {
+  options: { key: string; label: ReactNode; userEchoLabel?: string }[]
+  disabled: boolean
+  onPick: (key: string, label: string) => void
+}) {
+  const groupName = useId()
+  return (
+    <fieldset disabled={disabled} className="m-0 space-y-2.5 border-0 p-0 pt-1">
+      <legend className="sr-only">Choose how to continue</legend>
+      {options.map((opt) => (
+        <label
+          key={opt.key}
+          className={cn(
+            "flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#e7e7f0] bg-[#fbfbfd] px-3 py-2.5 font-euclid text-[13px] leading-5 text-[#36354c] transition-colors duration-[400ms] ease-out",
+            disabled && "cursor-not-allowed opacity-60",
+          )}
+        >
+          <input
+            type="radio"
+            name={groupName}
+            value={opt.key}
+            className="mt-0.5 size-4 shrink-0 accent-[#7c47e1] transition-[color,box-shadow] duration-[400ms] ease-out"
+            onChange={() => {
+              if (disabled) return
+              const echo =
+                typeof opt.label === "string"
+                  ? opt.label
+                  : (opt.userEchoLabel ?? opt.key)
+              onPick(opt.key, echo)
+            }}
+          />
+          <span className="min-w-0 flex-1 [&_p]:m-0">{opt.label}</span>
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
+function buildEndorsementModePickBotReply(
+  policy: Policy,
+  editKind: EndorsementEditKind,
+  customerName: string,
+): BotReplyPayload {
+  const policyHead = formatEndorsementPolicyRadioLabel(policy).split("\n")[0]
+  const editLabel = editKindToDisplayLabel(editKind)
+  const editPhrase = editKindToShortCopyHint(editKind)
+  return {
+    contextLabel: editLabel,
+    text: `I can help update ${editPhrase} on ${policyHead}.\n\nDo you want to create a new workflow, or should I only list steps to guide ${customerName}?`,
+    endorsementWizard: { phase: "mode_pick", policy, editKind, customerName },
+  }
+}
 
 function formatContextCaption(ctx: AIChatCaseContext | null | undefined): string | null {
   if (!ctx) return null
-  const typeLabel = ctx.jtbdType === "claim" ? "Claim" : "Renewal"
+  const typeLabel =
+    ctx.jtbdType === "claim" ? "Claim" : ctx.jtbdType === "renewal" ? "Renewal" : "Edit Policy"
   const jtbdExtra =
     ctx.jtbdLabel.trim() && ctx.jtbdLabel.trim().toLowerCase() !== typeLabel.toLowerCase()
       ? ctx.jtbdLabel.trim()
@@ -78,13 +339,221 @@ function formatContextCaption(ctx: AIChatCaseContext | null | undefined): string
     .join(" · ")
 }
 
+function buildWorkflowCreatedFollowup(
+  _policy: Policy,
+  _editKind: EndorsementEditKind,
+): BotReplyPayload {
+  return {
+    text: "Your workflow is ready in the left panel.",
+  }
+}
+
+function buildRaiseClaimWorkflowPickBotReply(policy: Policy, customerName: string): BotReplyPayload {
+  const policyHead = formatPolicyChatRadioEcho(policy).split("\n")[0]
+  const first = customerFirstNameOrFull(customerName)
+  return {
+    contextLabel: "Raise claim",
+    text: `I can help with a claim on ${policyHead}.\n\nDo you want to create a new workflow, or should I only list steps to guide ${first}?`,
+    raiseClaimWizard: { phase: "workflow_pick", policy, customerName },
+  }
+}
+
+function buildRaiseClaimWorkflowCreatedFollowup(): BotReplyPayload {
+  return {
+    contextLabel: "Raise claim",
+    text: "Your workflow is ready in the left panel.",
+  }
+}
+
+function buildRaiseClaimStepsOnlyClaimFollowup(
+  policy: Policy,
+  customerName: string,
+): BotReplyPayload {
+  const policyHead = formatPolicyChatRadioEcho(policy).split("\n")[0]
+  return {
+    contextLabel: "Steps (no new workflow)",
+    text: `Guidance for ${customerName} on ${policyHead}:`,
+    steps: [
+      {
+        title: "Documents",
+        detail: "Ask for RC and driving licence — customer can email copies or you proceed once received.",
+      },
+      {
+        title: "FNOL",
+        detail: "Raise FNOL on customer's behalf in-app or via Advisor UI when RC proof is available.",
+      },
+      {
+        title: "Expectations",
+        detail: "Tell them a claim handler may call within 1–2 working days for next steps.",
+      },
+    ],
+  }
+}
+
+function buildWorkflowStepsOnlyFollowup(
+  policy: Policy,
+  customerName: string,
+  editKind: EndorsementEditKind,
+): BotReplyPayload {
+  const vLine = formatEndorsementPolicyRadioLabel(policy).split("\n")[0]
+  const changeHint = editKindToShortCopyHint(editKind)
+  return {
+    contextLabel: "Steps (no new workflow)",
+    text: `Guidance for ${customerName} on ${vLine}:`,
+    steps: [
+      {
+        title: "ACKO Alert",
+        detail: `Send an ACKO Alert so the customer can update ${changeHint} from their side.`,
+      },
+      {
+        title: "Advisor UI",
+        detail: "Alternatively, make the correction on their behalf in Advisor UI.",
+      },
+      {
+        title: "Set expectations",
+        detail: "Inform them the update TAT is typically up to 48 hours once inputs are complete.",
+      },
+    ],
+  }
+}
+
+function isGarageUnableToSelectIntent(
+  userText: string,
+  jtbdType: JTBDType,
+  caseContext: AIChatCaseContext | null | undefined,
+): boolean {
+  const claimContext = jtbdType === "claim" || caseContext?.jtbdType === "claim"
+  if (!claimContext) return false
+  const t = userText.trim()
+  if (!t) return false
+  const inability =
+    /\b(unable|can'?t|cannot|can not|cant|not able|unable to|couldn'?t|could not)\b/i.test(t)
+  const garage = /\b(garage|preferred garage|cashless garage|network garage|garage list|garage selection)\b/i.test(
+    t,
+  )
+  return inability && garage
+}
+
 function buildBotReply(
   userText: string,
   jtbdType: JTBDType = "claim",
   chatMockCase: ChatMockCase = "default",
   caseContext: AIChatCaseContext | null | undefined = null,
+  workflowChatContext?: {
+    customerName: string
+    activePolicies: Policy[]
+    callContextVehicle?: string
+  },
 ): BotReplyPayload {
   const q = userText.toLowerCase()
+
+  if (chatMockCase === "sunil_endorsement_edit_name") {
+    const editNameIntent =
+      /\b(edit name|name edit|endorsement name|name correction|correct spelling|change name on policy|change name|update name|name on policy|spelling)\b/i.test(
+        userText,
+      ) ||
+      (q.includes("name") && (q.includes("policy") || q.includes("endorsement")))
+    if (editNameIntent) {
+      return {
+        contextLabel: "Which policy?",
+        text: "Which policy are you referring to?",
+        policyChoices: [
+          { key: "swift", label: "Swift Dzire" },
+          { key: "gmc", label: "GMC policy" },
+        ],
+      }
+    }
+  }
+
+  if (isGarageUnableToSelectIntent(userText, jtbdType, caseContext)) {
+    return {
+      contextLabel: "Garage selection",
+      text: "In that case, schedule a claim handler appointment, they will do it on customer's behalf.",
+      claimHandlerScheduler: true,
+    }
+  }
+
+  if (workflowChatContext) {
+    if (parseRaiseClaimChatIntent(userText)) {
+      const rb = buildRaiseClaimWizardBootstrap(
+        workflowChatContext.activePolicies,
+        workflowChatContext.customerName.trim() || "the customer",
+      )
+      if (rb.entry === "no_policies") {
+        return {
+          contextLabel: "Raise claim",
+          text: "There are no active policies on file — add or select a policy under Active policies first, or say which risk this claim is for.",
+        }
+      }
+      if (rb.entry === "policy_pick") {
+        return {
+          contextLabel: "Raise claim",
+          text: "Which active policy should we raise a claim against?",
+          raiseClaimWizard: {
+            phase: "policy_pick",
+            policies: rb.policies,
+            customerName: rb.customerName,
+          },
+        }
+      }
+      if (rb.entry === "workflow_pick") {
+        return buildRaiseClaimWorkflowPickBotReply(rb.policy, rb.customerName)
+      }
+    }
+
+    const intent = parseChatWorkflowCreationIntent(userText, {
+      policies: workflowChatContext.activePolicies,
+      callContextVehicle: workflowChatContext.callContextVehicle,
+      caseVehicle: caseContext?.vehicle,
+    })
+    if (intent) {
+      const cname = workflowChatContext.customerName.trim() || "the customer"
+      const bootstrap = buildEndorsementWizardBootstrap(
+        userText,
+        intent,
+        cname,
+        workflowChatContext.activePolicies,
+      )
+      if (bootstrap.entry === "no_motor") {
+        return {
+          contextLabel: "Edit Policy",
+          text: "There’s no motor policy on file for this customer, so I can’t start a motor policy edit from chat.",
+        }
+      }
+      if (bootstrap.entry === "policy_pick") {
+        return {
+          contextLabel: "Policy",
+          text: "Sure—which policy should we make edits on?",
+          endorsementWizard: {
+            phase: "policy_pick",
+            policies: bootstrap.policies,
+            customerName: bootstrap.customerName,
+          },
+        }
+      }
+      if (bootstrap.entry === "edit_pick") {
+        return {
+          contextLabel: "Edit Policy",
+          text: "Got it. What should we update on this policy?",
+          endorsementWizard: {
+            phase: "edit_pick",
+            policy: bootstrap.policy,
+            customerName: bootstrap.customerName,
+          },
+        }
+      }
+      if (bootstrap.entry === "mode_pick") {
+        return buildEndorsementModePickBotReply(bootstrap.policy, bootstrap.editKind, bootstrap.customerName)
+      }
+    }
+  }
+
+  if (chatMockCase === "unknown_jtbd_iteration") {
+    return {
+      contextLabel: "Tip",
+      text: "Use the chips above to classify the call. You can still type here for quick pointers.",
+    }
+  }
 
   if (chatMockCase === "kyc_issuance") {
     const asksDetailed =
@@ -208,13 +677,21 @@ function buildBotReply(
         ],
       }
     }
+  }
+
+  if (chatMockCase === "sunil_endorsement_edit_name") {
     return {
-      contextLabel: "Cold call · Nexon on file",
-      text: "Stay scoped:",
+      contextLabel: "Edit name",
+      text: "Start here:",
       steps: [
-        { title: "Ask", detail: "Claim vs service vs policy?" },
-        { title: "Anchor", detail: "Car_Comprehensive on Nexon." },
-        { title: "Guard", detail: "No payable guarantees without endorsements." },
+        {
+          title: "Clarify",
+          detail: "Confirm they need a name correction or spelling update on documents.",
+        },
+        {
+          title: "Narrow policy",
+          detail: "Customer holds Swift Dzire motor + ACKO GMC — pick the right policy before creating the workflow.",
+        },
       ],
     }
   }
@@ -363,14 +840,51 @@ export function AIChatPanel({
   chatMockCase = "default",
   caseContext = null,
   onCrmFlowAction,
+  onEndorsementPolicySelected,
+  contextualWelcomeText,
+  workflowChatContext,
+  onChatEndorsementWorkflowCreated,
+  onChatRaiseClaimWorkflowCreated,
+  onGoToRaiseClaimForPolicy,
+  onRaiseClaimFlowLoadingChange: _onRaiseClaimFlowLoadingChange,
+  chatComposerFocusNonce = 0,
+  onOpenClaimHandlerAppointment,
+  onUnknownJtbdSplitUnlock,
+  composerFooterClassName,
+  fullBleedComposerAccessory,
 }: AIChatPanelProps = {}) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const welcomeText =
+    contextualWelcomeText !== undefined && contextualWelcomeText.trim().length > 0
+      ? contextualWelcomeText.trim()
+      : WELCOME_BOT_TEXT
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    chatMockCase === "unknown_jtbd_iteration" ? [buildUnknownJtbdIterationOpen()] : buildInitialMessages(welcomeText),
+  )
   const [input, setInput] = useState("")
+  const [spentSunilWorkflowMessageIds, setSpentSunilWorkflowMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [spentEndorsementWizardMessageIds, setSpentEndorsementWizardMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [spentRaiseClaimWizardMessageIds, setSpentRaiseClaimWizardMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [spentIntentDiscoveryIds, setSpentIntentDiscoveryIds] = useState<Set<string>>(() => new Set())
+  const [composerChromeFocused, setComposerChromeFocused] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const lastPrefillNonceRef = useRef(0)
+  const lastComposerFocusNonceRef = useRef(0)
 
   const scrollToBottom = () => {
+    const el = messagesScrollRef.current
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+      return
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
@@ -381,6 +895,10 @@ export function AIChatPanel({
   useEffect(() => {
     if (isActive && inputRef.current) {
       inputRef.current.focus()
+      return
+    }
+    if (!isActive && inputRef.current) {
+      inputRef.current.blur()
     }
   }, [isActive])
 
@@ -399,7 +917,13 @@ export function AIChatPanel({
       setInput("")
 
       window.setTimeout(() => {
-        const reply = buildBotReply(trimmed, activeJtbdType, chatMockCase, caseContext)
+        const reply = buildBotReply(
+          trimmed,
+          activeJtbdType,
+          chatMockCase,
+          caseContext,
+          workflowChatContext,
+        )
         const botMessage: ChatMessage = {
           id: `b-${Date.now()}`,
           role: "bot",
@@ -407,11 +931,22 @@ export function AIChatPanel({
           steps: reply.steps,
           insightBlocks: reply.insightBlocks,
           contextLabel: reply.contextLabel,
+          policyChoices: reply.policyChoices,
+          endorsementWizard: reply.endorsementWizard,
+          raiseClaimWizard: reply.raiseClaimWizard,
+          claimHandlerScheduler: reply.claimHandlerScheduler,
+          raiseClaimGoToPanel: reply.raiseClaimGoToPanel,
+          raiseClaimGuidanceLayout: reply.raiseClaimGuidanceLayout,
         }
         setMessages((prev) => [...prev, botMessage])
       }, 700)
     },
-    [activeJtbdType, chatMockCase, caseContext],
+    [
+      activeJtbdType,
+      chatMockCase,
+      caseContext,
+      workflowChatContext,
+    ],
   )
 
   useEffect(() => {
@@ -431,6 +966,20 @@ export function AIChatPanel({
     })
   }, [askInChatNonce, preWrittenMessage, onMessageUsed])
 
+  useEffect(() => {
+    const n = chatComposerFocusNonce ?? 0
+    if (n === 0 || lastComposerFocusNonceRef.current === n) return
+    lastComposerFocusNonceRef.current = n
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      const el = inputRef.current
+      if (el) {
+        const len = el.value.length
+        el.setSelectionRange(len, len)
+      }
+    })
+  }, [chatComposerFocusNonce, isActive])
+
   const handleSendMessage = () => {
     sendUserText(input)
   }
@@ -442,9 +991,23 @@ export function AIChatPanel({
     }
   }
 
+  const chatFooterPadding = fullBleedComposerAccessory
+    ? "px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 sm:px-5"
+    : "p-4"
+
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="flex items-center gap-3 border-b border-[#ececf2] bg-white px-4 py-4">
+    <div
+      className={cn(
+        "flex h-full min-h-0 w-full flex-col",
+        fullBleedComposerAccessory ? "bg-[#f8f7fc]" : "bg-white",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-3 border-b border-[#ececf2] bg-white px-4 shadow-[0_1px_0_rgba(28,11,62,0.04)]",
+          fullBleedComposerAccessory ? "py-2.5" : "py-4",
+        )}
+      >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
           <img
             src="/icons/ai-companion-header.png"
@@ -454,13 +1017,23 @@ export function AIChatPanel({
             className="h-10 w-10 object-cover"
           />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="font-euclid text-[14px] font-semibold text-[#2c2067]">AI Companion</h3>
-          <p className="font-euclid text-[12px] text-[#6c6c80]">Crisp answers for this case</p>
+          <p className="font-euclid text-[12px] leading-snug text-[#6c6c80]">
+            {fullBleedComposerAccessory
+              ? "Pick a path with the chips, or type in the message bar."
+              : "Crisp answers for this case"}
+          </p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#fafafa] px-4 py-4">
+      <div
+        ref={messagesScrollRef}
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4",
+          fullBleedComposerAccessory ? "bg-[#f8f7fc]" : "bg-white",
+        )}
+      >
         {messages.length === 0 ? (
           <div className="flex h-full flex-1 flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f1edfc] to-[#e7f7ee]">
@@ -490,7 +1063,190 @@ export function AIChatPanel({
                   </div>
                   <Card className="min-w-0 flex-1 border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
                     <CardContent className="space-y-3 p-3 pt-3">
-                      {message.insightBlocks && message.insightBlocks.length > 0 ? (
+                      {message.intentDiscoveryPick?.options?.length ? (
+                        <>
+                          {message.contextLabel ? (
+                            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                              {message.contextLabel}
+                            </p>
+                          ) : null}
+                          <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">{message.text}</p>
+                          <WorkflowOfferPick
+                            options={message.intentDiscoveryPick.options.map((o) => ({
+                              key: o.key,
+                              label: o.label,
+                            }))}
+                            disabled={spentIntentDiscoveryIds.has(message.id)}
+                            onPick={(key, label) => {
+                              if (spentIntentDiscoveryIds.has(message.id)) return
+                              setSpentIntentDiscoveryIds((prev) => new Set(prev).add(message.id))
+                              if (key !== "edit_policy" && key !== "raise_claim") {
+                                onUnknownJtbdSplitUnlock?.()
+                              }
+                              const userPick: ChatMessage = {
+                                id: `u-intent-${Date.now()}`,
+                                role: "user",
+                                text: label,
+                              }
+                              setMessages((prev) => [...prev, userPick])
+                              window.setTimeout(() => {
+                                if (!workflowChatContext) {
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-intent-${Date.now()}`,
+                                      role: "bot",
+                                      contextLabel: "Tip",
+                                      text: "Customer context isn’t loaded—refresh the CRM session.",
+                                    },
+                                  ])
+                                  return
+                                }
+                                const cn = workflowChatContext.customerName.trim() || "the customer"
+                                const policies = workflowChatContext.activePolicies
+
+                                if (key === "something_else") {
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-intent-${Date.now()}`,
+                                      role: "bot",
+                                      contextLabel: "Cold query",
+                                      text: "Got it—there’s no pre-built workflow for this journey. Keep helping on the call like a fresh inbound; the ongoing JTBD rail stays empty until work is logged elsewhere.",
+                                    },
+                                  ])
+                                  return
+                                }
+
+                                if (key === "kyc_status") {
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-intent-${Date.now()}`,
+                                      role: "bot",
+                                      contextLabel: "KYC / verification",
+                                      text: "Quick alignment:",
+                                      steps: [
+                                        {
+                                          title: "Confirm mismatch",
+                                          detail:
+                                            "Compare policy vs ID name, doc clarity, and last upload — note timestamps.",
+                                        },
+                                        {
+                                          title: "First fix",
+                                          detail: "Prefer Send Communication / in-app re-upload before any escalation.",
+                                        },
+                                        {
+                                          title: "Escalate",
+                                          detail: "KYC Ops only after a clean retry fails — attach quote ID + audit screenshots.",
+                                        },
+                                      ],
+                                    },
+                                  ])
+                                  return
+                                }
+
+                                if (key === "raise_claim") {
+                                  const rb = buildRaiseClaimWizardBootstrap(policies, cn)
+                                  if (rb.entry === "no_policies") {
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-intent-${Date.now()}`,
+                                        role: "bot",
+                                        contextLabel: "Raise claim",
+                                        text: "There are no active policies on file — ask the customer to confirm the policy on record.",
+                                      },
+                                    ])
+                                    return
+                                  }
+                                  if (rb.entry === "policy_pick") {
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-intent-${Date.now()}`,
+                                        role: "bot",
+                                        contextLabel: "Raise claim",
+                                        text: "Which active policy should we raise a claim against?",
+                                        raiseClaimWizard: {
+                                          phase: "policy_pick",
+                                          policies: rb.policies,
+                                          customerName: rb.customerName,
+                                        },
+                                      },
+                                    ])
+                                    return
+                                  }
+                                  const reply = buildRaiseClaimWorkflowPickBotReply(rb.policy, rb.customerName)
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-intent-${Date.now()}`,
+                                      role: "bot",
+                                      ...reply,
+                                    },
+                                  ])
+                                  return
+                                }
+
+                                if (key === "edit_policy") {
+                                  const pickable = listPoliciesForEndorsementPolicyPick(policies)
+                                  if (pickable.length === 0) {
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-intent-${Date.now()}`,
+                                        role: "bot",
+                                        contextLabel: "Edit Policy",
+                                        text: "No editable policies found on file—check Active policies first.",
+                                      },
+                                    ])
+                                    return
+                                  }
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-intent-${Date.now()}`,
+                                      role: "bot",
+                                      contextLabel: "Policy",
+                                      text: "Sure—which policy should we make edits on?",
+                                      endorsementWizard: {
+                                        phase: "policy_pick",
+                                        policies: pickable,
+                                        customerName: cn,
+                                      },
+                                    },
+                                  ])
+                                }
+                              }, chatMockCase === "unknown_jtbd_iteration" ? 1150 : 420)
+                            }}
+                          />
+                        </>
+                      ) : message.raiseClaimGuidanceLayout ? (
+                        <>
+                          {message.contextLabel ? (
+                            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                              {message.contextLabel}
+                            </p>
+                          ) : null}
+                          {message.text ? (
+                            <p className="whitespace-pre-line font-euclid text-[13px] font-semibold leading-5 text-[#36354c]">
+                              {message.text}
+                            </p>
+                          ) : null}
+                          <RaiseClaimChatGuidanceSection
+                            showGoCta={Boolean(message.raiseClaimGoToPanel)}
+                            onGoCta={
+                              message.raiseClaimGoToPanel
+                                ? () =>
+                                    onGoToRaiseClaimForPolicy?.({
+                                      policyId: message.raiseClaimGoToPanel!.policyId,
+                                    })
+                                : undefined
+                            }
+                          />
+                        </>
+                      ) : message.insightBlocks && message.insightBlocks.length > 0 ? (
                         <>
                           <p className="font-euclid text-[13px] font-semibold leading-5 text-[#36354c]">{message.text}</p>
                           <div className="space-y-2">
@@ -508,6 +1264,287 @@ export function AIChatPanel({
                               </Card>
                             ))}
                           </div>
+                        </>
+                      ) : message.claimHandlerScheduler ? (
+                        <>
+                          {message.contextLabel ? (
+                            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                              {message.contextLabel}
+                            </p>
+                          ) : null}
+                          <p className="whitespace-pre-line font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+                            {message.text}
+                          </p>
+                          <Button
+                            type="button"
+                            className="h-9 w-full bg-[#7c47e1] font-euclid text-[13px] font-medium text-white hover:bg-[#7c47e1]/90 sm:w-auto"
+                            onClick={() => onOpenClaimHandlerAppointment?.()}
+                          >
+                            Schedule claim handler
+                          </Button>
+                        </>
+                      ) : message.raiseClaimWizard ? (
+                        <>
+                          {message.contextLabel ? (
+                            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                              {message.contextLabel}
+                            </p>
+                          ) : null}
+                          <p className="whitespace-pre-line font-euclid text-[13px] font-semibold leading-5 text-[#36354c]">
+                            {message.text}
+                          </p>
+                          <WorkflowOfferPick
+                            options={
+                              message.raiseClaimWizard.phase === "policy_pick"
+                                ? message.raiseClaimWizard.policies.map((p) => ({
+                                    key: p.id,
+                                    label: <PolicyChatRadioContent policy={p} />,
+                                    userEchoLabel: formatPolicyChatRadioEcho(p),
+                                  }))
+                                : (() => {
+                                    const first = customerFirstNameOrFull(message.raiseClaimWizard.customerName)
+                                    return [
+                                      { key: "create_workflow", label: "Yes, create new workflow" },
+                                      {
+                                        key: "steps_only",
+                                        label: `No, just list steps to guide ${first}`,
+                                      },
+                                    ]
+                                  })()
+                            }
+                            disabled={spentRaiseClaimWizardMessageIds.has(message.id)}
+                            onPick={(key, label) => {
+                              if (spentRaiseClaimWizardMessageIds.has(message.id)) return
+                              setSpentRaiseClaimWizardMessageIds((prev) => new Set(prev).add(message.id))
+                              const rw = message.raiseClaimWizard!
+                              const userPick: ChatMessage = {
+                                id: `u-rc-${Date.now()}`,
+                                role: "user",
+                                text: label,
+                              }
+                              setMessages((prev) => [...prev, userPick])
+                              if (
+                                chatMockCase === "unknown_jtbd_iteration" &&
+                                rw.phase === "workflow_pick" &&
+                                (key === "create_workflow" || key === "steps_only")
+                              ) {
+                                onUnknownJtbdSplitUnlock?.()
+                              }
+                              const raiseClaimWizardDelay =
+                                chatMockCase === "unknown_jtbd_iteration" ? 1150 : 400
+                              window.setTimeout(() => {
+                                if (rw.phase === "policy_pick") {
+                                  const policy = rw.policies.find((p) => p.id === key)
+                                  if (!policy) return
+                                  const next = buildRaiseClaimWorkflowPickBotReply(policy, rw.customerName)
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-rc-${Date.now()}`,
+                                      role: "bot",
+                                      text: next.text,
+                                      contextLabel: next.contextLabel,
+                                      raiseClaimWizard: next.raiseClaimWizard,
+                                    },
+                                  ])
+                                  return
+                                }
+                                if (rw.phase === "workflow_pick") {
+                                  if (key === "create_workflow") {
+                                    onChatRaiseClaimWorkflowCreated?.({ policy: rw.policy })
+                                    const follow = buildRaiseClaimWorkflowCreatedFollowup()
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-rc-${Date.now()}`,
+                                        role: "bot",
+                                        text: follow.text,
+                                        contextLabel: follow.contextLabel,
+                                      },
+                                    ])
+                                  } else {
+                                    const follow = buildRaiseClaimStepsOnlyClaimFollowup(
+                                      rw.policy,
+                                      rw.customerName,
+                                    )
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-rc-${Date.now()}`,
+                                        role: "bot",
+                                        text: follow.text,
+                                        steps: follow.steps,
+                                        contextLabel: follow.contextLabel,
+                                      },
+                                    ])
+                                  }
+                                }
+                              }, raiseClaimWizardDelay)
+                            }}
+                          />
+                        </>
+                      ) : message.endorsementWizard ? (
+                        <>
+                          {message.contextLabel ? (
+                            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                              {message.contextLabel}
+                            </p>
+                          ) : null}
+                          <p className="whitespace-pre-line font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+                            {message.text}
+                          </p>
+                          <WorkflowOfferPick
+                            options={
+                              message.endorsementWizard.phase === "policy_pick"
+                                ? message.endorsementWizard.policies.map((p) => ({
+                                    key: p.id,
+                                    label: <PolicyChatRadioContent policy={p} />,
+                                    userEchoLabel: formatPolicyChatRadioEcho(p),
+                                  }))
+                                : message.endorsementWizard.phase === "edit_pick"
+                                  ? endorsementEditRadioOptions().map((o) => ({
+                                      key: o.kind,
+                                      label: o.label,
+                                    }))
+                                  : (() => {
+                                      const first = customerFirstNameOrFull(
+                                        message.endorsementWizard.customerName,
+                                      )
+                                      return [
+                                        { key: "create_workflow", label: "Yes, create new workflow" },
+                                        {
+                                          key: "steps_only",
+                                          label: `No, just list steps to guide ${first}`,
+                                        },
+                                      ]
+                                    })()
+                            }
+                            disabled={spentEndorsementWizardMessageIds.has(message.id)}
+                            onPick={(key, label) => {
+                              if (spentEndorsementWizardMessageIds.has(message.id)) return
+                              setSpentEndorsementWizardMessageIds((prev) => new Set(prev).add(message.id))
+                              const ew = message.endorsementWizard!
+                              const userPick: ChatMessage = {
+                                id: `u-ew-${Date.now()}`,
+                                role: "user",
+                                text: label,
+                              }
+                              setMessages((prev) => [...prev, userPick])
+                              if (
+                                chatMockCase === "unknown_jtbd_iteration" &&
+                                ew.phase === "mode_pick" &&
+                                (key === "create_workflow" || key === "steps_only")
+                              ) {
+                                onUnknownJtbdSplitUnlock?.()
+                              }
+                              const endorsementWizardDelay =
+                                chatMockCase === "unknown_jtbd_iteration" ? 1150 : 400
+                              window.setTimeout(() => {
+                                if (ew.phase === "policy_pick") {
+                                  const policy = ew.policies.find((p) => p.id === key)
+                                  if (!policy) return
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-ew-${Date.now()}`,
+                                      role: "bot",
+                                      contextLabel: "Edit Policy",
+                                      text: "Got it. What should we update on this policy?",
+                                      endorsementWizard: {
+                                        phase: "edit_pick",
+                                        policy,
+                                        customerName: ew.customerName,
+                                      },
+                                    },
+                                  ])
+                                  return
+                                }
+                                if (ew.phase === "edit_pick") {
+                                  const editKind = key as EndorsementEditKind
+                                  const next = buildEndorsementModePickBotReply(
+                                    ew.policy,
+                                    editKind,
+                                    ew.customerName,
+                                  )
+                                  setMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `b-ew-${Date.now()}`,
+                                      role: "bot",
+                                      text: next.text,
+                                      contextLabel: next.contextLabel,
+                                      endorsementWizard: next.endorsementWizard,
+                                    },
+                                  ])
+                                  return
+                                }
+                                if (ew.phase === "mode_pick") {
+                                  if (key === "create_workflow") {
+                                    onChatEndorsementWorkflowCreated?.({
+                                      policy: ew.policy,
+                                      editKind: ew.editKind,
+                                    })
+                                    const follow = buildWorkflowCreatedFollowup(ew.policy, ew.editKind)
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-ew-${Date.now()}`,
+                                        role: "bot",
+                                        text: follow.text,
+                                        steps: follow.steps,
+                                        contextLabel: follow.contextLabel,
+                                      },
+                                    ])
+                                  } else {
+                                    const follow = buildWorkflowStepsOnlyFollowup(
+                                      ew.policy,
+                                      ew.customerName,
+                                      ew.editKind,
+                                    )
+                                    setMessages((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `b-ew-${Date.now()}`,
+                                        role: "bot",
+                                        text: follow.text,
+                                        steps: follow.steps,
+                                        contextLabel: follow.contextLabel,
+                                      },
+                                    ])
+                                  }
+                                }
+                              }, endorsementWizardDelay)
+                            }}
+                          />
+                        </>
+                      ) : message.policyChoices && message.policyChoices.length > 0 ? (
+                        <>
+                          {message.contextLabel ? (
+                            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                              {message.contextLabel}
+                            </p>
+                          ) : null}
+                          <p className="font-euclid text-[13px] font-semibold leading-5 text-[#36354c]">{message.text}</p>
+                          <PolicyEndorsementPick
+                            options={message.policyChoices}
+                            disabled={spentSunilWorkflowMessageIds.has(message.id)}
+                            onCreateWorkflow={(pk) => {
+                              if (spentSunilWorkflowMessageIds.has(message.id)) return
+                              setSpentSunilWorkflowMessageIds((prev) => new Set(prev).add(message.id))
+                              onEndorsementPolicySelected?.(pk)
+                              const follow = buildSunilFollowUpBotReply(pk)
+                              setMessages((prev) => [
+                                ...prev,
+                                {
+                                  id: `b-follow-${Date.now()}-${pk}`,
+                                  role: "bot",
+                                  text: follow.text,
+                                  steps: follow.steps,
+                                  contextLabel: follow.contextLabel,
+                                },
+                              ])
+                            }}
+                          />
                         </>
                       ) : message.steps && message.steps.length > 0 ? (
                         <>
@@ -554,29 +1591,92 @@ export function AIChatPanel({
         )}
       </div>
 
-      <div className="border-t border-[#ececf2] bg-white p-4">
-        <div className="flex items-center gap-2 rounded-full border border-[#e7e7f0] bg-gradient-to-t from-white to-[#f8f7fc] px-3 py-2 shadow-[0px_4px_12px_rgba(28,11,62,0.08)]">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything"
-            className="min-h-0 flex-1 bg-transparent px-1 font-euclid text-[13px] text-[#2c2067] outline-none placeholder:text-[#757575]"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={handleSendMessage}
-            disabled={!input.trim()}
-            className="size-9 shrink-0 text-[#7c47e1] hover:bg-[#efe9fb] hover:text-[#44277b] disabled:text-[#c4c2d4]"
-            aria-label="Send message"
-          >
-            <Send className="h-4 w-4" strokeWidth={2} />
-          </Button>
-        </div>
+      <div
+        className={cn(
+          fullBleedComposerAccessory
+            ? "border-t border-[#e8e6f0] bg-[#f8f7fc]"
+            : "border-t border-[#ececf2] bg-white",
+          chatFooterPadding,
+          composerFooterClassName,
+        )}
+      >
+        {fullBleedComposerAccessory ? (
+          <div className="rounded-[14px] border border-[#e4e1ec] bg-white p-2 shadow-[0_8px_28px_rgba(28,11,62,0.09)]">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex shrink-0 items-center justify-center">{fullBleedComposerAccessory}</div>
+              <div className="min-w-0 flex-1">
+                <div
+                  className={cn(
+                    "flex min-h-[44px] items-center gap-2 rounded-full border bg-gradient-to-b from-white to-[#f6f4fb] px-3 py-1.5 shadow-inner shadow-[#ebe8f2]/80 transition-[box-shadow,border-color,ring] duration-200",
+                    isActive || composerChromeFocused
+                      ? "border-2 border-[#7c47e1] ring-2 ring-[#7c47e1]/20"
+                      : "border border-[#dcd8e8]",
+                  )}
+                >
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => setComposerChromeFocused(true)}
+                    onBlur={() => setComposerChromeFocused(false)}
+                    placeholder="Type a message…"
+                    aria-label="Message AI Companion"
+                    className="min-h-0 flex-1 bg-transparent py-1.5 font-euclid text-[14px] text-[#2c2067] outline-none placeholder:text-[#8c899e]"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleSendMessage}
+                    disabled={!input.trim()}
+                    className="size-9 shrink-0 rounded-full text-[#7c47e1] hover:bg-[#efe9fb] hover:text-[#44277b] disabled:text-[#c4c2d4]"
+                    aria-label="Send message"
+                  >
+                    <Send className="h-4 w-4" strokeWidth={2} />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={cn("flex w-full items-end gap-3")}>
+            <div className="w-full">
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-full border bg-gradient-to-t from-white to-[#f8f7fc] px-3 py-2 shadow-[0px_4px_12px_rgba(28,11,62,0.08)] transition-[box-shadow,border-color,ring] duration-200",
+                  isActive || composerChromeFocused
+                    ? "border-2 border-[#7c47e1] ring-2 ring-[#7c47e1]/25 shadow-[0_0_0_3px_rgba(124,71,225,0.12),0px_4px_12px_rgba(28,11,62,0.08)]"
+                    : "border border-[#e7e7f0]",
+                )}
+              >
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setComposerChromeFocused(true)}
+                  onBlur={() => setComposerChromeFocused(false)}
+                  placeholder="Ask anything"
+                  className="min-h-0 flex-1 bg-transparent px-1 font-euclid text-[13px] text-[#2c2067] outline-none placeholder:text-[#757575]"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSendMessage}
+                  disabled={!input.trim()}
+                  className="size-9 shrink-0 text-[#7c47e1] hover:bg-[#efe9fb] hover:text-[#44277b] disabled:text-[#c4c2d4]"
+                  aria-label="Send message"
+                >
+                  <Send className="h-4 w-4" strokeWidth={2} />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

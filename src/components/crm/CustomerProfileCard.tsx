@@ -1,11 +1,9 @@
-import { Award, Languages, Pencil } from "lucide-react"
+import { Award, Languages } from "lucide-react"
 
 import type { Customer } from "@/types/crm"
 
 interface CustomerProfileCardProps {
   customer: Customer
-  displayLookupPhone: string
-  onEditPhone?: () => void
 }
 
 function kycLabel(status: NonNullable<Customer["kycStatus"]>) {
@@ -25,11 +23,7 @@ function kycLabel(status: NonNullable<Customer["kycStatus"]>) {
  * Profile card — layout and chrome aligned with Figma OMNI Post-Sales (node 8393:27113).
  * @see https://www.figma.com/design/ItV6q2hj272EYkgVUtapxW/OMNI---Post-Sales?node-id=8393-27113
  */
-export function CustomerProfileCard({
-  customer,
-  displayLookupPhone,
-  onEditPhone,
-}: CustomerProfileCardProps) {
+export function CustomerProfileCard({ customer }: CustomerProfileCardProps) {
   const kyc = customer.kycStatus
 
   return (
@@ -37,8 +31,8 @@ export function CustomerProfileCard({
       className="flex w-full flex-col gap-[15px] overflow-hidden rounded-[12px] border border-solid border-[#e7e7f0] bg-white py-4"
       data-node-id="8393:27113"
     >
-      {/* Top: avatar + identity + tenure / phone pill */}
-      <div className="flex w-full flex-wrap items-start justify-between gap-4 px-5">
+      {/* Top: avatar + identity */}
+      <div className="flex w-full px-5">
         <div className="flex min-w-0 items-start gap-[10px]">
           <div
             className="relative size-10 shrink-0 overflow-hidden rounded-[8.886px] bg-[#c3d7ff]"
@@ -73,25 +67,6 @@ export function CustomerProfileCard({
               ) : null}
             </div>
           </div>
-        </div>
-
-        <div
-          className="flex shrink-0 items-center gap-3 rounded-lg border border-solid border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5"
-          data-node-id="8393:28160"
-        >
-          <p className="font-euclid text-xs font-normal leading-[18px] text-[#5b5675] whitespace-nowrap">
-            <span>{`Showing results for: `}</span>
-            <span>{displayLookupPhone}</span>
-          </p>
-          <button
-            type="button"
-            onClick={onEditPhone}
-            className="flex size-4 shrink-0 items-center justify-center text-[#5b5675] transition-colors hover:text-[#040222]"
-            title="Edit phone number"
-            data-name="Edit"
-          >
-            <Pencil className="size-4" aria-hidden />
-          </button>
         </div>
       </div>
 

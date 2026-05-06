@@ -20,7 +20,21 @@ export interface Customer {
   }
 }
 
-export type JTBDType = "claim" | "renewal"
+export type JTBDType = "claim" | "renewal" | "endorsement"
+
+/** Field-level endorsement edits (AI Companion wizard → JTBD). */
+export type EndorsementEditKind =
+  | "policy_holder_name"
+  | "policy_holder_email"
+  | "phone_number"
+  | "engine_number"
+  | "chassis_number"
+
+/** One row in the expanded AI Summary timeline (left rail). */
+export interface AiSummaryTimelineStep {
+  title: string
+  detail: string
+}
 
 /** Related SOP row under Quick related actions (Figma: Related SOPs to this case). */
 export interface RelatedSopRow {
@@ -46,12 +60,18 @@ export interface JTBD {
   aiSummary?: {
     bullets: string[]
     viewDetailsLabel?: string
-    /** Prefill for “View detailed summary” → opens chat with this draft (agent can edit before send) */
+    /** Compact steps shown as a vertical timeline when expanded (preferred over long prose). */
+    detailedSummaryTimeline?: AiSummaryTimelineStep[]
+    /** Full agent-facing body shown inline when expanded (split paragraphs with `\n\n`). Used when no timeline is provided. */
+    detailedSummary?: string
+    /** Prefill for legacy header CTA → opens chat; ignored when `detailedSummary` is set. */
     viewDetailsChatPrefill?: string
     /** Header label next to icon (default in UI: “Tip:”). */
     sectionHeading?: string
     /** `ai_summary` uses the sparkle asset; default uses light bulb. */
     headerIconVariant?: "default" | "ai_summary"
+    /** When true, section heading + icon sit above bullets; default is heading and bullets in one row. */
+    stackHeaderWithBullets?: boolean
   }
   /** Optional custom prefill for "Ask in chat" specific to this JTBD */
   askInChatPrefill?: string
@@ -80,6 +100,7 @@ export interface AgentAction {
   id: string
   step: number
   description: string
+  /** CTA label; use empty string when this step has no button. */
   cta: string
   completed: boolean
 }

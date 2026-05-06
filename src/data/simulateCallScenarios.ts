@@ -5,12 +5,12 @@ export const SIMULATE_LIVE_SCENARIOS = [
   {
     customerId: "rajesh-kumar",
     displayName: "Rajesh Kumar",
-    subheader: "Claim delay",
+    subheader: "Claim Status",
   },
   {
     customerId: "anita-sharma",
     displayName: "Anita Sharma",
-    subheader: "Policy Issuance",
+    subheader: "Edit Policy",
   },
   {
     customerId: "raj-kapoor",
@@ -20,7 +20,7 @@ export const SIMULATE_LIVE_SCENARIOS = [
   {
     customerId: "priya-sharma",
     displayName: "Priya Sharma",
-    subheader: "Process guidance",
+    subheader: "Claim Status",
   },
 ] as const
 
@@ -37,12 +37,16 @@ type ModalExtra = {
   showCallVehicle?: boolean
   showLastCall?: boolean
   showQuickSummary?: boolean
+  /** Language + tenure row under the name (hidden for unknown caller). */
+  showLanguageAndTenure?: boolean
+  /** Caller display name when there is no CRM profile (unknown number). */
+  displayName?: string
 }
 
 const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
   "rajesh-kumar": {
     yearsWithAcko: "4 years with ACKO",
-    ongoingIssue: "Claim delay",
+    ongoingIssue: "Claim Status",
     lastCallBadge: "Frustrated caller",
     lastCallVariant: "warning",
     summaryLines: [
@@ -54,12 +58,12 @@ const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
   },
   "anita-sharma": {
     yearsWithAcko: "1 year with ACKO",
-    ongoingIssue: "Policy issuance",
+    ongoingIssue: "Edit Policy",
     lastCallBadge: "Angry",
     lastCallVariant: "angry",
     summaryLines: [
-      "KYC failing: policy shows married surname; Aadhaar still shows maiden name",
-      "Customer called 4 times for the same issue",
+      "KYC mismatch — married surname on policy vs maiden name on Aadhaar",
+      "Issuance doc review ran longer than usual after multiple requests; 4 calls on the same issue",
     ],
   },
   "raj-kapoor": {
@@ -77,13 +81,25 @@ const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
   },
   "priya-sharma": {
     yearsWithAcko: "3 years with ACKO",
-    ongoingIssue: "Process guidance — claim and repair journey",
+    ongoingIssue: "Claim Status",
     lastCallBadge: "Returning caller",
     lastCallVariant: "default",
     summaryLines: [
       "Customer needs step-by-step clarity on TATs and garage options",
       "Share next actions and how to track in the app",
     ],
+  },
+  "unknown-caller": {
+    yearsWithAcko: "",
+    ongoingIssue: "Unknown",
+    lastCallBadge: "",
+    lastCallVariant: "default",
+    summaryLines: ["", ""],
+    showCallVehicle: false,
+    showLastCall: false,
+    showQuickSummary: false,
+    showLanguageAndTenure: false,
+    displayName: "Unknown caller",
   },
 }
 
@@ -109,6 +125,7 @@ export type IncomingCallModalViewModel = {
   showCallVehicle: boolean
   showLastCall: boolean
   showQuickSummary: boolean
+  showLanguageAndTenure: boolean
 }
 
 /**
@@ -120,7 +137,8 @@ export function getIncomingCallModalViewModel(
 ): IncomingCallModalViewModel {
   const id = customerId ?? "rajesh-kumar"
   const lines = INCOMING_MODAL_LINES[id] ?? INCOMING_MODAL_LINES["rajesh-kumar"]
-  const name = customer?.name ?? "Customer"
+  const name =
+    lines.displayName ?? customer?.name ?? (id === "unknown-caller" ? "Unknown caller" : "Customer")
   return {
     name,
     language: customer?.language ?? "—",
@@ -134,5 +152,6 @@ export function getIncomingCallModalViewModel(
     showCallVehicle: lines.showCallVehicle ?? true,
     showLastCall: lines.showLastCall ?? true,
     showQuickSummary: lines.showQuickSummary ?? true,
+    showLanguageAndTenure: lines.showLanguageAndTenure ?? true,
   }
 }

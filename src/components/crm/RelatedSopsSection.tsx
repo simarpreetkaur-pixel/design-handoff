@@ -1,19 +1,15 @@
-import { ArrowRight } from "lucide-react"
-
-import type { JTBDType, RelatedSopRow } from "@/types/crm"
+import type { RelatedSopRow } from "@/types/crm"
 
 type RelatedSopsSectionProps = {
   rows: RelatedSopRow[]
-  jtbdType: JTBDType
   onOpenSop: (detailActionKey: string) => void
-  onAskInChat?: (message: string, jtbdType: JTBDType) => void
 }
 
 /**
  * “Related SOPs to this case” — UI aligned with Figma OMNI Post-Sales (node 8397:42211).
  * @see https://www.figma.com/design/ItV6q2hj272EYkgVUtapxW/OMNI---Post-Sales?node-id=8397-42211
  */
-export function RelatedSopsSection({ rows, jtbdType, onOpenSop, onAskInChat }: RelatedSopsSectionProps) {
+export function RelatedSopsSection({ rows, onOpenSop }: RelatedSopsSectionProps) {
   if (!rows.length) {
     return null
   }
@@ -28,26 +24,15 @@ export function RelatedSopsSection({ rows, jtbdType, onOpenSop, onAskInChat }: R
         {rows.map((row) => (
           <div
             key={row.id}
-            className="flex w-full items-center justify-between gap-3"
+            className="flex w-full items-center gap-3"
             data-node-id="8397:42239"
           >
             <button
               type="button"
               onClick={() => onOpenSop(row.detailActionKey)}
-              className="min-w-0 flex-1 text-left font-euclid text-sm font-medium leading-5 text-[#5b5675] underline decoration-dotted underline-offset-2 transition-colors hover:text-[#040222]"
+              className="min-w-0 w-full text-left font-euclid text-sm font-medium leading-5 text-[#5b5675] underline decoration-dotted underline-offset-2 transition-colors hover:text-[#040222]"
             >
               {row.label}
-            </button>
-            <button
-              type="button"
-              onClick={() => onAskInChat?.(row.askInChatPrefill, jtbdType)}
-              className="group flex shrink-0 items-center gap-1 font-euclid text-xs font-medium leading-[14px] tracking-[0.18px] text-[#7c47e1] transition-colors hover:text-[#5920c5]"
-            >
-              Ask in the chat
-              <ArrowRight
-                className="h-4 w-4 text-[#7c47e1] transition-transform duration-300 group-hover:animate-arrow-bounce"
-                aria-hidden
-              />
             </button>
           </div>
         ))}
