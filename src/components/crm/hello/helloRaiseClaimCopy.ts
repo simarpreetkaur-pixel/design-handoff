@@ -1,40 +1,46 @@
-/** Timing for staged AI messages (Hello view — Raise a claim). */
-export const HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS = 900
-export const HELLO_RAISE_CLAIM_GAP_AFTER_MESSAGE_MS = 420
-export const HELLO_RAISE_CLAIM_GAP_BEFORE_TYPING_MS = 380
-
 /**
- * Sequential assistant bubbles — AI speaking to the CX (agent).
- * Delivered one at a time with typing indicator between turns.
+ * Copy and timing — Raise claim Hello view ([Figma OMNI Post-Sales 8515:12353](https://www.figma.com/design/ItV6q2hj272EYkgVUtapxW/OMNI---Post-Sales?node-id=8515-12353)).
  */
-export const helloRaiseClaimOpeningScript: readonly string[] = [
-  "Opening context from IVR: this customer is calling to raise a claim for their Tata Nexon.",
-  "Check whether they want to raise the claim on their own or whether you should assist as the agent.",
-  "If they chose the wrong IVR option and called about something else, use the third option below.",
-]
+
+/** Opening assistant line — exact string from Figma “Assistant Chat” (8515:12645). */
+export const helloRaiseClaimOpeningMessage =
+  "Customer is calling to Raise a claim, check with the customer if they want to raise a claim on their own or agent should assist?"
+
+/** Subtitle under “AI Companion” — exact from Figma (8515:12652). */
+export const helloRaiseClaimCompanionSubtitle =
+  "Customer agent's companion to solve the customer's query"
+
+/** Typing indicator before the first message appears. */
+export const HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS = 720
+
+/** Pause after opener finishes streaming, before choice block appears (feels like a second beat). */
+export const HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS = 520
+
+/** Character cadence for the opening line (natural reading pace). */
+export const HELLO_RAISE_CLAIM_MS_PER_CHAR = 12
 
 export type HelloRaiseClaimChoiceId = "self_serve" | "agent_behalf" | "something_else"
 
-/** Labels aligned with Figma OMNI Post-Sales (8515:12353). */
+/** Choice labels — exact from Figma (8515:12957, 8515:12963, 8515:12970). */
 export const helloRaiseClaimChoices: readonly {
   id: HelloRaiseClaimChoiceId
   label: string
 }[] = [
   { id: "self_serve", label: "Customer will do it themselves" },
-  { id: "agent_behalf", label: "Raise it on customer’s behalf" },
+  { id: "agent_behalf", label: "Raise it on customer\u2019s behalf" },
   { id: "something_else", label: "Customer called for something else" },
 ]
 
-/** Phase 1 stub after choosing self-serve or agent-behalf (journeys TBD). */
+/** Phase 1 stubs — short, conversational. */
 export const helloRaiseClaimStubFollowUp: Record<
   Exclude<HelloRaiseClaimChoiceId, "something_else">,
   string
 > = {
   self_serve:
-    "Noted self-serve path — guided next steps for this journey will appear here in a future release.",
+    "Understood — we’ll walk them through self-serve next when that flow is wired up.",
   agent_behalf:
-    "Noted agent-assisted path — guided next steps for this journey will appear here in a future release.",
+    "Understood — we’ll cover raising it on their behalf next when that flow is wired up.",
 }
 
 export const helloRaiseClaimSomethingElseAck =
-  "Got it — briefly describe what you think the customer actually needs so we can steer the call."
+  "Thanks — jot down what they actually need and we’ll take it from there."

@@ -1,17 +1,17 @@
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Send } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { Customer } from "@/types/crm"
 import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
-  HELLO_RAISE_CLAIM_GAP_AFTER_MESSAGE_MS,
-  HELLO_RAISE_CLAIM_GAP_BEFORE_TYPING_MS,
+  HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS,
+  HELLO_RAISE_CLAIM_MS_PER_CHAR,
   HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS,
   helloRaiseClaimChoices,
-  helloRaiseClaimOpeningScript,
+  helloRaiseClaimCompanionSubtitle,
+  helloRaiseClaimOpeningMessage,
   helloRaiseClaimSomethingElseAck,
   helloRaiseClaimStubFollowUp,
   type HelloRaiseClaimChoiceId,
@@ -33,7 +33,7 @@ export type RaiseClaimHelloViewProps = {
 function TypingIndicator({ labelId }: { labelId: string }) {
   return (
     <div
-      className="flex w-full items-start gap-2.5"
+      className="flex w-full items-start gap-3"
       role="status"
       aria-live="polite"
       aria-labelledby={labelId}
@@ -50,16 +50,36 @@ function TypingIndicator({ labelId }: { labelId: string }) {
           className="h-5 w-5 object-cover"
         />
       </div>
-      <div className="flex min-w-0 flex-1 items-center gap-1 rounded-2xl rounded-tl-sm border border-[#e7e7f0] bg-white px-3 py-2 shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
+      <div className="flex min-h-[44px] min-w-0 flex-1 items-center rounded-bl-[16px] rounded-br-[16px] rounded-tl-[2px] rounded-tr-[16px] border border-[#e7e7f0] bg-white px-3 py-2.5">
         <span id={labelId} className="sr-only">
           AI is typing
         </span>
-        <span className="flex gap-1" aria-hidden>
-          <span className="inline-block size-1.5 animate-bounce rounded-full bg-[#7c47e1] [animation-delay:-0.2s]" />
-          <span className="inline-block size-1.5 animate-bounce rounded-full bg-[#7c47e1] [animation-delay:-0.1s]" />
-          <span className="inline-block size-1.5 animate-bounce rounded-full bg-[#7c47e1]" />
+        <span className="flex gap-1.5" aria-hidden>
+          <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s]" />
+          <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s] [animation-delay:150ms]" />
+          <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s] [animation-delay:300ms]" />
         </span>
       </div>
+    </div>
+  )
+}
+
+/** Figma Assistant Chat bubble shell — border only, no heavy elevation (8515:12644). */
+function AssistantBubbleShell({
+  className,
+  children,
+}: {
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 flex-1 overflow-hidden rounded-bl-[16px] rounded-br-[16px] rounded-tl-[2px] rounded-tr-[16px] border border-[#e7e7f0] bg-white p-3",
+        className,
+      )}
+    >
+      {children}
     </div>
   )
 }
@@ -69,61 +89,58 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
   const listRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
 
-  const [messages, setMessages] = useState<HelloChatMessage[]>([])
-  const [isTyping, setIsTyping] = useState(false)
+  const [openingVisibleLength, setOpeningVisibleLength] = useState(0)
+  const [phase, setPhase] = useState<"typing" | "streaming" | "ready">("typing")
   const [choicesVisible, setChoicesVisible] = useState(false)
+  const [messages, setMessages] = useState<HelloChatMessage[]>([])
   const [composerEnabled, setComposerEnabled] = useState(false)
   const [composerText, setComposerText] = useState("")
   const [selectedChoice, setSelectedChoice] = useState<HelloRaiseClaimChoiceId | null>(null)
 
+  const openingFull = helloRaiseClaimOpeningMessage
+  const openingShown = openingFull.slice(0, openingVisibleLength)
+
   useEffect(() => {
     const timeouts: number[] = []
-    let stepIndex = 0
     let cancelled = false
-
     const schedule = (fn: () => void, ms: number) => {
-      const id = window.setTimeout(fn, ms)
-      timeouts.push(id)
+      timeouts.push(window.setTimeout(fn, ms))
     }
 
-    const drainScript = () => {
+    schedule(() => {
       if (cancelled) return
-      if (stepIndex >= helloRaiseClaimOpeningScript.length) {
-        setChoicesVisible(true)
-        return
-      }
-      setIsTyping(true)
-      schedule(() => {
+      setPhase("streaming")
+      let i = 0
+      const streamNext = () => {
         if (cancelled) return
-        setIsTyping(false)
-        const text = helloRaiseClaimOpeningScript[stepIndex]
-        const id = `hello-assistant-${stepIndex}`
-        stepIndex += 1
-        setMessages((prev) => [...prev, { id, role: "assistant", text }])
-        if (stepIndex >= helloRaiseClaimOpeningScript.length) {
-          setChoicesVisible(true)
+        i += 1
+        setOpeningVisibleLength(i)
+        if (i < openingFull.length) {
+          schedule(streamNext, HELLO_RAISE_CLAIM_MS_PER_CHAR)
         } else {
-          schedule(
-            drainScript,
-            HELLO_RAISE_CLAIM_GAP_AFTER_MESSAGE_MS + HELLO_RAISE_CLAIM_GAP_BEFORE_TYPING_MS,
-          )
+          schedule(() => {
+            if (cancelled) return
+            setPhase("ready")
+            schedule(() => {
+              if (!cancelled) setChoicesVisible(true)
+            }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
+          }, 0)
         }
-      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
-    }
-
-    drainScript()
+      }
+      streamNext()
+    }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
 
     return () => {
       cancelled = true
       timeouts.forEach((t) => window.clearTimeout(t))
     }
-  }, [])
+  }, [openingFull.length])
 
   useEffect(() => {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [messages, isTyping, choicesVisible])
+  }, [openingShown, phase, messages, choicesVisible])
 
   const pushAssistant = (text: string) => {
     setMessages((prev) => [
@@ -159,6 +176,8 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
     }
   }
 
+  const showOpeningRow = phase !== "typing" || openingVisibleLength > 0
+
   return (
     <div
       className={cn(
@@ -178,23 +197,23 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)]">
-          <div className="flex shrink-0 items-center gap-3 border-b border-[#e7e7f0] bg-white px-6 py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
-              <img
-                src="/icons/ai-companion-header.png"
-                alt=""
-                width={40}
-                height={40}
-                className="h-10 w-10 object-cover"
-              />
-            </div>
+          <div className="flex shrink-0 items-center gap-4 border-b border-[#e7e7f0] bg-white px-6 py-4">
             <div className="min-w-0 flex-1">
               <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">
                 AI Companion
               </h2>
               <p className="font-euclid text-[12px] leading-[18px] text-[#5b5675]">
-                Customer agent’s companion to solve the customer’s query
+                {helloRaiseClaimCompanionSubtitle}
               </p>
+            </div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
+              <img
+                src="/icons/ai-companion-header.png"
+                alt=""
+                width={32}
+                height={32}
+                className="h-8 w-8 object-cover"
+              />
             </div>
           </div>
 
@@ -206,6 +225,35 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
           >
             {displayPhone ? (
               <p className="sr-only">{`Lookup phone context: ${displayPhone}`}</p>
+            ) : null}
+
+            {phase === "typing" && openingVisibleLength === 0 ? (
+              <TypingIndicator labelId={typingLabelId} />
+            ) : null}
+
+            {showOpeningRow ? (
+              <div className="flex w-full items-start gap-3">
+                <div
+                  className="flex h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[#f5f3fc] shadow-sm ring-1 ring-[#e7e7f0]"
+                  aria-hidden
+                >
+                  <img
+                    src="/icons/ai-companion-message.png"
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 object-cover"
+                  />
+                </div>
+                <AssistantBubbleShell>
+                  <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
+                    {openingShown}
+                    {phase === "streaming" && openingVisibleLength < openingFull.length ? (
+                      <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-[#7c47e1]" aria-hidden />
+                    ) : null}
+                  </p>
+                </AssistantBubbleShell>
+              </div>
             ) : null}
 
             {messages.map((message) =>
@@ -223,18 +271,11 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                       className="h-5 w-5 object-cover"
                     />
                   </div>
-                  <Card
-                    className={cn(
-                      "min-w-0 flex-1 border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]",
-                      "rounded-br-[16px] rounded-tl-[2px] rounded-tr-[16px] rounded-bl-[16px]",
-                    )}
-                  >
-                    <CardContent className="p-3">
-                      <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                        {message.text}
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <AssistantBubbleShell>
+                    <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
+                      {message.text}
+                    </p>
+                  </AssistantBubbleShell>
                 </div>
               ) : (
                 <div key={message.id} className="flex w-full justify-end pl-8">
@@ -247,13 +288,12 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
               ),
             )}
 
-            {isTyping ? <TypingIndicator labelId={typingLabelId} /> : null}
-
             {choicesVisible ? (
               <div
-                className="flex w-full flex-col gap-3 pt-1"
+                className="flex w-full flex-col gap-3 pt-1 opacity-100 transition-opacity duration-300"
                 role="group"
                 aria-label="How should the customer proceed?"
+                aria-expanded={choicesVisible}
               >
                 <div className="flex w-full items-start gap-3">
                   <div
@@ -268,7 +308,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                       className="h-5 w-5 object-cover"
                     />
                   </div>
-                  <div className="min-w-0 flex-1 space-y-2">
+                  <AssistantBubbleShell className="flex flex-col gap-3">
                     {helloRaiseClaimChoices.map((c) => {
                       const selected = selectedChoice === c.id
                       return (
@@ -278,14 +318,14 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                           onClick={() => handleChoice(c.id)}
                           disabled={selectedChoice !== null}
                           className={cn(
-                            "flex w-full items-start gap-2 rounded-lg bg-[#f8f7fc] p-2 text-left transition",
+                            "flex w-full items-start gap-2 rounded-lg bg-[#f8f7fc] p-2 text-left transition-colors",
                             "border border-transparent hover:border-[#e7e7f0]",
-                            selected && "ring-2 ring-[#7c47e1]/40",
+                            selected && "border-[#e7e7f0] ring-1 ring-[#d8d6ea]",
                           )}
                         >
                           <span
                             className={cn(
-                              "mt-0.5 inline-flex size-5 shrink-0 rounded-full border-2 border-[#d8d6ea]",
+                              "mt-0.5 inline-flex size-5 shrink-0 rounded-full border border-[#d8d6ea] bg-white",
                               selected && "border-[#7c47e1] bg-[#7c47e1]",
                             )}
                             aria-hidden
@@ -300,7 +340,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                         </button>
                       )
                     })}
-                  </div>
+                  </AssistantBubbleShell>
                 </div>
               </div>
             ) : null}
