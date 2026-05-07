@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { Send } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -21,6 +21,9 @@ export type HelloChatMessage = {
   role: "assistant" | "user"
   text: string
 }
+
+/** Visual gap between AI Companion panel and the fixed composer bar (px). */
+const HELLO_COMPOSER_GAP_ABOVE_BAR_PX = 16
 
 export type RaiseClaimHelloViewProps = {
   customer: Customer
@@ -87,6 +90,9 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
   const typingLabelId = useId()
   const listRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const composerBarRef = useRef<HTMLDivElement>(null)
+
+  const [composerBottomReservePx, setComposerBottomReservePx] = useState<number | null>(null)
 
   const [openingTyping, setOpeningTyping] = useState(true)
   const [openingVisible, setOpeningVisible] = useState(false)
@@ -118,11 +124,39 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
     }
   }, [])
 
+  useLayoutEffect(() => {
+    if (!composerEnabled) {
+      setComposerBottomReservePx(null)
+      return
+    }
+
+    const el = composerBarRef.current
+    if (!el) return
+
+    const updateReserve = () => {
+      setComposerBottomReservePx(el.offsetHeight + HELLO_COMPOSER_GAP_ABOVE_BAR_PX)
+    }
+
+    updateReserve()
+
+    const ro = new ResizeObserver(updateReserve)
+    ro.observe(el)
+    window.addEventListener("resize", updateReserve)
+
+    const raf = window.requestAnimationFrame(() => updateReserve())
+
+    return () => {
+      window.cancelAnimationFrame(raf)
+      ro.disconnect()
+      window.removeEventListener("resize", updateReserve)
+    }
+  }, [composerEnabled])
+
   useEffect(() => {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [openingTyping, openingVisible, messages, choicesVisible])
+  }, [openingTyping, openingVisible, messages, choicesVisible, composerBottomReservePx])
 
   const pushAssistant = (text: string) => {
     setMessages((prev) => [
@@ -173,10 +207,18 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
       <div
         className={cn(
           "mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-8",
-          composerEnabled
-            ? "pb-[max(40px,env(safe-area-inset-bottom))]"
-            : "pb-[40px]",
+          !composerEnabled && "pb-[40px]",
         )}
+        style={
+          composerEnabled
+            ? {
+                paddingBottom:
+                  composerBottomReservePx ??
+                  /* Fallback until measured — bar ≈ py-3 + h-11 row + safe padding + gap */
+                  104,
+              }
+            : undefined
+        }
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)]">
           <div className="flex shrink-0 items-center gap-4 border-b border-[#e7e7f0] bg-white px-6 py-4">
@@ -326,7 +368,10 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
       </div>
 
       {composerEnabled ? (
-        <div className="fixed bottom-0 left-0 right-0 z-[58] border-t border-[#e7e7f0] bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(28,11,62,0.06)] [padding-bottom:max(12px,env(safe-area-inset-bottom))]">
+        <div
+          ref={composerBarRef}
+          className="fixed bottom-0 left-0 right-0 z-[58] border-t border-[#e7e7f0] bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(28,11,62,0.06)] [padding-bottom:max(12px,env(safe-area-inset-bottom))]"
+        >
           <div className="mx-auto flex max-w-[1280px] gap-3 px-4">
             <label htmlFor="raise-claim-hello-composer" className="sr-only">
               Describe what the customer may need
