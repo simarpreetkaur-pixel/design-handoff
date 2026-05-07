@@ -16,6 +16,7 @@ import { createChatRaiseClaimJtbd } from "@/lib/chatCreatedRaiseClaimJtbd"
 import type { EndorsementEditKind, JTBD, JTBDType, Policy, Customer } from "@/types/crm"
 import type { CrmDemoState } from "@/types/navigation"
 import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
+import { EditPolicyHelloView } from "@/components/crm/hello/EditPolicyHelloView"
 import { RaiseClaimHelloView } from "@/components/crm/hello/RaiseClaimHelloView"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
 import { JTBDPanel } from "@/components/crm/JTBDPanel"
@@ -157,6 +158,9 @@ export function CRMView() {
   /** Raj Kapoor cold-inbound / raise-claim demo — alternate shell (Hello view placeholder). */
   const [rajKapoorCrmUiVariant, setRajKapoorCrmUiVariant] = useState<"classic" | "hello">("classic")
 
+  /** Sunil endorsement Edit Policy — Hello shell toggle (same placement as Raj Kapoor raise-claim). */
+  const [sunilGuptaCrmUiVariant, setSunilGuptaCrmUiVariant] = useState<"classic" | "hello">("classic")
+
   /** Sunil endorsement demo — AI chat policy chips reveal JTBD */
   const [sunilEndorsementChoice, setSunilEndorsementChoice] = useState<"swift" | "gmc" | null>(null)
   /** JTBD created from AI Companion — endorsement */
@@ -188,6 +192,9 @@ export function CRMView() {
 
   const isRajKapoorRaiseClaimFlow =
     customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc"
+
+  const isSunilEditPolicyHelloFlow =
+    customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_endorsement_edit_name"
 
   const handleUnknownJtbdSplitUnlock = useCallback(() => {
     const commit = () => {
@@ -256,6 +263,7 @@ export function CRMView() {
     setRaiseClaimFocusRequest(null)
     setUnknownJtbdSplitUnlocked(false)
     setRajKapoorCrmUiVariant("classic")
+    setSunilGuptaCrmUiVariant("classic")
   }, [customerId])
 
   const panelJtbds = useMemo(() => {
@@ -702,6 +710,8 @@ export function CRMView() {
 
     const { activePolicies, inactivePolicies } = data
     const profileCustomer = displayCustomer!
+    const raiseClaimHelloPolicy =
+      activePolicies.find((p) => p.id === "policy-raj-motor-1") ?? activePolicies[0]
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#fafafa]">
@@ -724,7 +734,7 @@ export function CRMView() {
             OMNI Support
           </h1>
           <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-3">
-            {isRajKapoorRaiseClaimFlow ? (
+            {isRajKapoorRaiseClaimFlow || isSunilEditPolicyHelloFlow ? (
               <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5">
                 <span className="hidden whitespace-nowrap font-euclid text-xs font-medium text-[#5b5675] sm:inline">
                   Classic view
@@ -732,20 +742,35 @@ export function CRMView() {
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={rajKapoorCrmUiVariant === "hello"}
-                  aria-label="Toggle between Classic view and Hello view"
-                  onClick={() =>
-                    setRajKapoorCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
+                  aria-checked={
+                    isRajKapoorRaiseClaimFlow
+                      ? rajKapoorCrmUiVariant === "hello"
+                      : sunilGuptaCrmUiVariant === "hello"
                   }
+                  aria-label="Toggle between Classic view and Hello view"
+                  onClick={() => {
+                    if (isRajKapoorRaiseClaimFlow) {
+                      setRajKapoorCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
+                    }
+                    if (isSunilEditPolicyHelloFlow) {
+                      setSunilGuptaCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
+                    }
+                  }}
                   className={cn(
                     "relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/40",
-                    rajKapoorCrmUiVariant === "hello" ? "bg-[#7c47e1]" : "bg-[#d8d6ea]",
+                    (isRajKapoorRaiseClaimFlow ? rajKapoorCrmUiVariant : sunilGuptaCrmUiVariant) ===
+                      "hello"
+                      ? "bg-[#7c47e1]"
+                      : "bg-[#d8d6ea]",
                   )}
                 >
                   <span
                     className={cn(
                       "pointer-events-none absolute top-0.5 left-0.5 block h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out",
-                      rajKapoorCrmUiVariant === "hello" ? "translate-x-5" : "translate-x-0",
+                      (isRajKapoorRaiseClaimFlow ? rajKapoorCrmUiVariant : sunilGuptaCrmUiVariant) ===
+                        "hello"
+                        ? "translate-x-5"
+                        : "translate-x-0",
                     )}
                   />
                 </button>
@@ -778,7 +803,27 @@ export function CRMView() {
       </div>
 
       {isRajKapoorRaiseClaimFlow && rajKapoorCrmUiVariant === "hello" ? (
-        <RaiseClaimHelloView customer={profileCustomer} displayPhone={displayLookupPhone} />
+        <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+          <RaiseClaimHelloView
+            customer={profileCustomer}
+            raiseClaimPolicy={raiseClaimHelloPolicy}
+            activePolicies={activePolicies}
+            inactivePolicies={inactivePolicies}
+            displayPhone={displayLookupPhone}
+            onHelloToast={(message) => setCrmToast(message)}
+            className="h-full min-h-0 overflow-hidden"
+          />
+        </div>
+      ) : isSunilEditPolicyHelloFlow && sunilGuptaCrmUiVariant === "hello" ? (
+        <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+          <EditPolicyHelloView
+            customer={profileCustomer}
+            pickablePolicies={activePolicies}
+            inactivePolicies={inactivePolicies}
+            displayPhone={displayLookupPhone}
+            className="h-full min-h-0 overflow-hidden"
+          />
+        </div>
       ) : (
         <>
       {/* Body — split CRM vs full-bleed AI (unknown JTBD iteration, phase 1) */}

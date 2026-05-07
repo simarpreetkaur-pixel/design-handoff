@@ -10,12 +10,16 @@ export function WorkflowOfferPick({
   options,
   disabled,
   onPick,
+  selectedKey,
 }: {
   options: { key: string; label: ReactNode; userEchoLabel?: string }[]
   disabled: boolean
   onPick: (key: string, label: string) => void
+  /** When set, radios are controlled (keeps selection when reopening a step). */
+  selectedKey?: string | null
 }) {
   const groupName = useId()
+  const controlled = selectedKey !== undefined
   return (
     <fieldset disabled={disabled} className="m-0 space-y-2.5 border-0 p-0 pt-1">
       <legend className="sr-only">Choose how to continue</legend>
@@ -32,6 +36,7 @@ export function WorkflowOfferPick({
             name={groupName}
             value={opt.key}
             className="mt-0.5 size-4 shrink-0 accent-[#7c47e1] transition-[color,box-shadow] duration-[400ms] ease-out"
+            {...(controlled ? { checked: selectedKey === opt.key } : {})}
             onChange={() => {
               if (disabled) return
               const echo =

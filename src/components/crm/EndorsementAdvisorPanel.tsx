@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type ChangeEvent } from "react"
+import { useCallback, useId, useState, type ChangeEvent, type ReactNode } from "react"
 import { ArrowLeft, FileUp, Upload } from "lucide-react"
 
 import type { Policy } from "@/types/crm"
@@ -199,12 +199,30 @@ type EndorsementAdvisorPanelProps = {
   onBack: () => void
   /** Override demo rows (e.g. tests). */
   rows?: EndorsementPolicyFieldRow[]
+  /**
+   * Hello workflow: hide top nav row — outer chrome provides title + close.
+   * Inner Edit / Add / Upload flows keep their own headers.
+   */
+  embedded?: boolean
+  /**
+   * Optional control on the right of the top bar (e.g. Hello pane close), same row as back + title.
+   * Only used with {@link variant} `"helloPane"`. Ignored when `embedded` is true (top bar hidden).
+   */
+  headerTrailing?: ReactNode
+  /**
+   * `page` — Classic JTBD / Action detail chrome (bordered “Update policy” block, top bar rule).
+   * `helloPane` — Hello split-pane only (flat list, optional {@link headerTrailing}).
+   */
+  variant?: "page" | "helloPane"
 }
 
 export function EndorsementAdvisorPanel({
   policy,
   onBack,
   rows: rowsProp,
+  embedded = false,
+  headerTrailing,
+  variant = "page",
 }: EndorsementAdvisorPanelProps) {
   const rows = rowsProp ?? rowsForPolicy(policy)
   const fileInputId = useId()
@@ -213,6 +231,7 @@ export function EndorsementAdvisorPanel({
   const [rcFile, setRcFile] = useState<File | null>(null)
 
   const subtitle = policySubtitle(policy)
+  const helloPaneLayout = variant === "helloPane" || embedded
 
   const openField = (row: EndorsementPolicyFieldRow) => {
     const field = { id: row.id, label: row.label }
@@ -244,70 +263,112 @@ export function EndorsementAdvisorPanel({
     return <AddFieldStep fieldLabel={inner.field.label} onBack={closeInner} />
   }
 
-  return (
-    <div className="flex w-full flex-col bg-white">
-      <div className="flex shrink-0 flex-col gap-1 border-b border-[#e7e7f0] px-5 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#36354c]"
-            aria-label="Back"
-          >
-            <ArrowLeft className="size-5" aria-hidden />
-          </button>
-          <div className="min-w-0">
-            <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">Edit Policy</h2>
-            {subtitle ? (
-              <p className="mt-0.5 font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">{subtitle}</p>
-            ) : null}
-          </div>
-        </div>
-      </div>
+  const rowList = (
+    <ul className="divide-y divide-[#e7e7f0]">
+      {rows.map((row) => (
+        <li
+          key={row.id}
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 sm:flex-nowrap"
+        >
+          <span className="min-w-[120px] font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">
+            {row.label}
+          </span>
+          <span className="min-w-0 flex-1 font-euclid text-[14px] font-medium leading-5 text-[#36354c] sm:text-right">
+            {row.mode === "add" ? <span className="text-[#9c9aaf]">—</span> : (row.value ?? "—")}
+          </span>
+          {row.mode === "edit" ? (
+            <button
+              type="button"
+              onClick={() => openField(row)}
+              className="shrink-0 rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
+            >
+              Edit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openField(row)}
+              className="shrink-0 rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
+            >
+              Add
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
-        <div className="overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
-          <div className="border-b border-[#e7e7f0] px-5 py-4">
-            <h3 className="font-euclid text-[16px] font-semibold leading-6 text-[#040222]">Update policy</h3>
-            <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
-              {policy.type === "Health Insurance"
-                ? "Review insured details. Upload proof where the change must be verified before Advisor UI."
-                : "Review current values. Edits that affect the vehicle record require an RC upload before Advisor UI."}
-            </p>
+  return (
+    <div className={cn("flex w-full flex-col bg-white", embedded && "min-h-0 min-w-0 flex-1")}>
+      {!embedded ? (
+        helloPaneLayout ? (
+          <div className="flex shrink-0 flex-col gap-1 px-5 py-4">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#36354c]"
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="size-5" aria-hidden />
+                </button>
+                <div className="min-w-0">
+                  <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">Edit Policy</h2>
+                  {subtitle ? (
+                    <p className="mt-0.5 font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">{subtitle}</p>
+                  ) : null}
+                </div>
+              </div>
+              {headerTrailing ? (
+                <div className="flex shrink-0 items-center">{headerTrailing}</div>
+              ) : null}
+            </div>
           </div>
-          <ul className="divide-y divide-[#e7e7f0]">
-            {rows.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 sm:flex-nowrap"
+        ) : (
+          <div className="flex shrink-0 flex-col gap-1 border-b border-[#e7e7f0] px-5 py-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onBack}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#36354c]"
+                aria-label="Back"
               >
-                <span className="min-w-[120px] font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">
-                  {row.label}
-                </span>
-                <span className="min-w-0 flex-1 font-euclid text-[14px] font-medium leading-5 text-[#36354c] sm:text-right">
-                  {row.mode === "add" ? <span className="text-[#9c9aaf]">—</span> : (row.value ?? "—")}
-                </span>
-                {row.mode === "edit" ? (
-                  <button
-                    type="button"
-                    onClick={() => openField(row)}
-                    className="shrink-0 font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25 rounded-sm"
-                  >
-                    Edit
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openField(row)}
-                    className="shrink-0 font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25 rounded-sm"
-                  >
-                    Add
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+                <ArrowLeft className="size-5" aria-hidden />
+              </button>
+              <div className="min-w-0">
+                <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">Edit Policy</h2>
+                {subtitle ? (
+                  <p className="mt-0.5 font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">{subtitle}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )
+      ) : null}
+
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5",
+          helloPaneLayout && "w-full min-w-0",
+          embedded && "min-h-0 pt-4",
+        )}
+      >
+        {helloPaneLayout ? (
+          <div className="w-full min-w-0 overflow-hidden">{rowList}</div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
+            <div className="border-b border-[#e7e7f0] px-5 py-4">
+              <h3 className="font-euclid text-[16px] font-semibold leading-6 text-[#040222]">Update policy</h3>
+              <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
+                {policy.type === "Health Insurance"
+                  ? "Review insured details. Upload proof where the change must be verified before Advisor UI."
+                  : "Review current values. Edits that affect the vehicle record require an RC upload before Advisor UI."}
+              </p>
+            </div>
+            {rowList}
+          </div>
+        )}
       </div>
     </div>
   )

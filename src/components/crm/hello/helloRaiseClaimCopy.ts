@@ -2,13 +2,27 @@
  * Copy and timing — Raise claim Hello view ([Figma OMNI Post-Sales 8515:12353](https://www.figma.com/design/ItV6q2hj272EYkgVUtapxW/OMNI---Post-Sales?node-id=8515-12353)).
  */
 
-/** Opening assistant line — exact string from Figma “Assistant Chat” (8515:12645). */
-export const helloRaiseClaimOpeningMessage =
-  "Customer is calling to Raise a claim, check with the customer if they want to raise a claim on their own or agent should assist?"
+import type { Policy } from "@/types/crm"
 
-/** Subtitle under “AI Companion” — exact from Figma (8515:12652). */
+/** Vehicle line for the Hello raise-claim opener — aligns with workflow pane labelling. */
+export function helloRaiseClaimVehicleLabel(policy: Policy): string {
+  const v = policy.vehicle?.trim()
+  if (v) return v
+  const n = policy.name?.trim()
+  if (n) return n
+  const p = policy.planDisplayName?.trim()
+  if (p) return p
+  return policy.type || "vehicle"
+}
+
 export const helloRaiseClaimCompanionSubtitle =
   "Customer agent's companion to solve the customer's query"
+
+/** Label inside Hello **AI** assistant bubbles (system / AI replies). */
+export const helloAiResponderLabel = "AI agent"
+
+/** Name shown inside Hello **CX** advisor bubbles (human replies). */
+export const helloCxResponderName = "CX Sneha"
 
 /** Typing indicator before the first message appears. */
 export const HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS = 720
@@ -18,6 +32,21 @@ export const HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS = 520
 
 /** Delay before bot follow-up after user echoes a radio pick (matches Classic AIChatPanel cadence). */
 export const HELLO_BOT_REPLY_AFTER_USER_MS = 420
+
+/**
+ * After each self-serve guidance bubble appears, wait this long before showing the next typing
+ * indicator so CX can read (Hello view split-stream).
+ */
+export const HELLO_SELF_SERVE_READ_PAUSE_MS = 900
+
+/** Stable id for the initial {@link WorkflowOfferPick} under the hero opener. */
+export const HELLO_OPENING_OFFER_ID = "opening"
+
+/** Chat composer: this phrase (case-insensitive, whitespace-normalized) replays the workflow choice radios. */
+export function helloComposerTriggersRaiseClaimOffer(text: string): boolean {
+  const normalized = text.trim().replace(/\s+/g, " ").toLowerCase()
+  return normalized === "raise a claim"
+}
 
 export type HelloRaiseClaimChoiceId = "self_serve" | "agent_behalf" | "something_else"
 
@@ -31,16 +60,89 @@ export const helloRaiseClaimChoices: readonly {
   { id: "something_else", label: "Customer called for something else" },
 ]
 
-/** Phase 1 stubs — short, conversational. */
-export const helloRaiseClaimStubFollowUp: Record<
-  Exclude<HelloRaiseClaimChoiceId, "something_else">,
-  string
-> = {
-  self_serve:
-    "Understood — we’ll walk them through self-serve next when that flow is wired up.",
-  agent_behalf:
-    "Understood — we’ll cover raising it on their behalf next when that flow is wired up.",
+/** Right workflow pane: shimmer stays visible through lg grid expansion (~700ms), then crossfades out. */
+export const HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS = 760
+/** Fade duration when revealing real workflow content. */
+export const HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS = 480
+
+/** Pause after the garage-points bubble before the workflow pane splits open. */
+export const HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS = 2000
+
+/** Profile “Policies” drawer closes before the parent opens the policy-detail split (collapse-first). */
+export const HELLO_POLICIES_PANEL_COLLAPSE_BEFORE_OPEN_MS = 280
+
+/** Right pane: skeleton duration before {@link PolicyDetailPanel} mounts (demo pacing). */
+export const HELLO_POLICY_DETAIL_SKELETON_MS = 520
+
+/**
+ * After the first agent-behalf ack (“Sure…”) is shown, wait this long before the typing indicator
+ * for the garage talking-points bubble — keeps the two assistant turns visibly sequential.
+ */
+export const HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS = 850
+
+/** Typing-indicator duration before the second agent-behalf bubble (garage bullet points). */
+export const HELLO_SECOND_ACK_TYPING_INDICATOR_MS = 400
+
+/** First assistant bubble after agent-behalf pick (shown before garage guidance). */
+export const helloSureCreatingWorkflowAck = "Sure — I'm creating the workflow for you."
+
+/**
+ * Second bubble — network garage talking points for the agent to share with the customer.
+ */
+export const helloSureCreatingWorkflowGaragePoints = [
+  "Meanwhile, share why our network garages matter:",
+  "• Cashless repairs at authorised garages — covered work is settled directly with us, so the customer avoids large upfront payments.",
+  "• Quality-checked repairs and quicker turnaround — jobs stay on insurer-approved channels with clearer estimates and faster closure.",
+].join("\n")
+
+/** After FNOL submit — success line (shown with green check in Hello companion). */
+export const helloClaimRaisedSuccessHeadline = "The claim has been raised successfully."
+
+/**
+ * Verbatim line for the CX to say to the customer — rendered in quotes in the Hello success card.
+ */
+export const helloClaimRaisedSuccessQuotedLine =
+  "They\u2019ll receive a call from their claim handler in 1\u20132 working days."
+
+/** Legacy plain-text join (prefer structured {@link helloClaimRaisedSuccessHeadline} + quoted line in UI). */
+export const helloClaimRaisedChatSuccess = [
+  helloClaimRaisedSuccessHeadline,
+  "",
+  `Tell the customer: \u201c${helloClaimRaisedSuccessQuotedLine}\u201d`,
+].join("\n")
+
+/** Brief pause so the FNOL success state is visible in the workflow before the split closes. */
+export const HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS = 900
+
+/** Pause after the claim-raised bubble before the renewal nudge typing indicator (readable beat). */
+export const HELLO_RENEWAL_NUDGE_AFTER_SUCCESS_MS = 640
+
+/**
+ * Default “other policy” renewal prompt after FNOL success — shown in a distinct Hello card.
+ * Pass `renewalNudgeAfterClaim={null}` on {@link RaiseClaimHelloView} to hide.
+ */
+export const helloDefaultRenewalNudgeAfterClaim = {
+  vehicleLabel: "Honda Activa",
+  daysLeft: 15,
+} as const
+
+export function helloWorkflowPaneTitle(vehicleLabel: string): string {
+  return `Raise a claim — ${vehicleLabel}`
 }
 
-export const helloRaiseClaimSomethingElseAck =
-  "Thanks — jot down what they actually need and we’ll take it from there."
+export const helloWorkflowStepRequestRc = "Request RC copy"
+/** One-line summary when step 1 is collapsed (email send done). */
+export const helloWorkflowStepRequestRcCollapsedSummary =
+  "Email request sent — continue with Raise claim below."
+
+export const helloWorkflowStepRaiseClaim = "Raise claim"
+
+/** Shown under step 2 while step 1 is incomplete — sets expectation for what comes next. */
+export const helloWorkflowStepRaiseClaimLockedHint =
+  "Next step — opens after you send the RC email."
+
+export const helloSomethingElseAckComposerAlways =
+  "Got it — describe what they need in the message bar below and I\u2019ll align the next steps."
+
+export const helloFreeTextAckStub =
+  "Noted. Use the workflow panel on the right when it\u2019s open; I\u2019ll flag anything unusual for your supervisor playbook in a future release."

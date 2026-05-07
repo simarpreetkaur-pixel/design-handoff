@@ -141,11 +141,7 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick }: ActivePol
       </div>
 
       {selectedPolicy ? (
-        <PolicyDetailPanel
-          policy={selectedPolicy}
-          isHealth={isHealthPolicy(selectedPolicy)}
-          onPolicyActionClick={onPolicyActionClick}
-        />
+        <PolicyDetailPanel policy={selectedPolicy} onPolicyActionClick={onPolicyActionClick} />
       ) : null}
     </div>
   )
@@ -153,8 +149,11 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick }: ActivePol
 
 type PolicyDetailPanelProps = {
   policy: Policy
-  isHealth: boolean
   onPolicyActionClick?: (action: string, policy: Policy) => void
+  /**
+   * `embedded` — no outer card; Hello/CRM pane shell + scroll padding already frame the block.
+   */
+  variant?: "card" | "embedded"
 }
 
 function PolicyField({ label, value }: { label: string; value: string }) {
@@ -166,11 +165,13 @@ function PolicyField({ label, value }: { label: string; value: string }) {
   )
 }
 
-function PolicyDetailPanel({
+/** Classic + Hello right-pane — full policy detail card (Figma-aligned). */
+export function PolicyDetailPanel({
   policy,
-  isHealth,
   onPolicyActionClick,
+  variant = "card",
 }: PolicyDetailPanelProps) {
+  const isHealth = isHealthPolicy(policy)
   const members = policy.coveredMembers ?? HEALTH_MEMBERS[policy.id] ?? []
   const healthPolicyHolderDisplay =
     policy.policyHolder?.trim() ||
@@ -178,7 +179,12 @@ function PolicyDetailPanel({
     "—"
 
   return (
-    <div className="flex w-full flex-col gap-6 rounded-[12px] border border-[#e7e7f0] bg-white px-5 py-6 font-euclid">
+    <div
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-6 font-euclid",
+        variant === "card" && "rounded-[12px] border border-[#e7e7f0] bg-white px-5 py-6",
+      )}
+    >
       <div className="flex w-full flex-col gap-3">
         <div className="flex w-full items-center justify-between gap-3">
           <h3 className="text-[14px] font-medium leading-5 text-[#36354c]">View Policy Details</h3>

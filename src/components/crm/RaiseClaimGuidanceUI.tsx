@@ -3,6 +3,7 @@ import type { CSSProperties } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
+  RAISE_CLAIM_CUSTOMER_STEPS,
   RAISE_CLAIM_HANDLER_CALLBACK_MESSAGE,
   RAISE_CLAIM_SETTLEMENT_TAT_MESSAGE,
   raiseClaimStepsAsBody,
@@ -43,10 +44,62 @@ export function RaiseClaimTalktrackCallout({ className }: { className?: string }
 export function RaiseClaimChatGuidanceSection({
   showGoCta,
   onGoCta,
+  variant = "default",
 }: {
   showGoCta: boolean
   onGoCta?: () => void
+  /**
+   * `chatBubble` — plain copy inside the parent bot bubble (Hello view): no gradient frame,
+   * no nested card borders. Classic chat keeps `default`.
+   */
+  variant?: "default" | "chatBubble"
 }) {
+  if (variant === "chatBubble") {
+    const { lead, rc, mid, license, trail } = raiseClaimTalktrackParts
+    return (
+      <div className="space-y-4">
+        <div className="flex gap-2.5">
+          <Headphones className="mt-0.5 size-4 shrink-0 text-[#5b5675]" strokeWidth={1.75} aria-hidden />
+          <p className="min-w-0 font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+            <span className="font-medium text-[#5b5675]">Tip </span>
+            {lead}
+            <span className="font-medium">{rc}</span>
+            {mid}
+            <span className="font-medium">{license}</span>
+            {trail}
+          </p>
+        </div>
+        <div>
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Steps to raise claim
+          </p>
+          <ol className="mt-2 list-decimal space-y-1.5 pl-5 font-euclid text-[13px] leading-5 text-[#36354c] marker:text-[#5b5675]">
+            {RAISE_CLAIM_CUSTOMER_STEPS.map((step, index) => (
+              <li key={index}>{step}</li>
+            ))}
+          </ol>
+        </div>
+        <div className="space-y-2">
+          <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+            {RAISE_CLAIM_HANDLER_CALLBACK_MESSAGE}
+          </p>
+          <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+            {RAISE_CLAIM_SETTLEMENT_TAT_MESSAGE}
+          </p>
+        </div>
+        {showGoCta ? (
+          <Button
+            type="button"
+            className="h-9 w-full bg-[#7c47e1] font-euclid text-[13px] font-medium text-white hover:bg-[#7c47e1]/90 sm:w-auto"
+            onClick={onGoCta}
+          >
+            Go to raise a claim
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
       <RaiseClaimTalktrackCallout />

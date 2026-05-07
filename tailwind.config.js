@@ -88,12 +88,24 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'workflow-pane-shimmer': {
+          '0%': { transform: 'translateX(-120%) skewX(-14deg)' },
+          '100%': { transform: 'translateX(220%) skewX(-14deg)' },
+        },
+        /** Hello profile — in-call presence (Figma 8544:1674); gentle scale pulse. */
+        'hello-in-call-breathe': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.12)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'raise-claim-tick-pop': 'raise-claim-tick-pop 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) both',
         'raise-claim-msg-fade': 'raise-claim-msg-fade 0.5s ease-out 0.28s both',
+        'workflow-pane-shimmer': 'workflow-pane-shimmer 2.1s ease-in-out infinite',
+        'hello-in-call-breathe':
+          'hello-in-call-breathe 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite',
       },
     },
   },
