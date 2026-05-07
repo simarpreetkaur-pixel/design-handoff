@@ -94,6 +94,8 @@ export type ChatMockCase =
   | "default"
   | "kyc_issuance"
   | "raj_cold_nexon"
+  /** Raj Kapoor — raise claim for Tata Nexon + GMC policy context (nav “Raise a claim”) */
+  | "raj_raise_claim_nexon_gmc"
   | "sunil_endorsement_edit_name"
   | "unknown_jtbd_iteration"
 
@@ -618,7 +620,7 @@ function buildBotReply(
     }
   }
 
-  if (chatMockCase === "raj_cold_nexon") {
+  if (chatMockCase === "raj_cold_nexon" || chatMockCase === "raj_raise_claim_nexon_gmc") {
     const isCoverageQuickAsk =
       (q.includes("cover") && (q.includes("nexon") || q.includes("comprehens") || q.includes("comprehensive") || q.includes("car_") || q.includes("policy"))) ||
       (q.includes("what") && q.includes("cover")) ||

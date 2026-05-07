@@ -375,6 +375,7 @@ export function Homepage() {
         onAnswerCall={handleAnswerUseCaseIncoming}
         onTimeout={handleUseCaseIncomingTimeout}
         previewCustomerId={pendingUseCase?.customerId ?? null}
+        previewCrmDemo={pendingUseCase?.crmDemo ?? null}
       />
       
       {/* Ozontel Dialer - only show when not on active call */}

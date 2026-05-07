@@ -15,7 +15,7 @@ export const SIMULATE_LIVE_SCENARIOS = [
   {
     customerId: "raj-kapoor",
     displayName: "Raj Kapoor",
-    subheader: "Unknown / cold inbound",
+    subheader: "Raise a claim · Tata Nexon + GMC",
   },
   {
     customerId: "priya-sharma",
@@ -68,16 +68,16 @@ const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
   },
   "raj-kapoor": {
     yearsWithAcko: "2 years with ACKO",
-    ongoingIssue: "Unknown",
+    ongoingIssue: "Raise a Claim",
     lastCallBadge: "Calm caller",
     lastCallVariant: "default",
     summaryLines: [
-      "Cold inbound call",
-      "Reason for calling unknown",
+      "Opening context: register claim on Tata Nexon (motor comprehensive).",
+      "Customer also has 1 ACKO GMC policy on file.",
     ],
-    showCallVehicle: false,
+    showCallVehicle: true,
     showLastCall: false,
-    showQuickSummary: false,
+    showQuickSummary: true,
   },
   "priya-sharma": {
     yearsWithAcko: "3 years with ACKO",

@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog"
+import type { CrmDemoState } from "@/types/navigation"
 
 /**
  * "Opening call context" — visual match and content from Figma:
@@ -38,6 +39,8 @@ type IncomingCallModalProps = {
    * When set (e.g. Use cases drawer), show this customer in the modal instead of the active ringing customer.
    */
   previewCustomerId?: string | null
+  /** Demo journey state — adjusts modal copy (Raj Kapoor raise claim vs claim status). */
+  previewCrmDemo?: CrmDemoState | null
 }
 
 function CallingDots() {
@@ -143,6 +146,7 @@ export function IncomingCallModal({
   onAnswerCall,
   onTimeout,
   previewCustomerId,
+  previewCrmDemo,
 }: IncomingCallModalProps) {
   const { data: callData } = useCall()
   const [secondsLeft, setSecondsLeft] = useState(60)
@@ -152,14 +156,14 @@ export function IncomingCallModal({
     const customer = effectiveId ? mockCustomers[effectiveId]?.customer : undefined
     let vm = getIncomingCallModalViewModel(effectiveId, customer)
     if (previewCustomerId) {
-      vm = mergeUseCaseIncomingPreview(previewCustomerId, vm)
+      vm = mergeUseCaseIncomingPreview(previewCustomerId, vm, previewCrmDemo)
     }
     vm = { ...vm, ongoingIssue: canonicalIncomingOngoingIssue(vm.ongoingIssue) }
     if (isUnknownCallReason(vm.ongoingIssue)) {
       return { ...vm, showCallVehicle: false }
     }
     return vm
-  }, [previewCustomerId, callData.customerId])
+  }, [previewCustomerId, callData.customerId, previewCrmDemo])
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null

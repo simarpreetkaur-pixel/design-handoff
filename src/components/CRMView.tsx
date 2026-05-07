@@ -8,7 +8,7 @@ import { buildAiCompanionWelcomeMessage } from "@/lib/aiCompanionWelcome"
 import { canonicalOngoingJtbdTitle } from "@/lib/canonicalOngoingLabels"
 import { createChatEndorsementJtbd } from "@/lib/chatCreatedEndorsementJtbd"
 import { createChatRaiseClaimJtbd } from "@/lib/chatCreatedRaiseClaimJtbd"
-import type { EndorsementEditKind, JTBD, JTBDType, Policy } from "@/types/crm"
+import type { EndorsementEditKind, JTBD, JTBDType, Policy, Customer } from "@/types/crm"
 import type { CrmDemoState } from "@/types/navigation"
 import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
@@ -181,7 +181,7 @@ export function CRMView() {
     resolvedChatMockCase === "unknown_jtbd_iteration" && !unknownJtbdSplitUnlocked
 
   const isRajKapoorRaiseClaimFlow =
-    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon"
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc"
 
   const handleUnknownJtbdSplitUnlock = useCallback(() => {
     const commit = () => {
@@ -202,6 +202,20 @@ export function CRMView() {
     if (!customerId) return null
     return mockCustomers[customerId] ?? null
   }, [customerId])
+
+  const displayCustomer = useMemo((): Customer | null => {
+    if (!data?.customer) return null
+    const o = crmDemo?.callContextOverride
+    if (!o?.reason && !o?.vehicle) return data.customer
+    return {
+      ...data.customer,
+      callContext: {
+        ...data.customer.callContext,
+        ...(o.reason !== undefined ? { reason: o.reason } : {}),
+        ...(o.vehicle !== undefined ? { vehicle: o.vehicle } : {}),
+      },
+    }
+  }, [data, crmDemo?.callContextOverride])
 
   // Sync call state with current customer on mount
   useEffect(() => {
@@ -432,18 +446,18 @@ export function CRMView() {
   }, [chatCaseContext])
 
   const aiCompanionWelcomeText = useMemo(() => {
-    if (!data) return ""
-    return buildAiCompanionWelcomeMessage(data.customer, selectedJtbd, data.activePolicies)
-  }, [data, selectedJtbd])
+    if (!displayCustomer) return ""
+    return buildAiCompanionWelcomeMessage(displayCustomer, selectedJtbd, data!.activePolicies)
+  }, [displayCustomer, selectedJtbd, data])
 
   const workflowChatContext = useMemo(() => {
-    if (!data) return undefined
+    if (!data || !displayCustomer) return undefined
     return {
-      customerName: data.customer.name,
+      customerName: displayCustomer.name,
       activePolicies: data.activePolicies,
-      callContextVehicle: data.customer.callContext.vehicle,
+      callContextVehicle: displayCustomer.callContext.vehicle,
     }
-  }, [data])
+  }, [data, displayCustomer])
 
   /** Stable for the CRM visit / call so chat is not wiped when JTBD or injected tabs change; new customer or answered-call session gets a new key. */
   const aiCompanionSessionKey = useMemo(() => {
@@ -652,7 +666,8 @@ export function CRMView() {
     )
   }
 
-    const { customer, activePolicies, inactivePolicies } = data
+    const { activePolicies, inactivePolicies } = data
+    const profileCustomer = displayCustomer!
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#fafafa]">
@@ -798,13 +813,13 @@ export function CRMView() {
 
             {unknownJtbdFullBleed ? (
               <div className="relative min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain px-6 pb-6 pt-6 [scrollbar-gutter:stable] sm:px-10">
-                <CustomerProfileCard customer={customer} />
+                <CustomerProfileCard customer={profileCustomer} />
               </div>
             ) : (
               <div className="relative h-full min-h-0">
                 <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain pb-24 px-8 [scrollbar-gutter:stable]">
                   <div className="flex w-full flex-col gap-6 py-6">
-                    <CustomerProfileCard customer={customer} />
+                    <CustomerProfileCard customer={profileCustomer} />
 
                     <JTBDPanel
                         key={`${customerId}-${mergedInitialJtbdId ?? ""}-${String(crmDemo?.chatMockCase ?? "")}-${sunilEndorsementChoice ?? ""}-${chatCreatedEndorsementJtbd?.id ?? ""}`}
@@ -828,7 +843,7 @@ export function CRMView() {
                           customerId === "ayush-singhal" ? handlePresalesTransferFromJtbd : undefined
                         }
                         customerEmailForRcRequest={data?.customer.email}
-                        customerDisplayName={customer.name}
+                        customerDisplayName={profileCustomer.name}
                         openRequestRcFromFabNonce={requestRcFabNonce}
                     />
                   </div>

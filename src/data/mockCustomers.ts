@@ -305,17 +305,21 @@ export const anitaSharmaActivePolicies: Policy[] = [
 
 export const rajKapoorActivePolicies: Policy[] = [
   {
-    id: "policy-raj-health-1",
-    name: "ACKO Health Plus",
+    id: "policy-raj-gmc-1",
+    name: "ACKO GMC",
     type: "Health Insurance",
-    policyNumber: "Till 10 Jan'28",
+    policyNumber: "GMC-ACK-RAJ-77401",
     members: 2,
-    expiryDate: "10 Jan'28",
+    expiryDate: "15 Dec'27",
     policyHolder: "Raj Kapoor",
-    planDisplayName: "Family Floater",
-    totalCoverage: "1 Cr",
-    policyPeriodLabel: "10 Jan'25 – 10 Jan'28",
+    planDisplayName: "ACKO Group Medical Cover",
+    totalCoverage: "₹5,00,000",
+    policyPeriodLabel: "15 Dec 2025 – 14 Dec 2026",
     tenureLabel: "1 Year",
+    coveredMembers: [
+      { name: "Raj Kapoor", relation: "Self" },
+      { name: "Neha Kapoor", relation: "Spouse" },
+    ],
   },
   {
     id: "policy-raj-motor-1",
@@ -326,6 +330,7 @@ export const rajKapoorActivePolicies: Policy[] = [
     vehicle: "Tata Nexon 2025",
     productCode: "car_comprehensive",
     policyHolder: "Raj Kapoor",
+    planDisplayName: "Comprehensive",
     policyPeriodLabel: "29 Sep'24 – 28 Sep'27",
   },
 ]
@@ -678,7 +683,7 @@ const anitaSharmaClaimPaymentKycJTBDs: JTBD[] = [
   },
 ]
 
-/** Simulate live call — cold/unknown intent caller */
+/** Simulate live call — Raj Kapoor: Nexon claim intake + GMC on profile */
 export const rajKapoor: Customer = {
   id: "raj-kapoor",
   name: "Raj Kapoor",
@@ -689,7 +694,8 @@ export const rajKapoor: Customer = {
   tenureWithAcko: "2 years with ACKO",
   kycStatus: "verified",
   callContext: {
-    reason: "Unknown",
+    reason: "Register claim",
+    vehicle: "Tata Nexon",
   },
 }
 

@@ -16,20 +16,38 @@ export type DemoUseCaseSection = {
 
 export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
   {
-    id: "claim-status",
+    id: "raise-claim",
     number: 1,
+    title: "Raise a claim",
+    pills: [
+      {
+        label: "Raj Kapoor",
+        customerId: "raj-kapoor",
+        crmDemo: { chatMockCase: "raj_raise_claim_nexon_gmc" },
+      },
+    ],
+  },
+  {
+    id: "claim-status",
+    number: 2,
     title: "Claim Status",
     pills: [
       {
         label: "Raj Kapoor",
         customerId: "raj-kapoor",
-        crmDemo: { chatMockCase: "raj_cold_nexon" },
+        crmDemo: {
+          chatMockCase: "raj_cold_nexon",
+          callContextOverride: {
+            reason: "Claim Status",
+            vehicle: "Tata Nexon",
+          },
+        },
       },
     ],
   },
   {
     id: "policy-endorsement",
-    number: 2,
+    number: 3,
     title: "Edit Policy",
     pills: [
       {
