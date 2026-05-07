@@ -1,4 +1,5 @@
 import type { Customer, InactivePolicy, JTBD, Policy, PolicyAction, RelatedSopRow } from "@/types/crm"
+import { buildStandardRaiseClaimAgentActions } from "@/lib/chatCreatedRaiseClaimJtbd"
 import { RAISE_CLAIM_TALKTRACK } from "@/lib/raiseClaimGuidanceCopy"
 
 export const rajeshKumar: Customer = {
@@ -348,30 +349,7 @@ export const rajKapoorRaiseClaimNexonJtbd: JTBD = {
     sectionHeading: "Tip:",
     bullets: [RAISE_CLAIM_TALKTRACK],
   },
-  agentActions: [
-    {
-      id: "raj-nexon-raise-1",
-      step: 1,
-      description: "Confirm FNOL basics for the Tata Nexon—incident time, location, and damage summary.",
-      cta: "Send Communication",
-      completed: false,
-    },
-    {
-      id: "raj-nexon-raise-2",
-      step: 2,
-      description: "Request RC and driving licence; customer can email copies or you follow up in-app.",
-      cta: "Request RC",
-      completed: false,
-    },
-    {
-      id: "raj-nexon-raise-3",
-      step: 3,
-      description:
-        "Register the motor claim on comprehensive (DL 05 XY 9012). Note 1× ACKO GMC on file if health is mentioned.",
-      cta: "Raise Claim",
-      completed: false,
-    },
-  ],
+  agentActions: buildStandardRaiseClaimAgentActions("raj-nexon-raise"),
   quickActions: ["Send communication", "Open Advisor UI", "Schedule CH Appointment"],
   askInChatPrefill:
     "What should I verify on Tata Nexon policy DL 05 XY 9012 before raising this claim on behalf of the customer?",

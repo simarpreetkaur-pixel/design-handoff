@@ -1,7 +1,34 @@
-import type { JTBD, Policy } from "@/types/crm"
+import type { JTBD, Policy, AgentAction } from "@/types/crm"
 
 import { shortenVehicleLine } from "@/lib/endorsementChatWizard"
 import { RAISE_CLAIM_TALKTRACK } from "@/lib/raiseClaimGuidanceCopy"
+
+/** Same steps as chat-created raise-claim JTBD — use for demo JTBDs so Agent Actions stay aligned. */
+export function buildStandardRaiseClaimAgentActions(idPrefix: string): AgentAction[] {
+  return [
+    {
+      id: `${idPrefix}-1`,
+      step: 1,
+      description: "Request customer to share RC and license copy",
+      cta: "Request RC",
+      completed: false,
+    },
+    {
+      id: `${idPrefix}-2`,
+      step: 2,
+      description: "Once the customer responds with the RC copy, download it from email.",
+      cta: "",
+      completed: false,
+    },
+    {
+      id: `${idPrefix}-3`,
+      step: 3,
+      description: "Raise a claim on customer's behalf using link.",
+      cta: "Raise Claim",
+      completed: false,
+    },
+  ]
+}
 
 function claimTabVehicleSubtitle(policy: Policy): string {
   if (policy.vehicle?.trim()) {
@@ -24,29 +51,7 @@ export function createChatRaiseClaimJtbd(policy: Policy): JTBD {
       sectionHeading: "Tip:",
       bullets: [RAISE_CLAIM_TALKTRACK],
     },
-    agentActions: [
-      {
-        id: "chat-raise-claim-1",
-        step: 1,
-        description: "Request customer to share RC and license copy",
-        cta: "Request RC",
-        completed: false,
-      },
-      {
-        id: "chat-raise-claim-2",
-        step: 2,
-        description: "Once the customer responds with the RC copy, download it from email.",
-        cta: "",
-        completed: false,
-      },
-      {
-        id: "chat-raise-claim-3",
-        step: 3,
-        description: "Raise a claim on customer's behalf using link.",
-        cta: "Raise Claim",
-        completed: false,
-      },
-    ],
+    agentActions: buildStandardRaiseClaimAgentActions("chat-raise-claim"),
     quickActions: ["Send communication", "Open Advisor UI", "Schedule CH Appointment"],
     askInChatPrefill: `What should I verify on policy ${policy.policyNumber} before raising this claim on behalf of the customer?`,
   }

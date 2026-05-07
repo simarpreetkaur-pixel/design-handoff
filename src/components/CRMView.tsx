@@ -479,12 +479,18 @@ export function CRMView() {
 
   const workflowChatContext = useMemo(() => {
     if (!data || !displayCustomer) return undefined
+    const ongoingRaiseClaimWorkflowPresent = panelJtbds.some(
+      (j) =>
+        j.id === rajKapoorRaiseClaimNexonJtbd.id ||
+        j.id.startsWith("jtbd-chat-raise-claim"),
+    )
     return {
       customerName: displayCustomer.name,
       activePolicies: data.activePolicies,
       callContextVehicle: displayCustomer.callContext.vehicle,
+      ongoingRaiseClaimWorkflowPresent,
     }
-  }, [data, displayCustomer])
+  }, [data, displayCustomer, panelJtbds])
 
   /** Stable for the CRM visit / call so chat is not wiped when JTBD or injected tabs change; new customer or answered-call session gets a new key. */
   const aiCompanionSessionKey = useMemo(() => {

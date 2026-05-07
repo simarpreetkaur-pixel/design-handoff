@@ -122,6 +122,8 @@ interface AIChatPanelProps {
     customerName: string
     activePolicies: Policy[]
     callContextVehicle?: string
+    /** True when left rail already shows a Raise a Claim JTBD (demo or chat-injected). */
+    ongoingRaiseClaimWorkflowPresent?: boolean
   }
   /** Fires when the agent picks “Yes, create new workflow” in the raise-claim chat wizard. */
   onChatRaiseClaimWorkflowCreated?: (payload: { policy: Policy }) => void
@@ -445,6 +447,7 @@ function buildBotReply(
     customerName: string
     activePolicies: Policy[]
     callContextVehicle?: string
+    ongoingRaiseClaimWorkflowPresent?: boolean
   },
 ): BotReplyPayload {
   const q = userText.toLowerCase()
@@ -476,6 +479,15 @@ function buildBotReply(
   }
 
   if (workflowChatContext) {
+    if (
+      parseRaiseClaimChatIntent(userText) &&
+      workflowChatContext.ongoingRaiseClaimWorkflowPresent
+    ) {
+      return {
+        contextLabel: "Raise claim",
+        text: "A Raise a Claim workflow is already open on the left. Open the Ongoing JTBD tab and follow the Agent next actions there—you don’t need to create another workflow from chat unless you’re handling a different policy.",
+      }
+    }
     if (parseRaiseClaimChatIntent(userText)) {
       const rb = buildRaiseClaimWizardBootstrap(
         workflowChatContext.activePolicies,
