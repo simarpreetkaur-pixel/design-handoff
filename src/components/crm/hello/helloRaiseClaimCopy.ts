@@ -13,11 +13,8 @@ export const helloRaiseClaimCompanionSubtitle =
 /** Typing indicator before the first message appears. */
 export const HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS = 720
 
-/** Pause after opener finishes streaming, before choice block appears (feels like a second beat). */
+/** Pause after opener appears, before choice block appears. */
 export const HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS = 520
-
-/** Character cadence for the opening line (natural reading pace). */
-export const HELLO_RAISE_CLAIM_MS_PER_CHAR = 12
 
 export type HelloRaiseClaimChoiceId = "self_serve" | "agent_behalf" | "something_else"
 

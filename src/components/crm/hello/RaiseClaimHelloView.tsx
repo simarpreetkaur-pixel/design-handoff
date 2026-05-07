@@ -7,7 +7,6 @@ import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
 import { Button } from "@/components/ui/button"
 import {
   HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS,
-  HELLO_RAISE_CLAIM_MS_PER_CHAR,
   HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS,
   helloRaiseClaimChoices,
   helloRaiseClaimCompanionSubtitle,
@@ -89,16 +88,13 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
   const listRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
 
-  const [openingVisibleLength, setOpeningVisibleLength] = useState(0)
-  const [phase, setPhase] = useState<"typing" | "streaming" | "ready">("typing")
+  const [openingTyping, setOpeningTyping] = useState(true)
+  const [openingVisible, setOpeningVisible] = useState(false)
   const [choicesVisible, setChoicesVisible] = useState(false)
   const [messages, setMessages] = useState<HelloChatMessage[]>([])
   const [composerEnabled, setComposerEnabled] = useState(false)
   const [composerText, setComposerText] = useState("")
   const [selectedChoice, setSelectedChoice] = useState<HelloRaiseClaimChoiceId | null>(null)
-
-  const openingFull = helloRaiseClaimOpeningMessage
-  const openingShown = openingFull.slice(0, openingVisibleLength)
 
   useEffect(() => {
     const timeouts: number[] = []
@@ -109,38 +105,24 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
     schedule(() => {
       if (cancelled) return
-      setPhase("streaming")
-      let i = 0
-      const streamNext = () => {
-        if (cancelled) return
-        i += 1
-        setOpeningVisibleLength(i)
-        if (i < openingFull.length) {
-          schedule(streamNext, HELLO_RAISE_CLAIM_MS_PER_CHAR)
-        } else {
-          schedule(() => {
-            if (cancelled) return
-            setPhase("ready")
-            schedule(() => {
-              if (!cancelled) setChoicesVisible(true)
-            }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
-          }, 0)
-        }
-      }
-      streamNext()
+      setOpeningTyping(false)
+      setOpeningVisible(true)
+      schedule(() => {
+        if (!cancelled) setChoicesVisible(true)
+      }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
     }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
 
     return () => {
       cancelled = true
       timeouts.forEach((t) => window.clearTimeout(t))
     }
-  }, [openingFull.length])
+  }, [])
 
   useEffect(() => {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [openingShown, phase, messages, choicesVisible])
+  }, [openingTyping, openingVisible, messages, choicesVisible])
 
   const pushAssistant = (text: string) => {
     setMessages((prev) => [
@@ -176,8 +158,6 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
     }
   }
 
-  const showOpeningRow = phase !== "typing" || openingVisibleLength > 0
-
   return (
     <div
       className={cn(
@@ -192,11 +172,13 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
       <div
         className={cn(
-          "mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-8 pb-6",
-          composerEnabled ? "pb-[max(7rem,env(safe-area-inset-bottom))]" : "pb-24",
+          "mx-auto flex w-full max-w-[1280px] flex-col px-8",
+          composerEnabled
+            ? "pb-[max(40px,env(safe-area-inset-bottom))]"
+            : "pb-[40px]",
         )}
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)]">
+        <div className="flex flex-col overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)]">
           <div className="flex shrink-0 items-center gap-4 border-b border-[#e7e7f0] bg-white px-6 py-4">
             <div className="min-w-0 flex-1">
               <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">
@@ -219,7 +201,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
           <div
             ref={listRef}
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-6 py-6 [scrollbar-gutter:stable]"
+            className="space-y-3 overflow-x-hidden px-6 py-6 [scrollbar-gutter:stable]"
             aria-live="polite"
             aria-relevant="additions text"
           >
@@ -227,11 +209,9 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
               <p className="sr-only">{`Lookup phone context: ${displayPhone}`}</p>
             ) : null}
 
-            {phase === "typing" && openingVisibleLength === 0 ? (
-              <TypingIndicator labelId={typingLabelId} />
-            ) : null}
+            {openingTyping ? <TypingIndicator labelId={typingLabelId} /> : null}
 
-            {showOpeningRow ? (
+            {openingVisible ? (
               <div className="flex w-full items-start gap-3">
                 <div
                   className="flex h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[#f5f3fc] shadow-sm ring-1 ring-[#e7e7f0]"
@@ -247,10 +227,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                 </div>
                 <AssistantBubbleShell>
                   <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                    {openingShown}
-                    {phase === "streaming" && openingVisibleLength < openingFull.length ? (
-                      <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-[#7c47e1]" aria-hidden />
-                    ) : null}
+                    {helloRaiseClaimOpeningMessage}
                   </p>
                 </AssistantBubbleShell>
               </div>
