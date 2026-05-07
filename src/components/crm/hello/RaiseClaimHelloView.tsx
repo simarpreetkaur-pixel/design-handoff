@@ -161,7 +161,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
   return (
     <div
       className={cn(
-        "relative flex min-h-[calc(100vh-72px)] w-full flex-col bg-[#fafafa]",
+        "relative flex h-[calc(100vh-72px)] w-full min-h-0 flex-col bg-[#fafafa]",
         className,
       )}
       aria-label="Raise a claim — Hello view"
@@ -172,13 +172,13 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
       <div
         className={cn(
-          "mx-auto flex w-full max-w-[1280px] flex-col px-8",
+          "mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-8",
           composerEnabled
             ? "pb-[max(40px,env(safe-area-inset-bottom))]"
             : "pb-[40px]",
         )}
       >
-        <div className="flex flex-col overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)]">
           <div className="flex shrink-0 items-center gap-4 border-b border-[#e7e7f0] bg-white px-6 py-4">
             <div className="min-w-0 flex-1">
               <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">
@@ -201,7 +201,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
           <div
             ref={listRef}
-            className="space-y-3 overflow-x-hidden px-6 py-6 [scrollbar-gutter:stable]"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-6 py-6 [scrollbar-gutter:stable]"
             aria-live="polite"
             aria-relevant="additions text"
           >
