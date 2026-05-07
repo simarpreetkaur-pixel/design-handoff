@@ -1,11 +1,14 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
-import { Send } from "lucide-react"
+import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
+import { Send, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { Customer } from "@/types/crm"
 import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
+import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import {
+  HELLO_BOT_REPLY_AFTER_USER_MS,
   HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS,
   HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS,
   helloRaiseClaimChoices,
@@ -35,7 +38,7 @@ export type RaiseClaimHelloViewProps = {
 function TypingIndicator({ labelId }: { labelId: string }) {
   return (
     <div
-      className="flex w-full items-start gap-3"
+      className="flex w-full items-start gap-2.5"
       role="status"
       aria-live="polite"
       aria-labelledby={labelId}
@@ -52,40 +55,26 @@ function TypingIndicator({ labelId }: { labelId: string }) {
           className="h-5 w-5 object-cover"
         />
       </div>
-      <div className="flex min-h-[44px] min-w-0 flex-1 items-center rounded-bl-[16px] rounded-br-[16px] rounded-tl-[2px] rounded-tr-[16px] border border-[#e7e7f0] bg-white px-3 py-2.5">
-        <span id={labelId} className="sr-only">
-          AI is typing
-        </span>
-        <span className="flex gap-1.5" aria-hidden>
-          <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s]" />
-          <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s] [animation-delay:150ms]" />
-          <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s] [animation-delay:300ms]" />
-        </span>
-      </div>
+      <Card className="min-w-0 flex-1 border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
+        <CardContent className="flex min-h-[44px] items-center p-3 pt-3">
+          <span id={labelId} className="sr-only">
+            AI is typing
+          </span>
+          <span className="flex gap-1.5" aria-hidden>
+            <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s]" />
+            <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s] [animation-delay:150ms]" />
+            <span className="size-1.5 animate-pulse rounded-full bg-[#b9a3ea] [animation-duration:1.1s] [animation-delay:300ms]" />
+          </span>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-/** Figma Assistant Chat bubble shell — border only, no heavy elevation (8515:12644). */
-function AssistantBubbleShell({
-  className,
-  children,
-}: {
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 flex-1 overflow-hidden rounded-bl-[16px] rounded-br-[16px] rounded-tl-[2px] rounded-tr-[16px] border border-[#e7e7f0] bg-white p-3",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
-
+/**
+ * Hello-view–only shell: full-width column + separate transcript model from Classic `AIChatPanel`.
+ * Chat bubble chrome matches Classic (Card, WorkflowOfferPick, user gradient bubble) for consistent UX.
+ */
 export function RaiseClaimHelloView({ customer, displayPhone, className }: RaiseClaimHelloViewProps) {
   const typingLabelId = useId()
   const listRef = useRef<HTMLDivElement>(null)
@@ -97,10 +86,10 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
   const [openingTyping, setOpeningTyping] = useState(true)
   const [openingVisible, setOpeningVisible] = useState(false)
   const [choicesVisible, setChoicesVisible] = useState(false)
+  const [choicesSpent, setChoicesSpent] = useState(false)
   const [messages, setMessages] = useState<HelloChatMessage[]>([])
   const [composerEnabled, setComposerEnabled] = useState(false)
   const [composerText, setComposerText] = useState("")
-  const [selectedChoice, setSelectedChoice] = useState<HelloRaiseClaimChoiceId | null>(null)
 
   useEffect(() => {
     const timeouts: number[] = []
@@ -156,7 +145,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [openingTyping, openingVisible, messages, choicesVisible, composerBottomReservePx])
+  }, [openingTyping, openingVisible, messages, choicesVisible, choicesSpent, composerBottomReservePx])
 
   const pushAssistant = (text: string) => {
     setMessages((prev) => [
@@ -165,17 +154,26 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
     ])
   }
 
-  const handleChoice = (choiceId: HelloRaiseClaimChoiceId) => {
-    setSelectedChoice(choiceId)
-    if (choiceId === "something_else") {
-      setComposerEnabled(true)
-      pushAssistant(helloRaiseClaimSomethingElseAck)
-      window.requestAnimationFrame(() => {
-        composerRef.current?.focus()
-      })
-      return
-    }
-    pushAssistant(helloRaiseClaimStubFollowUp[choiceId])
+  const handleOfferPick = (choiceId: HelloRaiseClaimChoiceId, userEchoLabel: string) => {
+    if (choicesSpent) return
+    setChoicesSpent(true)
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `hello-user-pick-${Date.now()}`, role: "user", text: userEchoLabel },
+    ])
+
+    window.setTimeout(() => {
+      if (choiceId === "something_else") {
+        setComposerEnabled(true)
+        pushAssistant(helloRaiseClaimSomethingElseAck)
+        window.requestAnimationFrame(() => {
+          composerRef.current?.focus()
+        })
+        return
+      }
+      pushAssistant(helloRaiseClaimStubFollowUp[choiceId])
+    }, HELLO_BOT_REPLY_AFTER_USER_MS)
   }
 
   const handleSendComposer = () => {
@@ -194,6 +192,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
   return (
     <div
+      data-omni-ai-surface="hello-raise-claim"
       className={cn(
         "relative flex h-[calc(100vh-72px)] w-full min-h-0 flex-col bg-[#fafafa]",
         className,
@@ -243,7 +242,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
 
           <div
             ref={listRef}
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-6 py-6 [scrollbar-gutter:stable]"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-4 py-4 [scrollbar-gutter:stable]"
             aria-live="polite"
             aria-relevant="additions text"
           >
@@ -254,7 +253,7 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
             {openingTyping ? <TypingIndicator labelId={typingLabelId} /> : null}
 
             {openingVisible ? (
-              <div className="flex w-full items-start gap-3">
+              <div className="flex w-full items-start gap-2.5">
                 <div
                   className="flex h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[#f5f3fc] shadow-sm ring-1 ring-[#e7e7f0]"
                   aria-hidden
@@ -267,17 +266,29 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                     className="h-5 w-5 object-cover"
                   />
                 </div>
-                <AssistantBubbleShell>
-                  <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                    {helloRaiseClaimOpeningMessage}
-                  </p>
-                </AssistantBubbleShell>
+                <Card className="min-w-0 flex-1 border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
+                  <CardContent className="space-y-3 p-3 pt-3">
+                    <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+                      {helloRaiseClaimOpeningMessage}
+                    </p>
+                    {choicesVisible ? (
+                      <WorkflowOfferPick
+                        options={helloRaiseClaimChoices.map((c) => ({
+                          key: c.id,
+                          label: c.label,
+                        }))}
+                        disabled={choicesSpent}
+                        onPick={(key, label) => handleOfferPick(key as HelloRaiseClaimChoiceId, label)}
+                      />
+                    ) : null}
+                  </CardContent>
+                </Card>
               </div>
             ) : null}
 
             {messages.map((message) =>
               message.role === "assistant" ? (
-                <div key={message.id} className="flex w-full items-start gap-3">
+                <div key={message.id} className="flex w-full items-start gap-2.5">
                   <div
                     className="flex h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[#f5f3fc] shadow-sm ring-1 ring-[#e7e7f0]"
                     aria-hidden
@@ -290,79 +301,34 @@ export function RaiseClaimHelloView({ customer, displayPhone, className }: Raise
                       className="h-5 w-5 object-cover"
                     />
                   </div>
-                  <AssistantBubbleShell>
-                    <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                      {message.text}
-                    </p>
-                  </AssistantBubbleShell>
+                  <Card className="min-w-0 flex-1 border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
+                    <CardContent className="p-3 pt-3">
+                      <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+                        {message.text}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
               ) : (
-                <div key={message.id} className="flex w-full justify-end pl-8">
-                  <div className="max-w-[min(100%,520px)] rounded-2xl rounded-tr-sm bg-[#f0ecfc] px-3 py-2">
-                    <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                      {message.text}
-                    </p>
+                <div key={message.id} className="flex w-full justify-end">
+                  <div className="flex w-full max-w-[90%] items-start justify-end gap-2.5">
+                    <Card className="min-w-0 border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]">
+                      <CardContent className="p-3 pt-3">
+                        <p className="text-left font-euclid text-[13px] font-medium leading-5 text-white">
+                          {message.text}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <div
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#e7e7f0] bg-[#7c47e1]"
+                      aria-hidden
+                    >
+                      <User className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
+                    </div>
                   </div>
                 </div>
               ),
             )}
-
-            {choicesVisible ? (
-              <div
-                className="flex w-full flex-col gap-3 pt-1 opacity-100 transition-opacity duration-300"
-                role="group"
-                aria-label="How should the customer proceed?"
-                aria-expanded={choicesVisible}
-              >
-                <div className="flex w-full items-start gap-3">
-                  <div
-                    className="flex h-5 w-5 shrink-0 overflow-hidden rounded-full bg-[#f5f3fc] shadow-sm ring-1 ring-[#e7e7f0]"
-                    aria-hidden
-                  >
-                    <img
-                      src="/icons/ai-companion-message.png"
-                      alt=""
-                      width={20}
-                      height={20}
-                      className="h-5 w-5 object-cover"
-                    />
-                  </div>
-                  <AssistantBubbleShell className="flex flex-col gap-3">
-                    {helloRaiseClaimChoices.map((c) => {
-                      const selected = selectedChoice === c.id
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => handleChoice(c.id)}
-                          disabled={selectedChoice !== null}
-                          className={cn(
-                            "flex w-full items-start gap-2 rounded-lg bg-[#f8f7fc] p-2 text-left transition-colors",
-                            "border border-transparent hover:border-[#e7e7f0]",
-                            selected && "border-[#e7e7f0] ring-1 ring-[#d8d6ea]",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "mt-0.5 inline-flex size-5 shrink-0 rounded-full border border-[#d8d6ea] bg-white",
-                              selected && "border-[#7c47e1] bg-[#7c47e1]",
-                            )}
-                            aria-hidden
-                          >
-                            {selected ? (
-                              <span className="m-auto block size-2 rounded-full bg-white" />
-                            ) : null}
-                          </span>
-                          <span className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                            {c.label}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </AssistantBubbleShell>
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

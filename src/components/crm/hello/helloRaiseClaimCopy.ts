@@ -16,6 +16,9 @@ export const HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS = 720
 /** Pause after opener appears, before choice block appears. */
 export const HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS = 520
 
+/** Delay before bot follow-up after user echoes a radio pick (matches Classic AIChatPanel cadence). */
+export const HELLO_BOT_REPLY_AFTER_USER_MS = 420
+
 export type HelloRaiseClaimChoiceId = "self_serve" | "agent_behalf" | "something_else"
 
 /** Choice labels — exact from Figma (8515:12957, 8515:12963, 8515:12970). */
