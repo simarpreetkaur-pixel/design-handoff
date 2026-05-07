@@ -3,7 +3,12 @@ import { useMemo, useState, useRef, useCallback, useEffect } from "react"
 import { flushSync } from "react-dom"
 
 import { useCall } from "@/context/CallContext"
-import { mockCustomers, sunilGuptaGmcEditNameJtbd, sunilGuptaSwiftDzireEditNameJtbd } from "@/data/mockCustomers"
+import {
+  mockCustomers,
+  rajKapoorRaiseClaimNexonJtbd,
+  sunilGuptaGmcEditNameJtbd,
+  sunilGuptaSwiftDzireEditNameJtbd,
+} from "@/data/mockCustomers"
 import { buildAiCompanionWelcomeMessage } from "@/lib/aiCompanionWelcome"
 import { canonicalOngoingJtbdTitle } from "@/lib/canonicalOngoingLabels"
 import { createChatEndorsementJtbd } from "@/lib/chatCreatedEndorsementJtbd"
@@ -262,14 +267,33 @@ export function CRMView() {
     }
     const base = data.jtbds
     let list = [...base]
+    const demoRaiseClaimId = rajKapoorRaiseClaimNexonJtbd.id
+
+    if (
+      customerId === "raj-kapoor" &&
+      resolvedChatMockCase === "raj_raise_claim_nexon_gmc" &&
+      !chatCreatedRaiseClaimJtbd &&
+      !list.some((j) => j.id === demoRaiseClaimId)
+    ) {
+      list = [rajKapoorRaiseClaimNexonJtbd, ...list]
+    }
+
     if (chatCreatedEndorsementJtbd && !list.some((j) => j.id === chatCreatedEndorsementJtbd.id)) {
       list = [...list, chatCreatedEndorsementJtbd]
     }
     if (chatCreatedRaiseClaimJtbd && !list.some((j) => j.id === chatCreatedRaiseClaimJtbd.id)) {
+      list = list.filter((j) => j.id !== demoRaiseClaimId)
       list = [...list, chatCreatedRaiseClaimJtbd]
     }
     return list
-  }, [customerId, sunilEndorsementChoice, data, chatCreatedEndorsementJtbd, chatCreatedRaiseClaimJtbd])
+  }, [
+    customerId,
+    sunilEndorsementChoice,
+    data,
+    chatCreatedEndorsementJtbd,
+    chatCreatedRaiseClaimJtbd,
+    resolvedChatMockCase,
+  ])
 
   const effectiveInitialJtbdId = useMemo(() => {
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "swift") {
@@ -278,8 +302,11 @@ export function CRMView() {
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "gmc") {
       return sunilGuptaGmcEditNameJtbd.id
     }
+    if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc") {
+      return crmDemo?.initialSelectedJtbdId ?? rajKapoorRaiseClaimNexonJtbd.id
+    }
     return crmDemo?.initialSelectedJtbdId
-  }, [customerId, sunilEndorsementChoice, crmDemo?.initialSelectedJtbdId])
+  }, [customerId, sunilEndorsementChoice, crmDemo?.initialSelectedJtbdId, resolvedChatMockCase])
 
   const mergedInitialJtbdId = useMemo(() => {
     if (chatWorkflowPreferredJtbdId) return chatWorkflowPreferredJtbdId

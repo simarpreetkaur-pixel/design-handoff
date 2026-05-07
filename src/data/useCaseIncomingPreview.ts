@@ -51,13 +51,10 @@ export function mergeUseCaseIncomingPreview(
       ...vm,
       ongoingIssue: ONGOING_RAISE_CLAIM,
       vehicle: "Tata Nexon",
-      summaryLines: [
-        "Opening context: register a motor claim on Tata Nexon (comprehensive).",
-        "Customer also holds 1 ACKO GMC policy — note if health / hospitalisation comes up.",
-      ],
+      summaryLines: ["", ""],
       showCallVehicle: true,
       showLastCall: false,
-      showQuickSummary: true,
+      showQuickSummary: false,
     }
   }
 
