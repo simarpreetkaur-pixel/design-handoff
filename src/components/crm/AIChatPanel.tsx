@@ -479,20 +479,20 @@ function buildBotReply(
   }
 
   if (workflowChatContext) {
-    if (
-      parseRaiseClaimChatIntent(userText) &&
-      workflowChatContext.ongoingRaiseClaimWorkflowPresent
-    ) {
-      return {
-        contextLabel: "Raise claim",
-        text: "A Raise a Claim workflow is already open on the left. Open the Ongoing JTBD tab and follow the Agent next actions there—you don’t need to create another workflow from chat unless you’re handling a different policy.",
-      }
-    }
     if (parseRaiseClaimChatIntent(userText)) {
       const rb = buildRaiseClaimWizardBootstrap(
         workflowChatContext.activePolicies,
         workflowChatContext.customerName.trim() || "the customer",
       )
+      if (
+        workflowChatContext.ongoingRaiseClaimWorkflowPresent &&
+        (rb.entry === "policy_pick" || rb.entry === "workflow_pick")
+      ) {
+        return {
+          contextLabel: "Raise claim",
+          text: "A Raise a Claim workflow is already open on the left. Open the Ongoing JTBD tab and follow the Agent next actions there—you don’t need to start another from chat unless this is for a different policy.",
+        }
+      }
       if (rb.entry === "no_policies") {
         return {
           contextLabel: "Raise claim",
