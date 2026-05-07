@@ -16,6 +16,7 @@ import { createChatRaiseClaimJtbd } from "@/lib/chatCreatedRaiseClaimJtbd"
 import type { EndorsementEditKind, JTBD, JTBDType, Policy, Customer } from "@/types/crm"
 import type { CrmDemoState } from "@/types/navigation"
 import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
+import { RaiseClaimHelloView } from "@/components/crm/hello/RaiseClaimHelloView"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
 import { JTBDPanel } from "@/components/crm/JTBDPanel"
 import { AIChatPanel, type AIChatCaseContext, type ChatMockCase } from "@/components/crm/AIChatPanel"
@@ -777,7 +778,7 @@ export function CRMView() {
       </div>
 
       {isRajKapoorRaiseClaimFlow && rajKapoorCrmUiVariant === "hello" ? (
-        <div className="relative h-[calc(100vh-72px)] w-full bg-[#fafafa]" aria-label="Hello CRM view" />
+        <RaiseClaimHelloView customer={profileCustomer} displayPhone={displayLookupPhone} />
       ) : (
         <>
       {/* Body — split CRM vs full-bleed AI (unknown JTBD iteration, phase 1) */}
