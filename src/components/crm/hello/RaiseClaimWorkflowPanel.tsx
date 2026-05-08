@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from "react"
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import { Check, X } from "lucide-react"
 
 import { cn, scrollElementWithinContainer } from "@/lib/utils"
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import type { Customer, Policy } from "@/types/crm"
 import { RaiseFnolPanel } from "@/components/crm/RaiseFnolPanel"
 import { RequestRcCopyForm } from "@/components/crm/RequestRcCopyForm"
+import { RequestRcWorkflowFollowup } from "@/components/crm/RequestRcWorkflowFollowup"
+import { useRequestRcWorkflowStep } from "@/components/crm/useRequestRcWorkflowStep"
 import {
   Accordion,
   AccordionContent,
@@ -25,7 +27,7 @@ export type RaiseClaimWorkflowPanelProps = {
   policy: Policy
   /** Scroll parent for step focus — avoids `scrollIntoView` scrolling the whole page. */
   scrollContainerRef?: RefObject<HTMLElement | null>
-  /** After RC email send succeeds (demo). Called on every send, including resends. */
+  /** After RC request is dispatched (demo). Fires on Send, not on document approval. */
   onRcEmailSent?: () => void
   /** Collapses the split workflow pane (Hello view). */
   onClose?: () => void
@@ -69,9 +71,21 @@ export function RaiseClaimWorkflowPanel({
   onFnolComplete,
 }: RaiseClaimWorkflowPanelProps) {
   const [phase, setPhase] = useState<WorkflowPhase>("step1_rc")
-  const [rcSent, setRcSent] = useState(false)
 
   const [openStep, setOpenStep] = useState<string>(() => phaseToOpenStep("step1_rc"))
+
+  const onRequestDispatched = useCallback(() => {
+    onRcEmailSent?.()
+  }, [onRcEmailSent])
+
+  const onDocumentsApproved = useCallback(() => {
+    setPhase("step2_fnol")
+  }, [])
+
+  const rc = useRequestRcWorkflowStep({
+    onRequestDispatched,
+    onDocumentsApproved,
+  })
 
   const itemRequestRcRef = useRef<HTMLDivElement>(null)
   const itemRaiseClaimRef = useRef<HTMLDivElement>(null)
@@ -80,16 +94,8 @@ export function RaiseClaimWorkflowPanel({
     setOpenStep(phaseToOpenStep(phase))
   }, [phase])
 
-  const handleRcSubmit = () => {
-    if (!rcSent) {
-      setRcSent(true)
-      setPhase("step2_fnol")
-    }
-    onRcEmailSent?.()
-  }
-
-  const step1Done = rcSent
-  /** Step 2 is always visible so CX sees what comes next; interaction waits until RC is sent. */
+  const step1Done = rc.documentsApproved
+  /** Step 2 is always visible so CX sees what comes next; interaction waits until documents are approved. */
   const step2Locked = !step1Done
   /** Collapsed header for step 1 while Raise claim is active. */
   const compactPriorSteps = phase === "step2_fnol"
@@ -180,10 +186,12 @@ export function RaiseClaimWorkflowPanel({
             <RequestRcCopyForm
               compact
               defaultToEmail={customer.email}
+              defaultToPhone={customer.phone}
               footerTone="muted"
-              disabled={false}
-              onSubmit={handleRcSubmit}
+              disabled={rc.formDisabled}
+              onSubmit={rc.dispatchRequest}
             />
+            <RequestRcWorkflowFollowup phase={rc.followupPhase} onApprove={rc.approveDocuments} />
           </AccordionContent>
         </AccordionItem>
 

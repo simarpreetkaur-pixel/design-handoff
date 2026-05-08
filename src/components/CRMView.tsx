@@ -5,7 +5,9 @@ import { flushSync } from "react-dom"
 import { useCall } from "@/context/CallContext"
 import {
   mockCustomers,
+  rajKapoorClaimStatusNexonJtbd,
   rajKapoorRaiseClaimNexonJtbd,
+  rajKapoorRoadSideAssistanceJtbd,
   sunilGuptaGmcEditNameJtbd,
   sunilGuptaSwiftDzireEditNameJtbd,
 } from "@/data/mockCustomers"
@@ -18,6 +20,8 @@ import type { CrmDemoState } from "@/types/navigation"
 import { CustomerProfileCard } from "@/components/crm/CustomerProfileCard"
 import { EditPolicyHelloView } from "@/components/crm/hello/EditPolicyHelloView"
 import { RaiseClaimHelloView } from "@/components/crm/hello/RaiseClaimHelloView"
+import { RoadsideAssistanceHelloView } from "@/components/crm/hello/RoadsideAssistanceHelloView"
+import { ClaimStatusHelloView } from "@/components/crm/hello/ClaimStatusHelloView"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
 import { JTBDPanel } from "@/components/crm/JTBDPanel"
 import { AIChatPanel, type AIChatCaseContext, type ChatMockCase } from "@/components/crm/AIChatPanel"
@@ -35,6 +39,10 @@ import { Pencil, PhoneForwarded, Search, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { performCustomerSearch } from "@/utils/customerSearch"
+import {
+  SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
+  SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+} from "@/data/sunilEditPolicyUseCases"
 
 function UnknownCallerResolutionView({
   onCustomerResolved,
@@ -155,11 +163,11 @@ export function CRMView() {
   /** Unknown JTBD iteration — full-bleed until split unlock (workflow create/guide, or KYC / something-else). */
   const [unknownJtbdSplitUnlocked, setUnknownJtbdSplitUnlocked] = useState(false)
 
-  /** Raj Kapoor cold-inbound / raise-claim demo — alternate shell (Hello view placeholder). */
-  const [rajKapoorCrmUiVariant, setRajKapoorCrmUiVariant] = useState<"classic" | "hello">("classic")
+  /** Raj Kapoor flows with Hello shell — default Hello when that journey is active. */
+  const [rajKapoorCrmUiVariant, setRajKapoorCrmUiVariant] = useState<"classic" | "hello">("hello")
 
-  /** Sunil endorsement Edit Policy — Hello shell toggle (same placement as Raj Kapoor raise-claim). */
-  const [sunilGuptaCrmUiVariant, setSunilGuptaCrmUiVariant] = useState<"classic" | "hello">("classic")
+  /** Sunil Edit Policy / Unknown reason — default Hello when that journey is active. */
+  const [sunilGuptaCrmUiVariant, setSunilGuptaCrmUiVariant] = useState<"classic" | "hello">("hello")
 
   /** Sunil endorsement demo — AI chat policy chips reveal JTBD */
   const [sunilEndorsementChoice, setSunilEndorsementChoice] = useState<"swift" | "gmc" | null>(null)
@@ -174,7 +182,9 @@ export function CRMView() {
   const chatWorkflowTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   /** Ayush renewal — Transfer to Presales opens Ozontel-style strip */
   const [ozontelPresalesTransferOpen, setOzontelPresalesTransferOpen] = useState(false)
-  
+  /** Raj RSA — Ozontel transfer strip (same pattern as Presales) */
+  const [ozontelRsaTransferOpen, setOzontelRsaTransferOpen] = useState(false)
+
   const DEFAULT_CHAT_WIDTH = Math.round(334 * 1.1)
   const MIN_CHAT_WIDTH = DEFAULT_CHAT_WIDTH
   const MAX_CHAT_WIDTH = Math.floor(DEFAULT_CHAT_WIDTH * 1.3)
@@ -183,7 +193,7 @@ export function CRMView() {
     if (crmDemo?.chatMockCase) return crmDemo.chatMockCase
     if (customerId === "anita-sharma") return "kyc_issuance"
     if (customerId === "raj-kapoor") return "raj_cold_nexon"
-    if (customerId === "sunil-gupta") return "sunil_endorsement_edit_name"
+    if (customerId === "sunil-gupta") return SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK
     return "default"
   }, [crmDemo?.chatMockCase, customerId])
 
@@ -193,8 +203,33 @@ export function CRMView() {
   const isRajKapoorRaiseClaimFlow =
     customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc"
 
-  const isSunilEditPolicyHelloFlow =
-    customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_endorsement_edit_name"
+  const isRajKapoorRsaFlow =
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_road_side_assistance"
+
+  const isRajKapoorClaimStatusFlow =
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon"
+
+  const isSunilEditPolicyHelloFlowCase3 =
+    customerId === "sunil-gupta" && resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK
+  const isSunilEditPolicyHelloFlowCase4 =
+    customerId === "sunil-gupta" && resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK
+  const isSunilEditPolicyHelloFlow = isSunilEditPolicyHelloFlowCase3 || isSunilEditPolicyHelloFlowCase4
+
+  /** Use case 3 only — Hello inbound copy + implied Swift motor policy (does not apply to Unknown reason / homepage Sunil default). */
+  const sunilEditPolicyUc3HelloInbound = useMemo(() => {
+    if (!isSunilEditPolicyHelloFlowCase3) return undefined
+    if (crmDemo?.initialSelectedJtbdId !== sunilGuptaSwiftDzireEditNameJtbd.id) return undefined
+    const vehicleLabel =
+      crmDemo.callContextOverride?.vehicle?.trim() || "Maruti Suzuki Swift Dzire 2024"
+    return {
+      vehicleLabel,
+      impliedMotorPolicyId: "policy-sunil-swift",
+    }
+  }, [
+    isSunilEditPolicyHelloFlowCase3,
+    crmDemo?.initialSelectedJtbdId,
+    crmDemo?.callContextOverride?.vehicle,
+  ])
 
   const handleUnknownJtbdSplitUnlock = useCallback(() => {
     const commit = () => {
@@ -253,6 +288,7 @@ export function CRMView() {
     setSelectedJtbd(null)
     setSunilEndorsementChoice(null)
     setOzontelPresalesTransferOpen(false)
+    setOzontelRsaTransferOpen(false)
     setChatCreatedEndorsementJtbd(null)
     setChatCreatedRaiseClaimJtbd(null)
     setChatWorkflowPreferredJtbdId(undefined)
@@ -262,12 +298,35 @@ export function CRMView() {
     setClaimHandlerModalOpen(false)
     setRaiseClaimFocusRequest(null)
     setUnknownJtbdSplitUnlocked(false)
-    setRajKapoorCrmUiVariant("classic")
-    setSunilGuptaCrmUiVariant("classic")
-  }, [customerId])
+
+    const rajHelloDefault =
+      customerId === "raj-kapoor" &&
+      (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+        resolvedChatMockCase === "raj_road_side_assistance" ||
+        resolvedChatMockCase === "raj_cold_nexon")
+    setRajKapoorCrmUiVariant(rajHelloDefault ? "hello" : "classic")
+
+    const sunilHelloDefault =
+      customerId === "sunil-gupta" &&
+      (resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK ||
+        resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK)
+    setSunilGuptaCrmUiVariant(sunilHelloDefault ? "hello" : "classic")
+  }, [customerId, resolvedChatMockCase])
+
+  /** Use case 3 (drawer) — Swift Dzire Edit Policy JTBD is already active in Classic view. */
+  useEffect(() => {
+    if (crmDemo?.initialSelectedJtbdId !== sunilGuptaSwiftDzireEditNameJtbd.id) return
+    setSunilEndorsementChoice("swift")
+  }, [customerId, crmDemo?.initialSelectedJtbdId])
 
   const panelJtbds = useMemo(() => {
     if (!data) return []
+    if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_road_side_assistance") {
+      return [rajKapoorRoadSideAssistanceJtbd]
+    }
+    if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon") {
+      return [rajKapoorClaimStatusNexonJtbd]
+    }
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "swift") {
       return [sunilGuptaSwiftDzireEditNameJtbd]
     }
@@ -305,6 +364,9 @@ export function CRMView() {
   ])
 
   const effectiveInitialJtbdId = useMemo(() => {
+    if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_road_side_assistance") {
+      return rajKapoorRoadSideAssistanceJtbd.id
+    }
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "swift") {
       return sunilGuptaSwiftDzireEditNameJtbd.id
     }
@@ -313,6 +375,9 @@ export function CRMView() {
     }
     if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc") {
       return crmDemo?.initialSelectedJtbdId ?? rajKapoorRaiseClaimNexonJtbd.id
+    }
+    if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon") {
+      return crmDemo?.initialSelectedJtbdId ?? rajKapoorClaimStatusNexonJtbd.id
     }
     return crmDemo?.initialSelectedJtbdId
   }, [customerId, sunilEndorsementChoice, crmDemo?.initialSelectedJtbdId, resolvedChatMockCase])
@@ -382,6 +447,17 @@ export function CRMView() {
   /** Ayush renewal — Transfer in Ozontel strip ends session and shows success on home. */
   const handleAyushPresalesTransferComplete = useCallback(() => {
     setOzontelPresalesTransferOpen(false)
+    callState.endCall()
+    navigate("/", { state: { omniCallToast: "transfer_success" as const } })
+  }, [callState, navigate])
+
+  /** RSA demo — Ozontel strip: Transfer ends call and returns home with success toast. */
+  const handleRsaTransferOzontelOpen = useCallback(() => {
+    setOzontelRsaTransferOpen(true)
+  }, [])
+
+  const handleRsaTransferComplete = useCallback(() => {
+    setOzontelRsaTransferOpen(false)
     callState.endCall()
     navigate("/", { state: { omniCallToast: "transfer_success" as const } })
   }, [callState, navigate])
@@ -734,7 +810,7 @@ export function CRMView() {
             OMNI Support
           </h1>
           <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-3">
-            {isRajKapoorRaiseClaimFlow || isSunilEditPolicyHelloFlow ? (
+            {isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow || isSunilEditPolicyHelloFlow ? (
               <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5">
                 <span className="hidden whitespace-nowrap font-euclid text-xs font-medium text-[#5b5675] sm:inline">
                   Classic view
@@ -743,13 +819,13 @@ export function CRMView() {
                   type="button"
                   role="switch"
                   aria-checked={
-                    isRajKapoorRaiseClaimFlow
+                    isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow
                       ? rajKapoorCrmUiVariant === "hello"
                       : sunilGuptaCrmUiVariant === "hello"
                   }
                   aria-label="Toggle between Classic view and Hello view"
                   onClick={() => {
-                    if (isRajKapoorRaiseClaimFlow) {
+                    if (isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow) {
                       setRajKapoorCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
                     }
                     if (isSunilEditPolicyHelloFlow) {
@@ -758,8 +834,9 @@ export function CRMView() {
                   }}
                   className={cn(
                     "relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/40",
-                    (isRajKapoorRaiseClaimFlow ? rajKapoorCrmUiVariant : sunilGuptaCrmUiVariant) ===
-                      "hello"
+                    (isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow
+                      ? rajKapoorCrmUiVariant
+                      : sunilGuptaCrmUiVariant) === "hello"
                       ? "bg-[#7c47e1]"
                       : "bg-[#d8d6ea]",
                   )}
@@ -767,8 +844,9 @@ export function CRMView() {
                   <span
                     className={cn(
                       "pointer-events-none absolute top-0.5 left-0.5 block h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out",
-                      (isRajKapoorRaiseClaimFlow ? rajKapoorCrmUiVariant : sunilGuptaCrmUiVariant) ===
-                        "hello"
+                      (isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow
+                        ? rajKapoorCrmUiVariant
+                        : sunilGuptaCrmUiVariant) === "hello"
                         ? "translate-x-5"
                         : "translate-x-0",
                     )}
@@ -814,6 +892,36 @@ export function CRMView() {
             className="h-full min-h-0 overflow-hidden"
           />
         </div>
+      ) : isRajKapoorClaimStatusFlow && rajKapoorCrmUiVariant === "hello" ? (
+        <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+          <ClaimStatusHelloView
+            customer={profileCustomer}
+            jtbd={rajKapoorClaimStatusNexonJtbd}
+            motorPolicy={raiseClaimHelloPolicy}
+            activePolicies={activePolicies}
+            inactivePolicies={inactivePolicies}
+            displayPhone={displayLookupPhone}
+            onAppointmentScheduled={handleConfirmClaimHandlerAppointment}
+            onHelloToast={(message) => setCrmToast(message)}
+            className="h-full min-h-0 overflow-hidden"
+          />
+        </div>
+      ) : isRajKapoorRsaFlow && rajKapoorCrmUiVariant === "hello" ? (
+        <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+          <RoadsideAssistanceHelloView
+            customer={profileCustomer}
+            activePolicies={activePolicies}
+            inactivePolicies={inactivePolicies}
+            displayPhone={displayLookupPhone}
+            vehicleLabel={
+              raiseClaimHelloPolicy.vehicle?.trim() ||
+              profileCustomer.callContext.vehicle?.trim() ||
+              "Tata Nexon"
+            }
+            onTransferClick={handleRsaTransferOzontelOpen}
+            className="h-full min-h-0 overflow-hidden"
+          />
+        </div>
       ) : isSunilEditPolicyHelloFlow && sunilGuptaCrmUiVariant === "hello" ? (
         <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
           <EditPolicyHelloView
@@ -821,6 +929,7 @@ export function CRMView() {
             pickablePolicies={activePolicies}
             inactivePolicies={inactivePolicies}
             displayPhone={displayLookupPhone}
+            inboundEditPolicyContext={sunilEditPolicyUc3HelloInbound}
             className="h-full min-h-0 overflow-hidden"
           />
         </div>
@@ -921,9 +1030,14 @@ export function CRMView() {
                         onPresalesTransferClick={
                           customerId === "ayush-singhal" ? handlePresalesTransferFromJtbd : undefined
                         }
+                        onRsaTransferOzontelOpen={
+                          isRajKapoorRsaFlow ? handleRsaTransferOzontelOpen : undefined
+                        }
                         customerEmailForRcRequest={data?.customer.email}
+                        customerPhoneForRcRequest={data?.customer.phone}
                         customerDisplayName={profileCustomer.name}
                         openRequestRcFromFabNonce={requestRcFabNonce}
+                        showAgentAskInChat={isRajKapoorRsaFlow ? false : undefined}
                     />
                   </div>
                 </div>
@@ -940,7 +1054,7 @@ export function CRMView() {
                     />
                   </div>
                 ) : null}
-                {!unknownJtbdFullBleed && !quickActionDetail ? (
+                {!unknownJtbdFullBleed && !quickActionDetail && !isRajKapoorRsaFlow ? (
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-end p-6">
                     <div className="pointer-events-auto">
                       <QuickActionsButton
@@ -1095,6 +1209,33 @@ export function CRMView() {
                   type="button"
                   className="h-11 w-full gap-2 bg-[#7c47e1] font-euclid text-sm font-semibold text-white hover:bg-[#7c47e1]/90"
                   onClick={handleAyushPresalesTransferComplete}
+                >
+                  <PhoneForwarded className="h-4 w-4 shrink-0" aria-hidden />
+                  Transfer
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {ozontelRsaTransferOpen && data?.customer ? (
+          <div
+            className="fixed bottom-24 left-6 z-[65] w-[min(100vw-3rem,312px)] overflow-hidden rounded-lg border border-[#e7e7f0] bg-white shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]"
+            role="dialog"
+            aria-label="Ozontel RSA transfer"
+          >
+            <div className="flex h-[46px] items-center border-b border-[#e7e7f0] bg-white px-3">
+              <h3 className="text-[18px] font-bold leading-[34px] text-black">Ozontel</h3>
+            </div>
+            <div className="space-y-4 p-4">
+              <p className="font-euclid text-sm leading-5 text-[#36354c]">
+                Transfer this call to the RSA team for roadside assistance.
+              </p>
+              <div className="flex">
+                <Button
+                  type="button"
+                  className="h-11 w-full gap-2 bg-[#7c47e1] font-euclid text-sm font-semibold text-white hover:bg-[#7c47e1]/90"
+                  onClick={handleRsaTransferComplete}
                 >
                   <PhoneForwarded className="h-4 w-4 shrink-0" aria-hidden />
                   Transfer

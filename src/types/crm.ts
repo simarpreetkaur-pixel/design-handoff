@@ -73,6 +73,11 @@ export interface JTBD {
     /** When true, section heading + icon sit above bullets; default is heading and bullets in one row. */
     stackHeaderWithBullets?: boolean
   }
+  /**
+   * Hello / incoming strip — one-line agent-facing summary shown next to call context
+   * (reason + vehicle). Optional; Classic rail ignores it.
+   */
+  openingQuickSummary?: string
   /** Optional custom prefill for "Ask in chat" specific to this JTBD */
   askInChatPrefill?: string
   /** Optional “Related SOPs to this case” block (below quick related actions). */

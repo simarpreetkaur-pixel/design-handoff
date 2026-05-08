@@ -27,6 +27,11 @@ import { buildRaiseClaimWizardBootstrap, parseRaiseClaimChatIntent } from "@/lib
 import { RaiseClaimChatGuidanceSection } from "@/components/crm/RaiseClaimGuidanceUI"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
 import { cn } from "@/lib/utils"
+import {
+  SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
+  SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+} from "@/data/sunilEditPolicyUseCases"
+import { helloEditPolicyWhatToUpdatePrompt } from "@/components/crm/hello/helloEditPolicyCopy"
 
 function customerFirstNameOrFull(full: string): string {
   const t = full.trim()
@@ -97,7 +102,11 @@ export type ChatMockCase =
   | "raj_cold_nexon"
   /** Raj Kapoor — raise claim for Tata Nexon + GMC policy context (nav “Raise a claim”) */
   | "raj_raise_claim_nexon_gmc"
+  /** Raj Kapoor — Road Side Assistance (drawer #4); transfer-only agent path. */
+  | "raj_road_side_assistance"
   | "sunil_endorsement_edit_name"
+  /** Sunil — Unknown reason (drawer #5); fork of UC3 chat behavior (separate branches in {@link buildBotReply}). */
+  | "sunil_endorsement_unknown_reason"
   | "unknown_jtbd_iteration"
 
 interface AIChatPanelProps {
@@ -411,7 +420,32 @@ function buildBotReply(
 ): BotReplyPayload {
   const q = userText.toLowerCase()
 
-  if (chatMockCase === "sunil_endorsement_edit_name") {
+  if (chatMockCase === "raj_road_side_assistance") {
+    return {
+      contextLabel: "Road Side Assistance",
+      text: "Use Agent’s next actions on the left and tap **Transfer call to RSA team** to hand off to the RSA queue. That’s the only step needed for this journey in OMNI (demo).",
+    }
+  }
+
+  if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK) {
+    const editNameIntent =
+      /\b(edit name|name edit|endorsement name|name correction|correct spelling|change name on policy|change name|update name|name on policy|spelling)\b/i.test(
+        userText,
+      ) ||
+      (q.includes("name") && (q.includes("policy") || q.includes("endorsement")))
+    if (editNameIntent) {
+      return {
+        contextLabel: "Which policy?",
+        text: "Which policy are you referring to?",
+        policyChoices: [
+          { key: "swift", label: "Swift Dzire" },
+          { key: "gmc", label: "GMC policy" },
+        ],
+      }
+    }
+  }
+
+  if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK) {
     const editNameIntent =
       /\b(edit name|name edit|endorsement name|name correction|correct spelling|change name on policy|change name|update name|name on policy|spelling)\b/i.test(
         userText,
@@ -507,7 +541,7 @@ function buildBotReply(
       if (bootstrap.entry === "edit_pick") {
         return {
           contextLabel: "Edit Policy",
-          text: "Got it. What should we update on this policy?",
+          text: helloEditPolicyWhatToUpdatePrompt,
           endorsementWizard: {
             phase: "edit_pick",
             policy: bootstrap.policy,
@@ -652,7 +686,24 @@ function buildBotReply(
     }
   }
 
-  if (chatMockCase === "sunil_endorsement_edit_name") {
+  if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK) {
+    return {
+      contextLabel: "Edit name",
+      text: "Start here:",
+      steps: [
+        {
+          title: "Clarify",
+          detail: "Confirm they need a name correction or spelling update on documents.",
+        },
+        {
+          title: "Narrow policy",
+          detail: "Customer holds Swift Dzire motor + ACKO GMC — pick the right policy before creating the workflow.",
+        },
+      ],
+    }
+  }
+
+  if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK) {
     return {
       contextLabel: "Edit name",
       text: "Start here:",
@@ -1422,7 +1473,7 @@ export function AIChatPanel({
                                       id: `b-ew-${Date.now()}`,
                                       role: "bot",
                                       contextLabel: "Edit Policy",
-                                      text: "Got it. What should we update on this policy?",
+                                      text: helloEditPolicyWhatToUpdatePrompt,
                                       endorsementWizard: {
                                         phase: "edit_pick",
                                         policy,

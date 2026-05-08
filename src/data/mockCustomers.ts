@@ -355,6 +355,102 @@ export const rajKapoorRaiseClaimNexonJtbd: JTBD = {
     "What should I verify on Tata Nexon policy DL 05 XY 9012 before raising this claim on behalf of the customer?",
 }
 
+/** Drawer #4 — Road Side Assistance; single handoff action to RSA queue. */
+export const rajKapoorRoadSideAssistanceJtbd: JTBD = {
+  id: "jtbd-raj-nexon-rsa",
+  type: "claim",
+  title: "Road Side Assistance",
+  vehicle: "Tata Nexon 2025",
+  isActive: true,
+  status: [],
+  agentActions: [
+    {
+      id: "raj-rsa-transfer-1",
+      step: 1,
+      description:
+        "Customer needs roadside assistance. Warm-transfer the call to the RSA specialist queue so they can coordinate breakdown support.",
+      cta: "Transfer call to RSA team",
+      completed: false,
+    },
+  ],
+  quickActions: [],
+  askInChatPrefill: "",
+}
+
+/** UC2 — Claim status (Raj · Tata Nexon): timeline + previous context for Classic JTBD panel & Hello chat. */
+export const rajKapoorClaimStatusNexonJtbd: JTBD = {
+  id: "jtbd-raj-nexon-claim-status",
+  type: "claim",
+  title: "Claim status",
+  vehicle: "Tata Nexon 2025",
+  isActive: true,
+  openingQuickSummary:
+    "Active Nexon claim — repair is blocked until a preferred garage is confirmed in the app; customer is calling for a status update.",
+  aiSummary: {
+    bullets: [
+      "Last contact: customer could not finish preferred garage selection in the app after claim intimation.",
+      "Claim is active — repair authorisation is blocked until a garage is confirmed.",
+    ],
+    sectionHeading: "Previous summary",
+    headerIconVariant: "ai_summary",
+    stackHeaderWithBullets: true,
+    detailedSummaryTimeline: [
+      {
+        title: "2 Feb'26, 14:22 — Arjun Mehta (CX)",
+        detail:
+          "Raj intimated a rear bumper claim after a parking scrape. FNOL completed; he asked whether OEM parts were mandatory. Agent confirmed cashless at network garages and shared how to upload photos.",
+      },
+      {
+        title: "4 Feb'26, 09:05 — Priya Nair (CX)",
+        detail:
+          "Follow-up on garage shortlist — customer could not see preferred garages in-app. Agent walked through the app path and sent an ACKO Alert with a deep link. Garage was still not confirmed at end of call.",
+      },
+    ],
+  },
+  status: [
+    {
+      step: "Claim intimated",
+      state: "completed",
+      date: "2 Feb'26",
+    },
+    {
+      step: "Photo / document review",
+      state: "completed",
+      date: "3 Feb'26",
+    },
+    {
+      step: "Garage shortlist",
+      state: "current",
+      date: "4 Feb'26",
+      warning: "Preferred garage not selected yet — repair cannot progress.",
+      calloutMeta: { label: "Action required from:", value: "Raj Kapoor" },
+    },
+    {
+      step: "Repair authorisation",
+      state: "pending",
+    },
+  ],
+  agentActions: [
+    {
+      id: "raj-cs-1",
+      step: 1,
+      description: "Walk the customer through garage selection in the ACKO app or send an ACKO Alert with the claim deep link.",
+      cta: "Send ACKO Alert",
+      completed: false,
+    },
+    {
+      id: "raj-cs-2",
+      step: 2,
+      description: "If the customer wants hands-on help choosing a garage, schedule a claim handler callback.",
+      cta: "Schedule CH Appointment",
+      completed: false,
+    },
+  ],
+  quickActions: ["Send communication", "Send ACKO Alert", "Schedule CH Appointment"],
+  askInChatPrefill:
+    "Raj's Nexon claim is waiting on garage selection — what's the shortest path to get him unblocked?",
+}
+
 export const policyActions: PolicyAction[] = [
   { id: "view-policy-doc", label: "View Policy Document", action: "view_policy_document" },
   { id: "share-document", label: "Share policy document", action: "share_document" },
@@ -401,7 +497,7 @@ export const sunilGupta: Customer = {
   kycStatus: "verified",
   callContext: {
     reason: "Unknown",
-    vehicle: "Maruti Suzuki Swift Dzire",
+    vehicle: "Maruti Suzuki Swift Dzire 2024",
   },
 }
 
@@ -444,10 +540,11 @@ export const sunilGuptaSwiftDzireEditNameJtbd: JTBD = {
   id: "jtbd-sunil-swift-edit-name",
   type: "claim",
   title: "Edit name",
-  vehicle: "Swift Dzire",
+  vehicle: "Maruti Suzuki Swift Dzire 2024",
   isActive: true,
   status: [],
-  askInChatPrefill: "What are the steps to complete name edit on Swift Dzire after RC and licence are received?",
+  askInChatPrefill:
+    "What are the steps to complete name edit on Maruti Suzuki Swift Dzire 2024 after RC and licence are received?",
   agentActions: [
     {
       id: "sunil-swift-edit-1",

@@ -1,4 +1,12 @@
 import type { CrmDemoState } from "@/types/navigation"
+import {
+  rajKapoorClaimStatusNexonJtbd,
+  sunilGuptaSwiftDzireEditNameJtbd,
+} from "@/data/mockCustomers"
+import {
+  SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
+  SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+} from "@/data/sunilEditPolicyUseCases"
 
 export type DemoPillConfig = {
   label: string
@@ -37,6 +45,7 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
         customerId: "raj-kapoor",
         crmDemo: {
           chatMockCase: "raj_cold_nexon",
+          initialSelectedJtbdId: rajKapoorClaimStatusNexonJtbd.id,
           callContextOverride: {
             reason: "Claim Status",
             vehicle: "Tata Nexon",
@@ -53,7 +62,49 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
       {
         label: "Sunil Gupta",
         customerId: "sunil-gupta",
-        crmDemo: { chatMockCase: "sunil_endorsement_edit_name" },
+        crmDemo: {
+          chatMockCase: SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
+          initialSelectedJtbdId: sunilGuptaSwiftDzireEditNameJtbd.id,
+          callContextOverride: {
+            reason: "Edit Policy",
+            vehicle: "Maruti Suzuki Swift Dzire 2024",
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: "road-side-assistance",
+    number: 4,
+    title: "Road Side assistance",
+    pills: [
+      {
+        label: "Raj Kapoor",
+        customerId: "raj-kapoor",
+        crmDemo: {
+          chatMockCase: "raj_road_side_assistance",
+          callContextOverride: {
+            reason: "Road Side Assistance",
+            vehicle: "Tata Nexon",
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: "sunil-unknown-reason",
+    number: 5,
+    title: "Unknown reason",
+    pills: [
+      {
+        label: "Sunil Gupta",
+        customerId: "sunil-gupta",
+        crmDemo: {
+          chatMockCase: SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+          callContextOverride: {
+            reason: "Unknown",
+          },
+        },
       },
     ],
   },

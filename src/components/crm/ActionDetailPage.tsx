@@ -35,6 +35,7 @@ export type FlowActionValue =
   | "rc_licence_send_email"
   | "advisor_ui"
   | "transfer_to_team"
+  | "transfer_to_rsa_team"
   | "transfer_to_presales"
   | "view_policy_document"
   | "share_document"
@@ -85,6 +86,12 @@ const PAGE_COPY: Record<
     subtitle: "Hand over the call to specialized team",
     description:
       "This will transfer the active call to the appropriate specialist team who can better assist with this specific issue.",
+  },
+  transfer_to_rsa_team: {
+    title: "Transfer call to RSA team",
+    subtitle: "Road Side Assistance handoff",
+    description:
+      "Warm-transfer this call to the Road Side Assistance (RSA) queue so specialists can arrange towing, on-site help, or other breakdown support per policy terms.",
   },
   transfer_to_presales: {
     title: "Transfer to Presales",

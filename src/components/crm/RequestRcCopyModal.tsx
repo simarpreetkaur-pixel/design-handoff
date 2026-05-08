@@ -1,41 +1,56 @@
 import { useEffect, useState } from "react"
 
-import { RequestRcCopyForm } from "@/components/crm/RequestRcCopyForm"
+import {
+  RequestRcCopyForm,
+  type RequestRcChannel,
+} from "@/components/crm/RequestRcCopyForm"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { REQUEST_RC_COPY_EMAIL_BODY } from "@/lib/endorsementRcWorkflow"
+import {
+  REQUEST_RC_COPY_EMAIL_BODY,
+  REQUEST_RC_COPY_WHATSAPP_MESSAGE,
+} from "@/lib/endorsementRcWorkflow"
 
 type RequestRcCopyModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Optional default for the “To” field (agent can change). */
   defaultToEmail?: string
+  /** Optional default WhatsApp number (agent can change). */
+  defaultToPhone?: string
   /** Fires when the agent confirms Send (before the modal closes). */
-  onSendSuccess?: () => void
+  onSendSuccess?: (detail: { channel: RequestRcChannel }) => void
 }
 
 export function RequestRcCopyModal({
   open,
   onOpenChange,
   defaultToEmail = "",
+  defaultToPhone = "",
   onSendSuccess,
 }: RequestRcCopyModalProps) {
+  const [channel, setChannel] = useState<RequestRcChannel>("whatsapp")
   const [toEmail, setToEmail] = useState(defaultToEmail)
   const [body, setBody] = useState(REQUEST_RC_COPY_EMAIL_BODY)
+  const [toPhone, setToPhone] = useState(defaultToPhone)
+  const [whatsappBody, setWhatsappBody] = useState(REQUEST_RC_COPY_WHATSAPP_MESSAGE)
 
   useEffect(() => {
     if (open) {
+      setChannel("whatsapp")
       setToEmail(defaultToEmail)
       setBody(REQUEST_RC_COPY_EMAIL_BODY)
+      setToPhone(defaultToPhone)
+      setWhatsappBody(REQUEST_RC_COPY_WHATSAPP_MESSAGE)
     }
-  }, [open, defaultToEmail])
+  }, [open, defaultToEmail, defaultToPhone])
 
   const handleSend = () => {
-    onSendSuccess?.()
+    onSendSuccess?.({ channel })
     onOpenChange(false)
   }
 
@@ -48,10 +63,16 @@ export function RequestRcCopyModal({
           </DialogTitle>
         </DialogHeader>
         <RequestRcCopyForm
+          channel={channel}
+          onChannelChange={setChannel}
           toEmail={toEmail}
           body={body}
           onToEmailChange={setToEmail}
           onBodyChange={setBody}
+          toPhone={toPhone}
+          whatsappBody={whatsappBody}
+          onToPhoneChange={setToPhone}
+          onWhatsappBodyChange={setWhatsappBody}
           footerTone="muted"
           onSubmit={handleSend}
           onCancel={() => onOpenChange(false)}

@@ -113,12 +113,21 @@ interface JTBDPanelProps {
   initialSelectedJtbdId?: string
   /** Ayush renewal: transfer opens Ozontel-style panel instead of action detail */
   onPresalesTransferClick?: () => void
+  /** Raj RSA demo: open Ozontel transfer strip instead of action detail page */
+  onRsaTransferOzontelOpen?: () => void
   /** Default “To” email when opening Request RC copy modal (agent can edit). */
   customerEmailForRcRequest?: string
+  /** Default WhatsApp number when opening Request RC copy modal (agent can edit). */
+  customerPhoneForRcRequest?: string
   /** Display name for escalation modals (e.g. KYC Ops). */
   customerDisplayName?: string
   /** Increment from parent (e.g. Quick Actions FAB “Request document”) to open Request RC modal. */
   openRequestRcFromFabNonce?: number
+  /**
+   * When false, hides “Ask in the chat” under Agent next actions.
+   * Default: hidden for Ayush renewal only; parent can force off (e.g. RSA transfer-only journey).
+   */
+  showAgentAskInChat?: boolean
 }
 
 export function JTBDPanel({
@@ -139,14 +148,20 @@ export function JTBDPanel({
   onOpenFlowFromParentConsumed,
   initialSelectedJtbdId,
   onPresalesTransferClick,
+  onRsaTransferOzontelOpen,
   customerEmailForRcRequest,
+  customerPhoneForRcRequest,
   customerDisplayName,
   openRequestRcFromFabNonce = 0,
+  showAgentAskInChat,
 }: JTBDPanelProps) {
   const hasJtbds = jtbds.length > 0
   const [activeTab, setActiveTab] = useState<TabKey>(jtbds.length === 0 ? "active" : "ongoing")
   const [requestRcModalOpen, setRequestRcModalOpen] = useState(false)
   const [requestRcSentToastOpen, setRequestRcSentToastOpen] = useState(false)
+  const [requestRcSentChannel, setRequestRcSentChannel] = useState<
+    "email" | "whatsapp" | null
+  >(null)
   const [selectedJtbdId, setSelectedJtbdId] = useState<string>(() =>
     resolveInitialJtbdId(jtbds, initialSelectedJtbdId),
   )
@@ -187,6 +202,9 @@ export function JTBDPanel({
       customerName: customerDisplayName?.trim() || "Anita Sharma",
     }
   }, [customerId, activePolicies, customerDisplayName])
+
+  const resolvedShowAgentAskInChat =
+    showAgentAskInChat !== undefined ? showAgentAskInChat : customerId !== "ayush-singhal"
 
   const jtbdAlertContextPolicy = useMemo(() => {
     if (!selectedJtbd || activePolicies.length === 0) return null
@@ -235,6 +253,11 @@ export function JTBDPanel({
       onOpenFlowFromParentConsumed?.()
       return
     }
+    if (openFlowFromParent === "transfer_to_rsa_team" && onRsaTransferOzontelOpen) {
+      onRsaTransferOzontelOpen()
+      onOpenFlowFromParentConsumed?.()
+      return
+    }
     setClaimContextPolicy(null)
     setEndorsementContextPolicy(null)
     setDetailActionKey(openFlowFromParent)
@@ -243,6 +266,7 @@ export function JTBDPanel({
     openFlowFromParent,
     onOpenFlowFromParentConsumed,
     onPresalesTransferClick,
+    onRsaTransferOzontelOpen,
     customerId,
     jtbdAlertContextPolicy,
     activePolicies,
@@ -295,6 +319,10 @@ export function JTBDPanel({
       setClaimContextPolicy(jtbdAlertContextPolicy ?? activePolicies[0] ?? null)
       setEndorsementContextPolicy(null)
       setDetailActionKey("raise_claim")
+      return
+    }
+    if (actionType === "transfer_to_rsa_team" && onRsaTransferOzontelOpen) {
+      onRsaTransferOzontelOpen()
       return
     }
     if (
@@ -528,7 +556,7 @@ export function JTBDPanel({
                   actions={selectedJtbd.agentActions || []}
                   quickActions={selectedJtbd.quickActions || []}
                   jtbdType={selectedJtbd.type}
-                  showAskInChat={customerId !== "ayush-singhal"}
+                  showAskInChat={resolvedShowAgentAskInChat}
                   askInChatPrefill={
                     selectedJtbd.askInChatPrefill ??
                     (selectedJtbd.type === "renewal" ? ASK_IN_CHAT_RENEWAL : ASK_IN_CHAT_CLAIM)
@@ -616,7 +644,11 @@ export function JTBDPanel({
         open={requestRcModalOpen}
         onOpenChange={setRequestRcModalOpen}
         defaultToEmail={customerEmailForRcRequest ?? ""}
-        onSendSuccess={() => setRequestRcSentToastOpen(true)}
+        defaultToPhone={customerPhoneForRcRequest ?? ""}
+        onSendSuccess={({ channel }) => {
+          setRequestRcSentChannel(channel)
+          setRequestRcSentToastOpen(true)
+        }}
       />
 
       {requestRcSentToastOpen ? (
@@ -631,12 +663,17 @@ export function JTBDPanel({
             <div className="min-w-0 flex-1 pt-0.5">
               <p className="font-euclid text-[14px] font-medium leading-5 text-[#040222]">Request sent</p>
               <p className="mt-0.5 font-euclid text-[13px] font-normal leading-5 text-[#5b5675]">
-                RC copy request email was queued for the customer.
+                {requestRcSentChannel === "whatsapp"
+                  ? "RC copy request was queued for the customer on WhatsApp."
+                  : "RC copy request email was queued for the customer."}
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setRequestRcSentToastOpen(false)}
+              onClick={() => {
+                setRequestRcSentToastOpen(false)
+                setRequestRcSentChannel(null)
+              }}
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#5b5675] hover:bg-[#f4f4f6]"
               aria-label="Dismiss"
             >

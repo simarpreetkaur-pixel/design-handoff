@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import { ChevronDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -73,6 +72,147 @@ function isSlotPastOnDay(dayOffset: 0 | 1, slot: TimeSlotDef, now: Date): boolea
   return new Date(slotStart).getTime() <= now.getTime()
 }
 
+export type ClaimHandlerSchedulerFormProps = {
+  /** When false, skip init effect (e.g. parent not visible). */
+  active: boolean
+  mode: "create" | "edit"
+  initialScheduledAt?: string | null
+  initialNote?: string | null
+  onSubmit: (value: { scheduledAt: string; note: string }) => void
+  submitLabel?: string
+  className?: string
+}
+
+/** Shared fields + grid — used by {@link ClaimHandlerAppointmentModal} and Hello embedded pane. */
+export function ClaimHandlerSchedulerForm({
+  active,
+  mode,
+  initialScheduledAt,
+  initialNote,
+  onSubmit,
+  submitLabel = "Schedule Callback",
+  className,
+}: ClaimHandlerSchedulerFormProps) {
+  const reasonFieldId = useId()
+  const [dayOffset, setDayOffset] = useState<0 | 1>(0)
+  const [slotId, setSlotId] = useState<string>(TIME_SLOTS[0].id)
+  const [reason, setReason] = useState("")
+
+  const now = new Date()
+
+  useEffect(() => {
+    if (!active) return
+    if (mode === "edit" && initialScheduledAt) {
+      const dOff = inferDayOffsetFromIso(initialScheduledAt)
+      setDayOffset(dOff)
+      setSlotId(inferSlotIdFromIso(initialScheduledAt))
+      setReason(initialNote?.trim() ?? "")
+    } else {
+      setReason("")
+      const firstDay: 0 | 1 = TIME_SLOTS.some((s) => !isSlotPastOnDay(0, s, new Date())) ? 0 : 1
+      setDayOffset(firstDay)
+      const pick =
+        TIME_SLOTS.find((s) => !isSlotPastOnDay(firstDay, s, new Date())) ?? TIME_SLOTS[TIME_SLOTS.length - 1]
+      setSlotId(pick.id)
+    }
+  }, [active, mode, initialScheduledAt, initialNote])
+
+  const selectedSlot = TIME_SLOTS.find((s) => s.id === slotId) ?? TIME_SLOTS[0]
+
+  const scheduledAtIso = useMemo(
+    () => buildScheduledAt(dayOffset, selectedSlot),
+    [dayOffset, selectedSlot],
+  )
+
+  const handleConfirm = () => {
+    if (isSlotPastOnDay(dayOffset, selectedSlot, new Date())) return
+    onSubmit({ scheduledAt: scheduledAtIso, note: reason.trim() })
+  }
+
+  const slotDisabled = (slot: TimeSlotDef) => isSlotPastOnDay(dayOffset, slot, now)
+
+  return (
+    <div className={cn("flex flex-col gap-6 font-euclid", className)}>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={reasonFieldId} className="text-[14px] font-medium leading-4 text-[#5b5675]">
+          Reason
+        </label>
+        <textarea
+          id={reasonFieldId}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          placeholder="Describe why the customer needs a claim handler callback"
+          className="w-full resize-none rounded-md border border-[#e7e7f0] p-3 text-[14px] leading-5 text-[#36354c] outline-none placeholder:text-[#5b5675] focus:border-[#7c47e1] focus:ring-1 focus:ring-[#7c47e1]/25"
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-[14px] font-medium leading-4 text-[#5b5675]">Select date</p>
+        <div className="flex gap-3">
+          {([0, 1] as const).map((off) => (
+            <button
+              key={off}
+              type="button"
+              onClick={() => {
+                setDayOffset(off)
+                const firstOk = TIME_SLOTS.find((s) => !isSlotPastOnDay(off, s, new Date()))
+                if (firstOk) setSlotId(firstOk.id)
+              }}
+              className={cn(
+                "flex h-12 min-h-12 flex-1 items-center justify-center rounded-md border px-5 text-[14px] font-normal leading-5 transition-colors",
+                dayOffset === off
+                  ? "border-[#7c47e1] bg-[#f5f3fc] text-[#36354c] ring-1 ring-[#7c47e1]/30"
+                  : "border-[#e7e7f0] bg-white text-[#36354c] hover:bg-[#fafafa]",
+              )}
+            >
+              {off === 0 ? "Today" : "Tomorrow"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-[14px] font-medium leading-4 text-[#5b5675]">Select time</p>
+        <div className="grid grid-cols-2 gap-3">
+          {TIME_SLOTS.map((slot) => {
+            const disabled = slotDisabled(slot)
+            const selected = slot.id === slotId
+            return (
+              <button
+                key={slot.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => setSlotId(slot.id)}
+                className={cn(
+                  "flex h-12 items-center justify-center rounded-md border p-2 text-center text-[14px] font-normal leading-5 transition-colors",
+                  disabled && "cursor-not-allowed opacity-40",
+                  selected && !disabled
+                    ? "border-[#7c47e1] bg-[#f5f3fc] text-[#36354c] ring-1 ring-[#7c47e1]/30"
+                    : "border-[#e5e5e5] bg-white text-[#36354c] hover:bg-[#fafafa]",
+                )}
+              >
+                {slot.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="pt-0">
+        <Button
+          type="button"
+          className="h-[42px] w-full rounded-md bg-[#7c47e1] text-[14px] font-medium text-white hover:bg-[#7c47e1]/90"
+          onClick={handleConfirm}
+          disabled={slotDisabled(selectedSlot)}
+        >
+          {submitLabel}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 type ClaimHandlerAppointmentModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -93,44 +233,6 @@ export function ClaimHandlerAppointmentModal({
   contextSubtitle,
   onConfirm,
 }: ClaimHandlerAppointmentModalProps) {
-  const [dayOffset, setDayOffset] = useState<0 | 1>(0)
-  const [slotId, setSlotId] = useState<string>(TIME_SLOTS[0].id)
-  const [reason, setReason] = useState("")
-
-  const now = new Date()
-
-  useEffect(() => {
-    if (!open) return
-    if (mode === "edit" && initialScheduledAt) {
-      const dOff = inferDayOffsetFromIso(initialScheduledAt)
-      setDayOffset(dOff)
-      setSlotId(inferSlotIdFromIso(initialScheduledAt))
-      setReason(initialNote?.trim() ?? "")
-    } else {
-      setReason("")
-      const firstDay: 0 | 1 = TIME_SLOTS.some((s) => !isSlotPastOnDay(0, s, new Date())) ? 0 : 1
-      setDayOffset(firstDay)
-      const pick =
-        TIME_SLOTS.find((s) => !isSlotPastOnDay(firstDay, s, new Date())) ?? TIME_SLOTS[TIME_SLOTS.length - 1]
-      setSlotId(pick.id)
-    }
-  }, [open, mode, initialScheduledAt, initialNote])
-
-  const selectedSlot = TIME_SLOTS.find((s) => s.id === slotId) ?? TIME_SLOTS[0]
-
-  const scheduledAtIso = useMemo(
-    () => buildScheduledAt(dayOffset, selectedSlot),
-    [dayOffset, selectedSlot],
-  )
-
-  const handleConfirm = () => {
-    if (isSlotPastOnDay(dayOffset, selectedSlot, new Date())) return
-    onConfirm({ scheduledAt: scheduledAtIso, note: reason.trim() })
-    onOpenChange(false)
-  }
-
-  const slotDisabled = (slot: TimeSlotDef) => isSlotPastOnDay(dayOffset, slot, now)
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -156,84 +258,16 @@ export function ClaimHandlerAppointmentModal({
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="claim-handler-reason" className="text-[14px] font-medium leading-4 text-[#5b5675]">
-              Reason
-            </label>
-            <textarea
-              id="claim-handler-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-              placeholder="Describe why the customer needs a claim handler callback"
-              className="w-full resize-none rounded-md border border-[#e7e7f0] p-3 text-[14px] leading-5 text-[#36354c] outline-none placeholder:text-[#5b5675] focus:border-[#7c47e1] focus:ring-1 focus:ring-[#7c47e1]/25"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[14px] font-medium leading-4 text-[#5b5675]">Select date</p>
-            <div className="flex gap-3">
-              {([0, 1] as const).map((off) => (
-                <button
-                  key={off}
-                  type="button"
-                  onClick={() => {
-                    setDayOffset(off)
-                    const firstOk = TIME_SLOTS.find((s) => !isSlotPastOnDay(off, s, new Date()))
-                    if (firstOk) setSlotId(firstOk.id)
-                  }}
-                  className={cn(
-                    "flex h-12 min-h-12 flex-1 items-center justify-center rounded-md border px-5 text-[14px] font-normal leading-5 transition-colors",
-                    dayOffset === off
-                      ? "border-[#7c47e1] bg-[#f5f3fc] text-[#36354c] ring-1 ring-[#7c47e1]/30"
-                      : "border-[#e7e7f0] bg-white text-[#36354c] hover:bg-[#fafafa]",
-                  )}
-                >
-                  {off === 0 ? "Today" : "Tomorrow"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[14px] font-medium leading-4 text-[#5b5675]">Select time</p>
-            <div className="grid grid-cols-2 gap-3">
-              {TIME_SLOTS.map((slot) => {
-                const disabled = slotDisabled(slot)
-                const selected = slot.id === slotId
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setSlotId(slot.id)}
-                    className={cn(
-                      "flex h-12 items-center justify-center rounded-md border p-2 text-center text-[14px] font-normal leading-5 transition-colors",
-                      disabled && "cursor-not-allowed opacity-40",
-                      selected && !disabled
-                        ? "border-[#7c47e1] bg-[#f5f3fc] text-[#36354c] ring-1 ring-[#7c47e1]/30"
-                        : "border-[#e5e5e5] bg-white text-[#36354c] hover:bg-[#fafafa]",
-                    )}
-                  >
-                    {slot.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="mt-2 flex-col sm:flex-col">
-          <Button
-            type="button"
-            className="h-[42px] w-full rounded-md bg-[#7c47e1] text-[14px] font-medium text-white hover:bg-[#7c47e1]/90"
-            onClick={handleConfirm}
-            disabled={slotDisabled(selectedSlot)}
-          >
-            Schedule Callback
-          </Button>
-        </DialogFooter>
+        <ClaimHandlerSchedulerForm
+          active={open}
+          mode={mode}
+          initialScheduledAt={initialScheduledAt}
+          initialNote={initialNote}
+          onSubmit={(v) => {
+            onConfirm(v)
+            onOpenChange(false)
+          }}
+        />
       </DialogContent>
     </Dialog>
   )

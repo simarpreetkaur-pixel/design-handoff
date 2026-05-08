@@ -47,13 +47,17 @@ export function CallSessionToast({ variant, onDismiss }: CallSessionToastProps) 
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-semibold text-omni-n600">
-            {isTimeout ? "Call Timeout" : isTransferSuccess ? "Call transferred" : "Call ended"}
+            {isTimeout
+              ? "Call Timeout"
+              : isTransferSuccess
+                ? "Call transferred successfully"
+                : "Call ended"}
           </h4>
           <p className="mt-1 text-sm text-omni-n400">
             {isTimeout
               ? "Call has been transferred to another agent due to inactivity."
               : isTransferSuccess
-                ? "The call has been transferred successfully."
+                ? "You’re back on the home screen."
                 : "The call will be disposed automatically."}
           </p>
         </div>

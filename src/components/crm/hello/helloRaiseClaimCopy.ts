@@ -133,16 +133,23 @@ export function helloWorkflowPaneTitle(vehicleLabel: string): string {
 export const helloWorkflowStepRequestRc = "Request RC copy"
 /** One-line summary when step 1 is collapsed (email send done). */
 export const helloWorkflowStepRequestRcCollapsedSummary =
-  "Email request sent — continue with Raise claim below."
+  "Request sent on WhatsApp — documents approved. Continue with Raise claim below."
 
 export const helloWorkflowStepRaiseClaim = "Raise claim"
 
 /** Shown under step 2 while step 1 is incomplete — sets expectation for what comes next. */
 export const helloWorkflowStepRaiseClaimLockedHint =
-  "Next step — opens after you send the RC email."
+  "Next step — opens after you approve the received RC and driving licence."
 
 export const helloSomethingElseAckComposerAlways =
   "Got it — describe what they need in the message bar below and I\u2019ll align the next steps."
 
 export const helloFreeTextAckStub =
   "Noted. Use the workflow panel on the right when it\u2019s open; I\u2019ll flag anything unusual for your supervisor playbook in a future release."
+
+/**
+ * Tailwind padding class for the bottom of the Hello companion column. The column keeps
+ * `overflow-hidden` for flex scroll containment; the composer’s large `box-shadow` extends outside
+ * its layout box — this clearance prevents the shadow from being clipped (especially in split view).
+ */
+export const HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS = "pb-8"

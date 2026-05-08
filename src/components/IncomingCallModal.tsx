@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
+import { FileText } from "lucide-react"
+
 import { INCOMING_CALL_FIGMA_URL } from "@/design/figma-incoming-call"
 import { useCall } from "@/context/CallContext"
 import { mockCustomers } from "@/data/mockCustomers"
@@ -27,7 +29,6 @@ const ICONS = {
   avatar: "/icons/user-avatar.png",
   translate: "/icons/translate-icon.png",
   award: "/icons/award-icon.png",
-  sparkle: "/icons/sparkle-icon.png",
 } as const
 
 type IncomingCallModalProps = {
@@ -276,79 +277,71 @@ export function IncomingCallModal({
             </div>
           </div>
 
-          <div className="flex w-full max-w-[506px] flex-col items-start gap-1.5 px-4 py-4 sm:px-8">
-            <div className="mb-1">
-              <h3 className="text-sm font-medium leading-5 text-omni-n500">Call Context</h3>
+          <div className="flex w-full max-w-[506px] flex-col items-stretch gap-1.5 px-4 py-4 sm:px-8">
+            <div className="mb-0 flex items-center gap-2">
+              <FileText className="size-5 shrink-0 text-[#5b5675]" aria-hidden />
+              <h3 className="m-0 font-euclid text-sm font-medium leading-5 text-omni-n500">Call Context</h3>
             </div>
 
-            <Card className="w-full border-omni-n200 shadow-none">
-              <CardContent className="space-y-3 p-0 px-5 py-4 sm:px-5">
-                <div className="grid w-full grid-cols-1 items-start gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr] min-[400px]:items-center">
-                  <p className="w-full text-omni-n400 opacity-80 sm:w-[132px]">
+            <Card className="w-full overflow-hidden rounded-2xl border-omni-n200 shadow-none">
+              <CardContent className="flex flex-col gap-3 p-5 sm:p-5">
+                <div className="grid w-full grid-cols-1 items-center gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr]">
+                  <p className="w-full font-euclid text-[#5b5675] opacity-80 sm:w-[132px]">
                     Ongoing issue
                   </p>
-                  <p className="min-w-0 text-omni-n600">
-                    {viewModel.ongoingIssue}
-                  </p>
+                  <p className="min-w-0 font-euclid text-[#040222]">{viewModel.ongoingIssue}</p>
                 </div>
                 {viewModel.showCallVehicle && (
-                  <div className="grid w-full grid-cols-1 items-start gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr] min-[400px]:items-center">
-                    <p className="w-full text-omni-n400 opacity-80 sm:w-[132px]">
+                  <div className="grid w-full grid-cols-1 items-center gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr]">
+                    <p className="w-full font-euclid text-[#5b5675] opacity-80 sm:w-[132px]">
                       Vehicle
                     </p>
-                    <p className="min-w-0 text-omni-n600">{viewModel.vehicle}</p>
+                    <p className="min-w-0 font-euclid text-[#040222]">{viewModel.vehicle}</p>
                   </div>
                 )}
                 {viewModel.showLastCall && (
-                  <div className="grid w-full grid-cols-1 items-start gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr] min-[400px]:items-center">
-                    <p className="w-full text-omni-n400 opacity-80 sm:w-[132px]">
-                      Last call sentiment
+                  <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                    <p className="font-euclid text-sm font-medium leading-5 text-[#5b5675] opacity-80">
+                      Last call
                     </p>
-                    <div className="min-w-0">
-                      <Badge
-                        variant={getLastCallBadgeVariant(viewModel.lastCallVariant)}
-                        className="rounded-md px-2 py-0.5 text-sm font-medium"
-                      >
-                        {viewModel.lastCallBadge}
-                      </Badge>
-                    </div>
+                    <Badge
+                      variant={getLastCallBadgeVariant(viewModel.lastCallVariant)}
+                      className="rounded-md px-2 py-0.5 text-sm font-medium"
+                    >
+                      {viewModel.lastCallBadge}
+                    </Badge>
                   </div>
                 )}
-
-                {viewModel.showQuickSummary && (
-                  <div className="w-full rounded-xl bg-omni-summary p-3">
-                    <div className="flex w-full flex-col gap-3">
-                      <div className="flex w-full items-center gap-2">
-                        <div className="h-4 w-4 shrink-0">
-                          <img
-                            src={ICONS.sparkle}
-                            alt=""
-                            className="h-full w-full object-contain"
-                            width={16}
-                            height={16}
-                          />
-                        </div>
-                        <p className="text-sm font-medium leading-5 text-omni-n500">
-                          Quick Summary:
-                        </p>
-                      </div>
-                      <ul className="ml-6 space-y-2">
-                        <li className="flex items-start gap-2">
-                          <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-omni-n400"></div>
-                          <p className="text-sm font-normal leading-5 text-omni-n500">
-                            {viewModel.summaryLines[0]}
-                          </p>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-omni-n400"></div>
-                          <p className="text-sm font-normal leading-5 text-omni-n500">
-                            {viewModel.summaryLines[1]}
-                          </p>
-                        </li>
-                      </ul>
+                {viewModel.callContextQuickSummary?.trim() ? (
+                  <div
+                    className="flex w-full flex-col gap-3 rounded-xl bg-[#f8f7fc] p-3"
+                    data-figma-ref="8278:63857"
+                  >
+                    <div className="flex items-start gap-2">
+                      <img
+                        src="/icons/sparkle-icon.png"
+                        alt=""
+                        width={12}
+                        height={24}
+                        draggable={false}
+                        className="mt-0.5 h-6 w-3 shrink-0 object-contain"
+                        aria-hidden
+                      />
+                      <p className="min-w-0 flex-1 font-euclid text-sm font-medium leading-5 text-omni-n500">
+                        Quick Summary:
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span
+                        className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#7c47e1]"
+                        aria-hidden
+                      />
+                      <p className="min-w-0 flex-1 font-euclid text-sm font-normal leading-5 text-omni-n500">
+                        {viewModel.callContextQuickSummary.trim()}
+                      </p>
                     </div>
                   </div>
-                )}
+                ) : null}
               </CardContent>
             </Card>
           </div>

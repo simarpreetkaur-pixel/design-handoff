@@ -32,11 +32,9 @@ type ModalExtra = {
   ongoingIssue: string
   lastCallBadge: string
   lastCallVariant: "default" | "angry" | "warning"
-  summaryLines: [string, string]
   /** Raj Kapoor cold-inbound flags */
   showCallVehicle?: boolean
   showLastCall?: boolean
-  showQuickSummary?: boolean
   /** Language + tenure row under the name (hidden for unknown caller). */
   showLanguageAndTenure?: boolean
   /** Caller display name when there is no CRM profile (unknown number). */
@@ -49,55 +47,35 @@ const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
     ongoingIssue: "Claim Status",
     lastCallBadge: "Frustrated caller",
     lastCallVariant: "warning",
-    summaryLines: [
-      "Claim filed 3 days ago, delayed due to spare parts",
-      "Second follow up within 7 days",
-    ],
     showLastCall: false,
-    showQuickSummary: false,
   },
   "anita-sharma": {
     yearsWithAcko: "1 year with ACKO",
     ongoingIssue: "Edit Policy",
     lastCallBadge: "Angry",
     lastCallVariant: "angry",
-    summaryLines: [
-      "KYC mismatch — married surname on policy vs maiden name on Aadhaar",
-      "Issuance doc review ran longer than usual after multiple requests; 4 calls on the same issue",
-    ],
   },
   "raj-kapoor": {
     yearsWithAcko: "2 years with ACKO",
     ongoingIssue: "Raise a Claim",
     lastCallBadge: "Calm caller",
     lastCallVariant: "default",
-    summaryLines: [
-      "Opening context: register claim on Tata Nexon (motor comprehensive).",
-      "Customer also has 1 ACKO GMC policy on file.",
-    ],
     showCallVehicle: true,
     showLastCall: false,
-    showQuickSummary: true,
   },
   "priya-sharma": {
     yearsWithAcko: "3 years with ACKO",
     ongoingIssue: "Claim Status",
     lastCallBadge: "Returning caller",
     lastCallVariant: "default",
-    summaryLines: [
-      "Customer needs step-by-step clarity on TATs and garage options",
-      "Share next actions and how to track in the app",
-    ],
   },
   "unknown-caller": {
     yearsWithAcko: "",
     ongoingIssue: "Unknown",
     lastCallBadge: "",
     lastCallVariant: "default",
-    summaryLines: ["", ""],
     showCallVehicle: false,
     showLastCall: false,
-    showQuickSummary: false,
     showLanguageAndTenure: false,
     displayName: "Unknown caller",
   },
@@ -119,13 +97,16 @@ export type IncomingCallModalViewModel = {
   vehicle: string
   lastCallBadge: string
   lastCallVariant: "default" | "angry" | "warning"
-  summaryLines: [string, string]
   avatarInitials: string
   /** Conditional UI display flags */
   showCallVehicle: boolean
   showLastCall: boolean
-  showQuickSummary: boolean
   showLanguageAndTenure: boolean
+  /**
+   * Optional one-liner in the Call Context card (opening / routing summary).
+   * Set from use-case preview merges, not live simulate defaults.
+   */
+  callContextQuickSummary?: string
 }
 
 /**
@@ -147,11 +128,9 @@ export function getIncomingCallModalViewModel(
     vehicle: customer?.callContext.vehicle ?? "—",
     lastCallBadge: lines.lastCallBadge,
     lastCallVariant: lines.lastCallVariant,
-    summaryLines: lines.summaryLines,
     avatarInitials: initialsFromName(name),
     showCallVehicle: lines.showCallVehicle ?? true,
     showLastCall: lines.showLastCall ?? true,
-    showQuickSummary: lines.showQuickSummary ?? true,
     showLanguageAndTenure: lines.showLanguageAndTenure ?? true,
   }
 }

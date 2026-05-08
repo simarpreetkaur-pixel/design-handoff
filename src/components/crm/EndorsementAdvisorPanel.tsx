@@ -88,7 +88,7 @@ function AddFieldStep({ fieldLabel, onBack }: { fieldLabel: string; onBack: () =
   )
 }
 
-type UploadRcStepProps = {
+export type EndorsementRcUploadStepProps = {
   fieldLabel: string
   fileInputId: string
   selectedFileName: string | null
@@ -97,9 +97,11 @@ type UploadRcStepProps = {
   onContinue: () => void
   /** Motor endorsements reference RC; health uses generic proof copy. */
   variant: "motor" | "health"
+  /** Defaults to “Continue to Advisor UI” (endorsement list flow). */
+  continueButtonLabel?: string
 }
 
-function UploadRcStep({
+export function EndorsementRcUploadStep({
   fieldLabel,
   fileInputId,
   selectedFileName,
@@ -107,7 +109,8 @@ function UploadRcStep({
   onBack,
   onContinue,
   variant,
-}: UploadRcStepProps) {
+  continueButtonLabel = "Continue to Advisor UI",
+}: EndorsementRcUploadStepProps) {
   const handleInput = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0] ?? null
@@ -186,7 +189,7 @@ function UploadRcStep({
             disabled={!selectedFileName}
             onClick={onContinue}
           >
-            Continue to Advisor UI
+            {continueButtonLabel}
           </Button>
         </div>
       </div>
@@ -247,7 +250,7 @@ export function EndorsementAdvisorPanel({
   if (inner?.kind === "upload_rc") {
     const uploadVariant = policy.type === "Health Insurance" ? "health" : "motor"
     return (
-      <UploadRcStep
+      <EndorsementRcUploadStep
         fieldLabel={inner.field.label}
         fileInputId={fileInputId}
         selectedFileName={rcFile?.name ?? null}

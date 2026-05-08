@@ -2,6 +2,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -17,8 +18,13 @@ import {
   raiseClaimTalktrackParts,
 } from "@/lib/raiseClaimGuidanceCopy"
 import { formatPolicyChatRadioEcho, PolicyChatRadioContent } from "@/lib/policyChatRadioLabel"
-import { cn } from "@/lib/utils"
-import type { Customer, InactivePolicy, Policy } from "@/types/crm"
+import {
+  endorsementEditRadioOptions,
+  editKindToShortCopyHint,
+  formatEndorsementPolicyRadioLabel,
+} from "@/lib/endorsementChatWizard"
+import { cn, customerFirstNameOrFull } from "@/lib/utils"
+import type { Customer, EndorsementEditKind, InactivePolicy, Policy } from "@/types/crm"
 import {
   HelloAiBubbleCard,
   HelloClaimRaisedSuccessBody,
@@ -27,9 +33,13 @@ import {
   HelloRenewalReminderCard,
   TypingIndicator,
   WorkflowPaneShimmerOverlay,
+  createHelloChatIdentityStreak,
+  helloWorkflowOfferPickShellClass,
+  HelloChatColumnBackground,
 } from "@/components/crm/hello/HelloChatPrimitives"
 import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
 import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
+import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
 import { PolicyDetailPanel } from "@/components/crm/ActivePoliciesPanel"
 import { EndorsementAdvisorPanel } from "@/components/crm/EndorsementAdvisorPanel"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
@@ -50,6 +60,7 @@ import {
   helloClaimRaisedSuccessHeadline,
   helloClaimRaisedSuccessQuotedLine,
   helloDefaultRenewalNudgeAfterClaim,
+  HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
   HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS,
   HELLO_RENEWAL_NUDGE_AFTER_SUCCESS_MS,
   HELLO_SECOND_ACK_TYPING_INDICATOR_MS,
@@ -64,19 +75,26 @@ import {
   EDIT_POLICY_CUSTOMER_STEPS,
   EDIT_POLICY_CUSTOMER_TAT_LINE,
   EDIT_POLICY_HEALTH_NOTE_LINE,
+  EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS,
+  EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE,
+  editPolicyPolicyholderNameSelfServeTip,
   editPolicyTalktrackAdvisorEmphasis,
   editPolicyTalktrackLead,
   editPolicyTalktrackMid,
   editPolicyTalktrackRcEmphasis,
   editPolicyTalktrackTrail,
   helloComposerTriggersEditPolicyOffer,
-  helloEditPolicyAdvisorPoints,
-  helloEditPolicyChoices,
-  helloEditPolicyOpeningMessage,
+  helloEditPolicyAdvisorScriptForKind,
+  helloEditPolicyModeChoices,
+  helloEditPolicyModePickMessage,
+  helloEditPolicyPolicyholderNameRcTellCustomer,
   helloEditPolicyPolicyPickContextLabel,
   helloEditPolicyPolicyPickPrompt,
   helloEditPolicySureAck,
-  type HelloEditPolicyChoiceId,
+  helloEditPolicyWhatToUpdatePrompt,
+  helloEditPolicyWorkflowSuccessHeadline,
+  helloEditPolicyWorkflowSuccessQuotedLine,
+  type HelloEditPolicyModeChoiceId,
 } from "@/components/crm/hello/helloEditPolicyCopy"
 import {
   helloPolicyHeadingNumber,
@@ -91,10 +109,12 @@ export type HelloAssistantBody =
   | { kind: "self_serve_followup" }
   | { kind: "raise_claim_offer"; offerId: string }
   | { kind: "edit_policy_policy_pick"; offerId: string }
-  | { kind: "edit_policy_offer"; offerId: string }
-  | { kind: "edit_policy_self_serve_tip" }
-  | { kind: "edit_policy_self_serve_steps" }
-  | { kind: "edit_policy_self_serve_followup" }
+  | { kind: "edit_policy_edit_pick"; offerId: string }
+  | { kind: "edit_policy_mode_offer"; offerId: string; introText: string }
+  | { kind: "edit_policy_self_serve_tip"; editField: EndorsementEditKind }
+  | { kind: "edit_policy_self_serve_steps"; editField: EndorsementEditKind }
+  | { kind: "edit_policy_self_serve_followup"; editField: EndorsementEditKind }
+  | { kind: "edit_policy_workflow_success" }
   | { kind: "claim_raised_success" }
   | { kind: "renewal_reminder"; vehicleLabel: string; daysLeft: number }
 
@@ -218,8 +238,14 @@ export function RaiseClaimHelloView({
   const [replyTyping, setReplyTyping] = useState(false)
   /** Policy targeted by composer “Edit Policy” flow (set before offer bubble or after multi-policy pick). */
   const [editFlowPolicy, setEditFlowPolicy] = useState<Policy | null>(null)
+  /** Field to update — Classic `edit_pick` → `mode_pick` (after policy is known). */
+  const [editFlowKind, setEditFlowKind] = useState<EndorsementEditKind | null>(null)
+  const [editPolicyWorkflow, setEditPolicyWorkflow] = useState<{
+    policy: Policy
+    editKind: EndorsementEditKind
+  } | null>(null)
 
-  const rightPaneSplit = workflowActive || policyDetailPane.isOpen
+  const rightPaneSplit = workflowActive || editPolicyWorkflow !== null || policyDetailPane.isOpen
 
   const clampSplitLeftPct = useCallback((pct: number) => {
     return Math.min(HELLO_SPLIT_LEFT_MAX_PCT, Math.max(HELLO_SPLIT_LEFT_MIN_PCT, pct))
@@ -359,7 +385,7 @@ export function RaiseClaimHelloView({
   }, [])
 
   useEffect(() => {
-    if (!workflowActive) {
+    if (!workflowActive && !editPolicyWorkflow) {
       setWorkflowShimmerPhase("hidden")
       return
     }
@@ -374,7 +400,7 @@ export function RaiseClaimHelloView({
       window.clearTimeout(toHide)
       window.clearTimeout(toRemove)
     }
-  }, [workflowActive])
+  }, [workflowActive, editPolicyWorkflow])
 
   useEffect(() => {
     const el = listRef.current
@@ -388,6 +414,7 @@ export function RaiseClaimHelloView({
     choicesVisible,
     spentOfferIds,
     workflowActive,
+    editPolicyWorkflow,
     policyDetailPane.pane,
     replyTyping,
     workflowShimmerPhase,
@@ -452,6 +479,7 @@ export function RaiseClaimHelloView({
             pushAssistant({ kind: "text", text: helloSureCreatingWorkflowGaragePoints })
             window.setTimeout(() => {
               policyDetailPane.close()
+              setEditPolicyWorkflow(null)
               setWorkflowActive(true)
             }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
@@ -470,6 +498,7 @@ export function RaiseClaimHelloView({
     if (!policy) return
     setSpentOfferIds((prev) => new Set(prev).add(offerId))
     setEditFlowPolicy(policy)
+    setEditFlowKind(null)
     setMessages((prev) => [
       ...prev,
       { id: `hello-user-edit-policy-${Date.now()}`, role: "user", text: userEchoLabel },
@@ -479,21 +508,55 @@ export function RaiseClaimHelloView({
       window.setTimeout(() => {
         setReplyTyping(false)
         pushAssistant({
-          kind: "edit_policy_offer",
-          offerId: `composer-edit-support-${Date.now()}`,
+          kind: "edit_policy_edit_pick",
+          offerId: `composer-edit-field-${Date.now()}`,
         })
       }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
   }
 
-  const handleComposerEditPolicyChoicePick = (
-    choiceId: HelloEditPolicyChoiceId,
+  const handleComposerEditPolicyEditKindPick = (
+    editKind: EndorsementEditKind,
     userEchoLabel: string,
     offerId: string,
   ) => {
     if (spentOfferIds.has(offerId)) return
     const policy = editFlowPolicy
     if (!policy) return
+    setSpentOfferIds((prev) => new Set(prev).add(offerId))
+    setEditFlowKind(editKind)
+    setMessages((prev) => [
+      ...prev,
+      { id: `hello-user-edit-field-${Date.now()}`, role: "user", text: userEchoLabel },
+    ])
+    const policyHead = formatEndorsementPolicyRadioLabel(policy).split("\n")[0]
+    const introText = helloEditPolicyModePickMessage({
+      policyHead,
+      editPhrase: editKindToShortCopyHint(editKind),
+      customerFirstName: customerFirstNameOrFull(customer.name),
+    })
+    window.setTimeout(() => {
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+        pushAssistant({
+          kind: "edit_policy_mode_offer",
+          offerId: `composer-edit-mode-${Date.now()}`,
+          introText,
+        })
+      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+    }, HELLO_BOT_REPLY_AFTER_USER_MS)
+  }
+
+  const handleComposerEditPolicyModePick = (
+    choiceId: HelloEditPolicyModeChoiceId,
+    userEchoLabel: string,
+    offerId: string,
+  ) => {
+    if (spentOfferIds.has(offerId)) return
+    const policy = editFlowPolicy
+    const kind = editFlowKind
+    if (!policy || !kind) return
     setSpentOfferIds((prev) => new Set(prev).add(offerId))
     setMessages((prev) => [
       ...prev,
@@ -508,17 +571,17 @@ export function RaiseClaimHelloView({
         setReplyTyping(true)
         window.setTimeout(() => {
           setReplyTyping(false)
-          pushAssistant({ kind: "edit_policy_self_serve_tip" })
+          pushAssistant({ kind: "edit_policy_self_serve_tip", editField: kind })
           window.setTimeout(() => {
             setReplyTyping(true)
             window.setTimeout(() => {
               setReplyTyping(false)
-              pushAssistant({ kind: "edit_policy_self_serve_steps" })
+              pushAssistant({ kind: "edit_policy_self_serve_steps", editField: kind })
               window.setTimeout(() => {
                 setReplyTyping(true)
                 window.setTimeout(() => {
                   setReplyTyping(false)
-                  pushAssistant({ kind: "edit_policy_self_serve_followup" })
+                  pushAssistant({ kind: "edit_policy_self_serve_followup", editField: kind })
                 }, typingMs)
               }, readMs)
             }, typingMs)
@@ -527,11 +590,32 @@ export function RaiseClaimHelloView({
         return
       }
 
-      if (choiceId === "something_else") {
+      const advisorScript = helloEditPolicyAdvisorScriptForKind(kind)
+
+      if (kind === "policy_holder_name") {
         setReplyTyping(true)
         window.setTimeout(() => {
           setReplyTyping(false)
-          pushAssistant({ kind: "text", text: helloSomethingElseAckComposerAlways })
+          pushAssistant({ kind: "text", text: helloEditPolicySureAck })
+          window.setTimeout(() => {
+            setReplyTyping(true)
+            window.setTimeout(() => {
+              setReplyTyping(false)
+              pushAssistant({ kind: "text", text: helloEditPolicyPolicyholderNameRcTellCustomer })
+              window.setTimeout(() => {
+                setReplyTyping(true)
+                window.setTimeout(() => {
+                  setReplyTyping(false)
+                  pushAssistant({ kind: "text", text: advisorScript })
+                  window.setTimeout(() => {
+                    policyDetailPane.close()
+                    setWorkflowActive(false)
+                    setEditPolicyWorkflow({ policy, editKind: kind })
+                  }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
+                }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
+              }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
+            }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
+          }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
         }, typingMs)
         return
       }
@@ -544,11 +628,11 @@ export function RaiseClaimHelloView({
           setReplyTyping(true)
           window.setTimeout(() => {
             setReplyTyping(false)
-            pushAssistant({ kind: "text", text: helloEditPolicyAdvisorPoints })
+            pushAssistant({ kind: "text", text: advisorScript })
             window.setTimeout(() => {
+              policyDetailPane.close()
               setWorkflowActive(false)
-              pendingPolicyDetailSubviewRef.current = "endorsements"
-              policyDetailPane.open(policy)
+              setEditPolicyWorkflow({ policy, editKind: kind })
             }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
         }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
@@ -558,6 +642,19 @@ export function RaiseClaimHelloView({
 
   const handleRcEmailSentFromWorkflow = () => {
     onHelloToast?.("Your email has been queued for delivery.")
+  }
+
+  const handleEditPolicyWorkflowComplete = () => {
+    window.setTimeout(() => {
+      setEditPolicyWorkflow(null)
+      setWorkflowActive(false)
+      policyDetailPane.close()
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+        pushAssistant({ kind: "edit_policy_workflow_success" })
+      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+    }, HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS)
   }
 
   const handleFnolCompleteFromWorkflow = () => {
@@ -609,15 +706,17 @@ export function RaiseClaimHelloView({
           }
           if (activePolicies.length >= 2) {
             setEditFlowPolicy(null)
+            setEditFlowKind(null)
             pushAssistant({
               kind: "edit_policy_policy_pick",
               offerId: `composer-edit-pick-${Date.now()}`,
             })
           } else {
             setEditFlowPolicy(activePolicies[0]!)
+            setEditFlowKind(null)
             pushAssistant({
-              kind: "edit_policy_offer",
-              offerId: `composer-edit-support-${Date.now()}`,
+              kind: "edit_policy_edit_pick",
+              offerId: `composer-edit-field-${Date.now()}`,
             })
           }
           return
@@ -652,6 +751,13 @@ export function RaiseClaimHelloView({
           <HelloClaimRaisedSuccessBody
             headline={helloClaimRaisedSuccessHeadline}
             quotedLine={helloClaimRaisedSuccessQuotedLine}
+          />
+        )
+      case "edit_policy_workflow_success":
+        return (
+          <HelloClaimRaisedSuccessBody
+            headline={helloEditPolicyWorkflowSuccessHeadline}
+            quotedLine={helloEditPolicyWorkflowSuccessQuotedLine}
           />
         )
       case "self_serve_tip": {
@@ -697,10 +803,91 @@ export function RaiseClaimHelloView({
           </div>
         )
       case "raise_claim_offer":
+        return null
+      case "edit_policy_policy_pick":
+        return null
+      case "edit_policy_edit_pick":
+        return null
+      case "edit_policy_mode_offer":
+        return null
+      case "edit_policy_self_serve_tip":
+        if (body.editField === "policy_holder_name") {
+          return (
+            <p className="min-w-0 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+              <span className="font-semibold text-[#5b5675]">Tip </span>
+              {editPolicyPolicyholderNameSelfServeTip}
+            </p>
+          )
+        }
         return (
-          <>
-            <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
-            <div className="pt-3">
+          <p className="min-w-0 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+            <span className="font-semibold text-[#5b5675]">Tip </span>
+            {editPolicyTalktrackLead}
+            <span className="font-semibold">{editPolicyTalktrackRcEmphasis}</span>
+            {editPolicyTalktrackMid}
+            <span className="font-semibold">{editPolicyTalktrackAdvisorEmphasis}</span>
+            {editPolicyTalktrackTrail}
+          </p>
+        )
+      case "edit_policy_self_serve_steps": {
+        const steps =
+          body.editField === "policy_holder_name"
+            ? EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS
+            : EDIT_POLICY_CUSTOMER_STEPS
+        return (
+          <div>
+            <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
+              Steps for the customer
+            </p>
+            <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
+              {steps.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )
+      }
+      case "edit_policy_self_serve_followup": {
+        const tatLine =
+          body.editField === "policy_holder_name"
+            ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
+            : EDIT_POLICY_CUSTOMER_TAT_LINE
+        return (
+          <div className="rounded-xl border border-[#e7e7f0] bg-gradient-to-b from-[#fafafa] to-white px-3.5 py-3">
+            <p className="mb-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
+              What to tell the customer
+            </p>
+            <ul className="space-y-2.5">
+              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+                {tatLine}
+              </li>
+              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+                {EDIT_POLICY_HEALTH_NOTE_LINE}
+              </li>
+            </ul>
+          </div>
+        )
+      }
+      case "renewal_reminder":
+        return null
+    }
+  }
+
+  const renderRaiseClaimAssistantMessageGroup = (
+    message: HelloChatMessage & { role: "assistant" },
+    streak: ReturnType<typeof createHelloChatIdentityStreak>,
+  ): ReactNode => {
+    const body = message.body
+    if (body.kind === "raise_claim_offer") {
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
+            </HelloAiBubbleCard>
+          </div>
+          <div className={helloWorkflowOfferPickShellClass}>
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={helloRaiseClaimChoices.map((c) => ({
                   key: c.id,
@@ -711,19 +898,28 @@ export function RaiseClaimHelloView({
                   handleOpeningPick(key as HelloRaiseClaimChoiceId, label, body.offerId)
                 }
               />
-            </div>
-          </>
-        )
-      case "edit_policy_policy_pick":
-        return (
-          <>
-            <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
-              {helloEditPolicyPolicyPickContextLabel}
-            </p>
-            <p className="mt-2 font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
-              {helloEditPolicyPolicyPickPrompt}
-            </p>
-            <div className="mt-3">
+            </HelloAiBubbleCard>
+          </div>
+        </div>
+      )
+    }
+    if (body.kind === "edit_policy_policy_pick") {
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <>
+                <p className="font-euclid text-[11px] font-normal normal-case text-[#5b5675] opacity-80">
+                  {helloEditPolicyPolicyPickContextLabel}
+                </p>
+                <p className="mt-2 font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+                  {helloEditPolicyPolicyPickPrompt}
+                </p>
+              </>
+            </HelloAiBubbleCard>
+          </div>
+          <div className={helloWorkflowOfferPickShellClass}>
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={activePolicies.map((p) => ({
                   key: p.id,
@@ -735,76 +931,72 @@ export function RaiseClaimHelloView({
                   handleComposerEditPolicyPolicyPick(key, label, body.offerId)
                 }
               />
-            </div>
-          </>
-        )
-      case "edit_policy_offer":
-        return (
-          <>
-            <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
-              {helloEditPolicyOpeningMessage}
-            </p>
-            <div className="pt-3">
+            </HelloAiBubbleCard>
+          </div>
+        </div>
+      )
+    }
+    if (body.kind === "edit_policy_edit_pick") {
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
+                {helloEditPolicyWhatToUpdatePrompt}
+              </p>
+            </HelloAiBubbleCard>
+          </div>
+          <div className={helloWorkflowOfferPickShellClass}>
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
-                options={helloEditPolicyChoices.map((c) => ({
+                options={endorsementEditRadioOptions().map((o) => ({
+                  key: o.kind,
+                  label: o.label,
+                }))}
+                disabled={spentOfferIds.has(body.offerId)}
+                onPick={(key, label) =>
+                  handleComposerEditPolicyEditKindPick(key as EndorsementEditKind, label, body.offerId)
+                }
+              />
+            </HelloAiBubbleCard>
+          </div>
+        </div>
+      )
+    }
+    if (body.kind === "edit_policy_mode_offer") {
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <p className="whitespace-pre-line font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                {body.introText}
+              </p>
+            </HelloAiBubbleCard>
+          </div>
+          <div className={helloWorkflowOfferPickShellClass}>
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <WorkflowOfferPick
+                options={helloEditPolicyModeChoices(customerFirstNameOrFull(customer.name)).map((c) => ({
                   key: c.id,
                   label: c.label,
                 }))}
                 disabled={spentOfferIds.has(body.offerId)}
                 onPick={(key, label) =>
-                  handleComposerEditPolicyChoicePick(
-                    key as HelloEditPolicyChoiceId,
-                    label,
-                    body.offerId,
-                  )
+                  handleComposerEditPolicyModePick(key as HelloEditPolicyModeChoiceId, label, body.offerId)
                 }
               />
-            </div>
-          </>
-        )
-      case "edit_policy_self_serve_tip":
-        return (
-          <p className="min-w-0 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-            <span className="font-semibold text-[#5b5675]">Tip </span>
-            {editPolicyTalktrackLead}
-            <span className="font-semibold">{editPolicyTalktrackRcEmphasis}</span>
-            {editPolicyTalktrackMid}
-            <span className="font-semibold">{editPolicyTalktrackAdvisorEmphasis}</span>
-            {editPolicyTalktrackTrail}
-          </p>
-        )
-      case "edit_policy_self_serve_steps":
-        return (
-          <div>
-            <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              Steps for the customer
-            </p>
-            <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
-              {EDIT_POLICY_CUSTOMER_STEPS.map((step, index) => (
-                <li key={index}>{step}</li>
-              ))}
-            </ol>
+            </HelloAiBubbleCard>
           </div>
-        )
-      case "edit_policy_self_serve_followup":
-        return (
-          <div className="rounded-xl border border-[#e7e7f0] bg-gradient-to-b from-[#fafafa] to-white px-3.5 py-3">
-            <p className="mb-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              What to tell the customer
-            </p>
-            <ul className="space-y-2.5">
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {EDIT_POLICY_CUSTOMER_TAT_LINE}
-              </li>
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {EDIT_POLICY_HEALTH_NOTE_LINE}
-              </li>
-            </ul>
-          </div>
-        )
-      case "renewal_reminder":
-        return null
+        </div>
+      )
     }
+    return (
+      <div key={message.id} className="min-w-0 max-w-full">
+        <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+          {renderAssistantBody(body)}
+        </HelloAiBubbleCard>
+      </div>
+    )
   }
 
   /** Rounded shell only for the workflow pane — chat sits flush on page `#fafafa`. */
@@ -819,7 +1011,7 @@ export function RaiseClaimHelloView({
     <>
       <div
         ref={listRef}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-y-contain px-0 py-3 [scrollbar-gutter:stable] sm:py-4"
+        className="min-h-0 flex flex-1 flex-col items-start gap-3 overflow-y-auto overflow-x-hidden overscroll-y-contain px-0 py-3 [scrollbar-gutter:stable] sm:py-4"
         aria-live="polite"
         aria-relevant="additions text"
       >
@@ -827,65 +1019,90 @@ export function RaiseClaimHelloView({
           <p className="sr-only">{`Lookup phone context: ${displayPhone}`}</p>
         ) : null}
 
-        {openingTyping ? <TypingIndicator labelId={typingLabelId} /> : null}
-
-        {openingVisible ? (
-          <>
-            <HelloAiBubbleCard>
-              <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
-            </HelloAiBubbleCard>
-            {choicesRevealTyping ? (
-              <TypingIndicator labelId={choicesRevealTypingLabelId} />
-            ) : null}
-            {choicesVisible ? (
-              <HelloAiBubbleCard>
-                <WorkflowOfferPick
-                  options={helloRaiseClaimChoices.map((c) => ({
-                    key: c.id,
-                    label: c.label,
-                  }))}
-                  disabled={spentOfferIds.has(HELLO_OPENING_OFFER_ID)}
-                  onPick={(key, label) =>
-                    handleOpeningPick(key as HelloRaiseClaimChoiceId, label, HELLO_OPENING_OFFER_ID)
-                  }
-                />
-              </HelloAiBubbleCard>
-            ) : null}
-          </>
-        ) : null}
-
-        {messages.map((message) => {
-          if (message.role === "assistant") {
-            if (message.body.kind === "renewal_reminder") {
-              return (
-                <div key={message.id} className="w-full max-w-[min(90%,26rem)]">
-                  <HelloRenewalReminderCard
-                    vehicleLabel={message.body.vehicleLabel}
-                    daysLeft={message.body.daysLeft}
-                  />
-                </div>
-              )
-            }
-            return (
-              <div key={message.id} className="w-full">
-                <HelloAiBubbleCard>{renderAssistantBody(message.body)}</HelloAiBubbleCard>
-              </div>
-            )
-          }
-
+        {(() => {
+          const streak = createHelloChatIdentityStreak()
           return (
-            <div key={message.id} className="flex w-full justify-end">
-              <div className="w-full max-w-[min(90%,26rem)]">
-                <HelloCxBubbleCard>
-                  <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
-                    {message.text}
-                  </p>
-                </HelloCxBubbleCard>
-              </div>
-            </div>
+            <>
+              {openingTyping
+                ? (() => {
+                    const showIdentity = streak.typingIndicatorShowIdentity()
+                    streak.afterAiTypingShell()
+                    return <TypingIndicator labelId={typingLabelId} showIdentity={showIdentity} />
+                  })()
+                : null}
+
+              {openingVisible ? (
+                <>
+                  <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                    <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
+                  </HelloAiBubbleCard>
+                  {choicesRevealTyping
+                    ? (() => {
+                        const showIdentity = streak.typingIndicatorShowIdentity()
+                        streak.afterAiTypingShell()
+                        return (
+                          <TypingIndicator
+                            labelId={choicesRevealTypingLabelId}
+                            showIdentity={showIdentity}
+                          />
+                        )
+                      })()
+                    : null}
+                  {choicesVisible ? (
+                    <div className={helloWorkflowOfferPickShellClass}>
+                      <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                        <WorkflowOfferPick
+                          options={helloRaiseClaimChoices.map((c) => ({
+                            key: c.id,
+                            label: c.label,
+                          }))}
+                          disabled={spentOfferIds.has(HELLO_OPENING_OFFER_ID)}
+                          onPick={(key, label) =>
+                            handleOpeningPick(key as HelloRaiseClaimChoiceId, label, HELLO_OPENING_OFFER_ID)
+                          }
+                        />
+                      </HelloAiBubbleCard>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {messages.map((message) => {
+                if (message.role === "assistant") {
+                  if (message.body.kind === "renewal_reminder") {
+                    streak.markAssistantBubbleSurface()
+                    return (
+                      <div key={message.id} className="min-w-0 max-w-full">
+                        <HelloRenewalReminderCard
+                          vehicleLabel={message.body.vehicleLabel}
+                          daysLeft={message.body.daysLeft}
+                        />
+                      </div>
+                    )
+                  }
+                  return renderRaiseClaimAssistantMessageGroup(message, streak)
+                }
+
+                return (
+                  <div key={message.id} className="flex w-full min-w-0 justify-end">
+                    <HelloCxBubbleCard showIdentity={streak.nextCxBubbleShowIdentity()}>
+                      <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
+                        {message.text}
+                      </p>
+                    </HelloCxBubbleCard>
+                  </div>
+                )
+              })}
+              {replyTyping
+                ? (() => {
+                    const showIdentity = streak.typingIndicatorShowIdentity()
+                    streak.afterAiTypingShell()
+                    return <TypingIndicator labelId={replyTypingLabelId} showIdentity={showIdentity} />
+                  })()
+                : null}
+            </>
           )
-        })}
-        {replyTyping ? <TypingIndicator labelId={replyTypingLabelId} /> : null}
+        })()}
       </div>
     </>
   )
@@ -946,7 +1163,8 @@ export function RaiseClaimHelloView({
   const aiCompanionColumn = (
     <div
       className={cn(
-        "flex min-h-0 flex-col bg-transparent",
+        "relative z-10 flex min-h-0 flex-col overflow-hidden",
+        HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
         rightPaneSplit
           ? "min-h-0 w-full min-w-0"
           : "min-h-[min(52vh,440px)] w-full min-w-0 lg:min-h-0",
@@ -992,6 +1210,7 @@ export function RaiseClaimHelloView({
           pendingPolicyDetailSubviewRef.current = null
           policyDetailPane.open(p)
           setWorkflowActive(false)
+          setEditPolicyWorkflow(null)
         }}
       />
 
@@ -1011,17 +1230,18 @@ export function RaiseClaimHelloView({
             : undefined
         }
       >
+        <HelloChatColumnBackground />
         {aiCompanionColumn}
         <div
           className={cn(
-            "min-h-0 min-w-0 overflow-hidden",
+            "relative z-10 min-h-0 min-w-0 overflow-hidden",
             rightPaneSplit ? "flex min-h-0 flex-1 flex-col lg:h-full" : "contents lg:block",
           )}
         >
           {policyDetailForPane ? (
             <div
               className={cn(
-                "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
                 workflowPaneShellClass,
               )}
             >
@@ -1097,10 +1317,49 @@ export function RaiseClaimHelloView({
                 )}
               </div>
             </div>
+          ) : editPolicyWorkflow ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                workflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                  ref={workflowPaneScrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
+                >
+                  <EditPolicyWorkflowPanel
+                    key={`hello-edit-policy-${editPolicyWorkflow.policy.id}-${editPolicyWorkflow.editKind}`}
+                    customer={customer}
+                    policy={editPolicyWorkflow.policy}
+                    editKind={editPolicyWorkflow.editKind}
+                    scrollContainerRef={workflowPaneScrollRef}
+                    onRcEmailSent={handleRcEmailSentFromWorkflow}
+                    onClose={() => setEditPolicyWorkflow(null)}
+                    onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
+                  />
+                </div>
+                {workflowShimmerPhase !== "hidden" ? (
+                  <WorkflowPaneShimmerOverlay
+                    exiting={workflowShimmerPhase === "hide"}
+                    fadeMs={HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS}
+                  />
+                ) : null}
+              </div>
+            </div>
           ) : workflowActive ? (
             <div
               className={cn(
-                "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
                 workflowPaneShellClass,
               )}
             >
@@ -1136,7 +1395,7 @@ export function RaiseClaimHelloView({
               </div>
             </div>
           ) : (
-            <div className="hidden min-h-0 min-w-0 lg:block" aria-hidden />
+            <div className="relative z-10 hidden min-h-0 min-w-0 lg:block" aria-hidden />
           )}
         </div>
       </div>

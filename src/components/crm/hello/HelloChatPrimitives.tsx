@@ -1,37 +1,108 @@
-import type { ReactNode } from "react"
-import { CalendarDays, Check, User } from "lucide-react"
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react"
+import { CalendarDays, Check, Send, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { helloAiResponderLabel, helloCxResponderName } from "@/components/crm/hello/helloRaiseClaimCopy"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
-/** AI assistant bubble — identity is {@link helloAiResponderLabel} only. */
-export function HelloAiBubbleCard({ children }: { children: ReactNode }) {
+/** At least 400px when the column allows; never wider than the parent (avoids small-viewport overflow). */
+export const helloChatBubbleMinWidthClass = "min-w-[min(100%,400px)]"
+
+/** Narrow rail for radio-style offer picks — hugs options width up to CX-aligned cap. */
+export const helloWorkflowOfferPickShellClass = cn(
+  "w-fit max-w-[min(100%,26rem)]",
+  helloChatBubbleMinWidthClass,
+)
+
+/** Max width for assistant / renewal prose while bubbles stay content-sized. */
+export const helloAiBubbleReadableMaxClass = "max-w-[min(100%,42rem)]"
+
+/**
+ * Tracks the last Hello chat “speaker” so {@link HelloAiBubbleCard} / {@link HelloCxBubbleCard} can hide the
+ * identity row when several consecutive bubbles are from the same side. Re-create each render (do not store in state).
+ */
+export function createHelloChatIdentityStreak() {
+  let prev: "assistant" | "user" | null = null
+  return {
+    nextAiBubbleShowIdentity(): boolean {
+      const show = prev !== "assistant"
+      prev = "assistant"
+      return show
+    },
+    nextCxBubbleShowIdentity(): boolean {
+      const show = prev !== "user"
+      prev = "user"
+      return show
+    },
+    /** After {@link HelloRenewalReminderCard} — same surface as AI bubbles for streak purposes. */
+    markAssistantBubbleSurface() {
+      prev = "assistant"
+    },
+    /** After rendering an AI typing shell; keeps the next AI bubble on the same streak. */
+    afterAiTypingShell() {
+      prev = "assistant"
+    },
+    typingIndicatorShowIdentity(): boolean {
+      return prev !== "assistant"
+    },
+  }
+}
+
+/** AI assistant row — avatar sits outside the bubble (see Figma assistant chat). */
+export function HelloAiBubbleCard({
+  children,
+  showIdentity = true,
+}: {
+  children: ReactNode
+  /** When `false`, consecutive AI bubbles read as one thread (no repeated label or avatar). */
+  showIdentity?: boolean
+}) {
   return (
-    <Card className="min-w-0 w-full max-w-[min(90%,26rem)] rounded-2xl border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2">
-          <div
-            className="h-6 w-6 shrink-0 overflow-hidden rounded-md bg-[#f5f3fc] ring-1 ring-[#e7e7f0]"
-            aria-hidden
-          >
+    <div
+      className={cn(
+        "inline-flex max-w-full min-w-0 items-start gap-3 align-top",
+        helloAiBubbleReadableMaxClass,
+      )}
+    >
+      <div className="flex w-5 shrink-0 justify-center pt-0.5" aria-hidden>
+        {showIdentity ? (
+          <div className="size-5 shrink-0 overflow-hidden rounded bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
             <img
               src="/icons/ai-companion-header.png"
               alt=""
-              width={24}
-              height={24}
+              width={20}
+              height={20}
               className="h-full w-full object-cover"
             />
           </div>
-          <div className="min-w-0">
-            <p className="font-euclid text-[12px] font-normal leading-[18px] text-[#8b87a3]">
-              {helloAiResponderLabel}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3">{children}</div>
-      </CardContent>
-    </Card>
+        ) : (
+          <div className="size-5 shrink-0" />
+        )}
+      </div>
+      <Card
+        className={cn(
+          "min-w-0 w-fit border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]",
+          helloChatBubbleMinWidthClass,
+          showIdentity
+            ? "rounded-tl-[2px] rounded-tr-2xl rounded-b-2xl"
+            : "rounded-2xl",
+        )}
+      >
+        <CardContent className="p-3">
+          {showIdentity ? (
+            <div className="flex min-w-0 flex-col gap-2">
+              <p className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
+                {helloAiResponderLabel}
+              </p>
+              <div className="min-w-0">{children}</div>
+            </div>
+          ) : (
+            <div className="min-w-0">{children}</div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -69,8 +140,8 @@ export function HelloClaimRaisedSuccessBody({
 }
 
 /**
- * Softer, warm-tinted card for cross-context prompts (e.g. renewal) — visually distinct from
- * {@link HelloAiBubbleCard} while staying in the agent companion column.
+ * Full-width warm nudge for cross-context prompts (e.g. renewal) — spans the companion column;
+ * visually distinct from {@link HelloAiBubbleCard}.
  */
 export function HelloRenewalReminderCard({
   vehicleLabel,
@@ -82,12 +153,12 @@ export function HelloRenewalReminderCard({
   return (
     <Card
       className={cn(
-        "min-w-0 w-full rounded-2xl border-[#ebe3d6] bg-gradient-to-b from-[#fffbf6] to-[#fff4e8]",
+        "w-full min-w-0 max-w-full rounded-xl border-[#ebe3d6] bg-gradient-to-b from-[#fffbf6] to-[#fff4e8]",
         "shadow-[0px_1px_3px_rgba(120,72,24,0.07)]",
       )}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+      <CardContent className="p-3.5 sm:p-4">
+        <div className="flex items-start gap-3 sm:items-center">
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fff0dc] ring-1 ring-[#f0dcc4]"
             aria-hidden
@@ -98,7 +169,7 @@ export function HelloRenewalReminderCard({
             <p className="font-euclid text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9a3412]/85">
               Renewal reminder
             </p>
-            <p className="mt-2 font-euclid text-[14px] font-normal leading-6 text-[#431407]/90">
+            <p className="mt-1.5 font-euclid text-[14px] font-normal leading-6 text-[#431407]/90 sm:mt-1 sm:leading-5">
               The customer&apos;s{" "}
               <span className="font-semibold text-[#7c2d12]">{vehicleLabel}</span> policy expires in{" "}
               <span className="font-semibold text-[#7c2d12]">{daysLeft} days</span>. Before you end the
@@ -111,32 +182,163 @@ export function HelloRenewalReminderCard({
   )
 }
 
-/** CX (human) advisor bubble — identity is {@link helloCxResponderName}. */
-export function HelloCxBubbleCard({ children }: { children: ReactNode }) {
+/** CX advisor row — avatar outside the bubble (mirrors assistant layout). */
+export function HelloCxBubbleCard({
+  children,
+  showIdentity = true,
+}: {
+  children: ReactNode
+  showIdentity?: boolean
+}) {
   return (
-    <Card className="min-w-0 w-full rounded-2xl border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2">
+    <div
+      className={cn(
+        "ml-auto inline-flex max-w-full min-w-0 flex-row-reverse items-start gap-3 align-top",
+        "max-w-[min(100%,26rem)]",
+      )}
+    >
+      <div className="flex w-5 shrink-0 justify-center pt-0.5" aria-hidden>
+        {showIdentity ? (
           <div
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/15 ring-1 ring-white/20"
-            aria-hidden
+            className={cn(
+              "flex size-5 shrink-0 items-center justify-center overflow-hidden rounded",
+              "bg-gradient-to-br from-[#7c47e1] to-[#5a32c9]",
+              "shadow-[0px_2px_8px_rgba(92,50,201,0.25)] ring-1 ring-white/20",
+            )}
           >
-            <User className="size-3 text-white/90" strokeWidth={2} />
+            <User className="size-3 text-white" strokeWidth={2} aria-hidden />
           </div>
-          <div className="min-w-0">
-            <p className="font-euclid text-[12px] font-normal leading-[18px] text-white/80">{helloCxResponderName}</p>
-          </div>
-        </div>
-        <div className="mt-3">{children}</div>
-      </CardContent>
-    </Card>
+        ) : (
+          <div className="size-5 shrink-0" />
+        )}
+      </div>
+      <Card
+        className={cn(
+          "min-w-0 w-fit border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]",
+          helloChatBubbleMinWidthClass,
+          showIdentity
+            ? "rounded-tr-[2px] rounded-tl-2xl rounded-b-2xl"
+            : "rounded-2xl",
+        )}
+      >
+        <CardContent className="p-3">
+          {showIdentity ? (
+            <div className="flex min-w-0 flex-col gap-2">
+              <p className="font-euclid text-[12px] font-normal leading-[18px] text-white/80">
+                {helloCxResponderName}
+              </p>
+              <div className="min-w-0">{children}</div>
+            </div>
+          ) : (
+            <div className="min-w-0">{children}</div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
-export function TypingIndicator({ labelId }: { labelId: string }) {
+/** Served from `/public` — mesh gradient behind Hello main content (padded grid). */
+export const helloChatColumnBackgroundSrc = "/hello-chat-background.png"
+
+/**
+ * Decorative full-bleed background for the Hello main content region (padded grid below the profile bar).
+ * Parent must be `position: relative` with a defined height; grid/flex children should use `relative z-10`.
+ */
+export function HelloChatColumnBackground() {
   return (
-    <div className="w-full" role="status" aria-live="polite" aria-labelledby={labelId}>
-      <HelloAiBubbleCard>
+    <div
+      className="pointer-events-none absolute inset-0 z-0 min-h-0 overflow-hidden"
+      aria-hidden
+    >
+      <div className="absolute inset-0 bg-[#fafafa]" />
+      <img
+        src={helloChatColumnBackgroundSrc}
+        alt=""
+        className="absolute inset-0 h-full w-full min-h-full min-w-full object-cover object-center"
+        decoding="async"
+        fetchPriority="low"
+      />
+    </div>
+  )
+}
+
+/** Floating Hello chat composer — matches Raise Claim / Edit Policy Hello shell. */
+export function HelloChatComposerBar({
+  id,
+  value,
+  onChange,
+  onSend,
+  placeholder = "Type a message…",
+}: {
+  id: string
+  value: string
+  onChange: (next: string) => void
+  onSend: () => void
+  placeholder?: string
+}) {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || e.shiftKey) return
+    e.preventDefault()
+    onSend()
+  }
+
+  return (
+    <div className="relative z-20 shrink-0 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="mx-auto flex w-full max-w-2xl min-w-0 justify-center">
+        <div
+          className={cn(
+            "flex w-full min-w-0 items-end gap-2 rounded-3xl border border-[#e7e7f0] bg-white py-2 pl-4 pr-2 sm:pl-5 sm:pr-1.5",
+            "shadow-[0px_12px_40px_rgba(54,53,76,0.14),0px_4px_12px_rgba(54,53,76,0.06)]",
+            "ring-1 ring-[#36354c]/[0.05]",
+          )}
+        >
+          <label htmlFor={id} className="sr-only">
+            Message as CX — {helloCxResponderName}
+          </label>
+          <textarea
+            id={id}
+            rows={1}
+            value={value}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className={cn(
+              "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-[#fafafa]/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
+              "outline-none ring-0 placeholder:text-[#8b87a3]",
+              "focus-visible:placeholder:text-[#a39eb8]",
+            )}
+          />
+          <Button
+            type="button"
+            size="icon"
+            onClick={onSend}
+            disabled={!value.trim()}
+            aria-label="Send message"
+            className={cn(
+              "mb-0.5 size-11 shrink-0 rounded-full bg-[#7c47e1] text-white shadow-md transition-[box-shadow,transform]",
+              "hover:bg-[#6b3ccd] hover:shadow-lg active:scale-[0.98]",
+              "disabled:pointer-events-none disabled:opacity-40",
+            )}
+          >
+            <Send className="size-5" aria-hidden strokeWidth={2} />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function TypingIndicator({
+  labelId,
+  showIdentity = true,
+}: {
+  labelId: string
+  showIdentity?: boolean
+}) {
+  return (
+    <div className="w-fit max-w-full" role="status" aria-live="polite" aria-labelledby={labelId}>
+      <HelloAiBubbleCard showIdentity={showIdentity}>
         <span id={labelId} className="sr-only">
           AI is typing
         </span>

@@ -68,6 +68,10 @@ export function AgentActions({
                       onEscalateClick()
                       return
                     }
+                    if (/\brsa\b/i.test(t) && /\btransfer\b/i.test(t)) {
+                      handleCTAClick("transfer_to_rsa_team")
+                      return
+                    }
                     if (jtbdType === "renewal" && t.trim() === "transfer") {
                       handleCTAClick("transfer_to_presales")
                       return

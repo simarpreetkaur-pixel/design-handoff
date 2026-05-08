@@ -12,6 +12,7 @@ import { useCall } from "@/context/CallContext"
 import { mockCustomers } from "@/data/mockCustomers"
 import type { SimulateLiveScenarioId } from "@/data/simulateCallScenarios"
 import { performCustomerSearch } from "@/utils/customerSearch"
+import { SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK } from "@/data/sunilEditPolicyUseCases"
 
 export function Homepage() {
   const navigate = useNavigate()
@@ -69,7 +70,7 @@ export function Homepage() {
         navigate(`/crm/call/${id}`, {
           state:
             id === "sunil-gupta"
-              ? { crmDemo: { chatMockCase: "sunil_endorsement_edit_name" as const } }
+              ? { crmDemo: { chatMockCase: SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK } }
               : undefined,
         })
       } else {

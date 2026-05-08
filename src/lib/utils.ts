@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** First token of a full name — for “guide {name}” style copy; falls back to “the customer”. */
+export function customerFirstNameOrFull(full: string): string {
+  const t = full.trim()
+  if (!t) return "the customer"
+  const parts = t.split(/\s+/).filter(Boolean)
+  return parts[0] ?? t
+}
+
 /**
  * Scrolls an element into view inside a scrollable container only — does not scroll the document.
  * Prefer over `Element.scrollIntoView()` when nested panes must not move the page.
