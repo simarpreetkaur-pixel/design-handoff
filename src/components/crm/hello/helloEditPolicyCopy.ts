@@ -90,7 +90,7 @@ export const helloEditPolicySureAck = "Sure — I\u2019m opening Edit Policy wit
 
 /** Tell the customer (policyholder name + agent path). */
 export const helloEditPolicyPolicyholderNameRcTellCustomer =
-  "Tell the customer to keep a copy of their RC handy — it will be required to complete a policyholder name update."
+  "Ask them to keep their RC ready — it’s required for a name update."
 
 /** Second bubble — Advisor UI talking points (motor + health). */
 export const helloEditPolicyAdvisorPoints = [
@@ -99,7 +99,7 @@ export const helloEditPolicyAdvisorPoints = [
   "Health-only updates (for example email ID) follow health SOP — RC isn\u2019t required.",
 ].join("\n")
 
-/** Shorter advisor script when the edit is policyholder name (RC already called out to the customer). */
+/** Shorter advisor script when the edit is policyholder name — deprecated in Hello flow (third bubble removed). */
 export const helloEditPolicyAdvisorPointsPolicyholderName = [
   "Walk through the exact spelling they want on the policy and match it to RC before you submit in Advisor UI.",
   "Collect a readable RC copy in Advisor UI — it\u2019s required for this name change.",
@@ -163,7 +163,7 @@ export const helloEditPolicyWorkflowSuccessHeadline =
   "The policy update has been submitted successfully."
 
 export const helloEditPolicyWorkflowSuccessQuotedLine =
-  "Tell the customer their endorsement is in progress. RC proof is on file for this change."
+  "I have completed the edit from my end. It will take up to 48 hours to reflect on your app."
 
 export function helloEditPolicyAdvisorScriptForKind(kind: EndorsementEditKind): string {
   return kind === "policy_holder_name" ? helloEditPolicyAdvisorPointsPolicyholderName : helloEditPolicyAdvisorPoints

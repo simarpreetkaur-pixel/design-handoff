@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type ChangeEvent, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react"
 import { ArrowLeft, FileUp, Upload } from "lucide-react"
 
 import type { Policy } from "@/types/crm"
@@ -47,45 +47,6 @@ function rowsForPolicy(policy: Policy): EndorsementPolicyFieldRow[] {
 
 function policySubtitle(policy: Policy): string {
   return [policy.name, policy.vehicle].filter(Boolean).join(" · ")
-}
-
-function AddFieldStep({ fieldLabel, onBack }: { fieldLabel: string; onBack: () => void }) {
-  return (
-    <div className="flex w-full flex-col bg-white">
-      <div className="flex shrink-0 flex-col gap-1 border-b border-[#e7e7f0] px-5 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#36354c]"
-            aria-label="Back to policy fields"
-          >
-            <ArrowLeft className="size-5" aria-hidden />
-          </button>
-          <div className="min-w-0">
-            <h2 className="font-euclid text-[16px] font-medium leading-6 text-[#040222]">Add {fieldLabel}</h2>
-            <p className="mt-0.5 font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">
-              New coverage or details
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-col gap-6 px-5 py-6">
-        <p className="font-euclid text-[14px] leading-5 text-[#36354c]">
-          Confirm eligibility with the customer on the call, then enter this information in Advisor UI. If the
-          change depends on vehicle registration data, collect and upload the RC in the Edit Policy flow before
-          submitting.
-        </p>
-        <Button
-          type="button"
-          className="h-10 w-full rounded-lg bg-[#7c47e1] font-euclid text-[14px] font-medium text-white hover:bg-[#7c47e1]/90 sm:ml-auto sm:w-auto sm:self-end"
-          onClick={onBack}
-        >
-          Back to list
-        </Button>
-      </div>
-    </div>
-  )
 }
 
 export type EndorsementRcUploadStepProps = {
@@ -200,11 +161,15 @@ export function EndorsementRcUploadStep({
 type EndorsementAdvisorPanelProps = {
   policy: Policy
   onBack: () => void
+  /**
+   * Fired when the user has changed an inline add/edit value from the initial state (enables workflow Submit).
+   */
+  onDraftDirtyChange?: (dirty: boolean) => void
   /** Override demo rows (e.g. tests). */
   rows?: EndorsementPolicyFieldRow[]
   /**
    * Hello workflow: hide top nav row — outer chrome provides title + close.
-   * Inner Edit / Add / Upload flows keep their own headers.
+   * RC upload step ({@link EndorsementRcUploadStep}) still uses its own header when used elsewhere.
    */
   embedded?: boolean
   /**
@@ -222,82 +187,126 @@ type EndorsementAdvisorPanelProps = {
 export function EndorsementAdvisorPanel({
   policy,
   onBack,
+  onDraftDirtyChange,
   rows: rowsProp,
   embedded = false,
   headerTrailing,
   variant = "page",
 }: EndorsementAdvisorPanelProps) {
   const rows = rowsProp ?? rowsForPolicy(policy)
-  const fileInputId = useId()
-  type Inner = null | { kind: "upload_rc"; field: { id: string; label: string } } | { kind: "add"; field: { id: string; label: string } }
-  const [inner, setInner] = useState<Inner>(null)
-  const [rcFile, setRcFile] = useState<File | null>(null)
+  const [activeRowId, setActiveRowId] = useState<string | null>(null)
+  const [inlineDraft, setInlineDraft] = useState("")
 
   const subtitle = policySubtitle(policy)
   const helloPaneLayout = variant === "helloPane" || embedded
 
-  const openField = (row: EndorsementPolicyFieldRow) => {
-    const field = { id: row.id, label: row.label }
-    setRcFile(null)
-    setInner(row.mode === "edit" ? { kind: "upload_rc", field } : { kind: "add", field })
+  const activeRow = activeRowId ? rows.find((r) => r.id === activeRowId) : undefined
+
+  useEffect(() => {
+    if (!activeRowId || !activeRow) {
+      onDraftDirtyChange?.(false)
+      return
+    }
+    const initialTrim =
+      activeRow.mode === "edit" ? (activeRow.value ?? "").trim() : ""
+    const dirty =
+      activeRow.mode === "add"
+        ? inlineDraft.trim().length > 0
+        : inlineDraft.trim() !== initialTrim
+    onDraftDirtyChange?.(dirty)
+  }, [activeRowId, activeRow, inlineDraft, onDraftDirtyChange])
+
+  useEffect(() => {
+    if (!activeRowId) return
+    if (!rows.some((r) => r.id === activeRowId)) {
+      setActiveRowId(null)
+      setInlineDraft("")
+    }
+  }, [rows, activeRowId])
+
+  const beginInlineForRow = (row: EndorsementPolicyFieldRow) => {
+    setActiveRowId(row.id)
+    setInlineDraft(row.mode === "edit" ? (row.value ?? "") : "")
   }
 
-  const closeInner = () => {
-    setInner(null)
-    setRcFile(null)
+  const cancelInline = () => {
+    setActiveRowId(null)
+    setInlineDraft("")
   }
 
-  if (inner?.kind === "upload_rc") {
-    const uploadVariant = policy.type === "Health Insurance" ? "health" : "motor"
-    return (
-      <EndorsementRcUploadStep
-        fieldLabel={inner.field.label}
-        fileInputId={fileInputId}
-        selectedFileName={rcFile?.name ?? null}
-        onFileChange={setRcFile}
-        onBack={closeInner}
-        onContinue={closeInner}
-        variant={uploadVariant}
-      />
-    )
-  }
-
-  if (inner?.kind === "add") {
-    return <AddFieldStep fieldLabel={inner.field.label} onBack={closeInner} />
-  }
+  const inputClassName =
+    "h-10 min-h-10 w-full min-w-0 rounded-lg border border-[#e7e7f0] bg-white px-3 font-euclid text-[14px] text-[#36354c] outline-none placeholder:text-[#9c9aaf] focus-visible:border-[#7c47e1]/50 focus-visible:ring-2 focus-visible:ring-[#7c47e1]/20"
 
   const rowList = (
     <ul className="divide-y divide-[#e7e7f0]">
-      {rows.map((row) => (
-        <li
-          key={row.id}
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 sm:flex-nowrap"
-        >
-          <span className="min-w-[120px] font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">
-            {row.label}
-          </span>
-          <span className="min-w-0 flex-1 font-euclid text-[14px] font-medium leading-5 text-[#36354c] sm:text-right">
-            {row.mode === "add" ? <span className="text-[#9c9aaf]">—</span> : (row.value ?? "—")}
-          </span>
-          {row.mode === "edit" ? (
-            <button
-              type="button"
-              onClick={() => openField(row)}
-              className="shrink-0 rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
-            >
-              Edit
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => openField(row)}
-              className="shrink-0 rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
-            >
-              Add
-            </button>
-          )}
-        </li>
-      ))}
+      {rows.map((row) => {
+        const isActive = activeRowId === row.id
+        return (
+          <li
+            key={row.id}
+            className={cn(
+              "px-5 py-3.5 transition-colors",
+              isActive && "bg-[#fafafa]/90",
+            )}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-x-4">
+              <span className="min-w-[120px] shrink-0 font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">
+                {row.label}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+                {isActive ? (
+                  <input
+                    id={`endorsement-inline-${row.id}`}
+                    type="text"
+                    value={inlineDraft}
+                    onChange={(e) => setInlineDraft(e.target.value)}
+                    placeholder={
+                      row.mode === "add" ? `Enter ${row.label.toLowerCase()}` : undefined
+                    }
+                    aria-label={row.mode === "edit" ? `Edit ${row.label}` : `Add ${row.label}`}
+                    className={cn(inputClassName, "sm:max-w-md")}
+                  />
+                ) : (
+                  <span className="min-w-0 flex-1 font-euclid text-[14px] font-medium leading-5 text-[#36354c] sm:text-right">
+                    {row.mode === "add" ? (
+                      <span className="text-[#9c9aaf]">—</span>
+                    ) : (
+                      (row.value ?? "—")
+                    )}
+                  </span>
+                )}
+                <div className="flex shrink-0 items-center justify-end gap-2 sm:justify-end">
+                  {isActive ? (
+                    <button
+                      type="button"
+                      onClick={cancelInline}
+                      className="rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#5b5675] underline-offset-2 transition-colors hover:text-[#36354c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
+                    >
+                      Cancel
+                    </button>
+                  ) : row.mode === "edit" ? (
+                    <button
+                      type="button"
+                      onClick={() => beginInlineForRow(row)}
+                      className="shrink-0 rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => beginInlineForRow(row)}
+                      className="shrink-0 rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/25"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </li>
+        )
+      })}
     </ul>
   )
 
@@ -366,7 +375,7 @@ export function EndorsementAdvisorPanel({
               <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
                 {policy.type === "Health Insurance"
                   ? "Review insured details. Upload proof where the change must be verified before Advisor UI."
-                  : "Review current values. Edits that affect the vehicle record require an RC upload before Advisor UI."}
+                  : "Review current values. Use Edit or Add to change a field, then submit from this workflow when ready."}
               </p>
             </div>
             {rowList}

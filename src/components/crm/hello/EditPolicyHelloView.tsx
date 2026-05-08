@@ -15,14 +15,16 @@ import {
   HelloClaimRaisedSuccessBody,
   HelloCxBubbleCard,
   HelloPolicyDetailPanelSkeleton,
+  HelloTellCustomerLabel,
   TypingIndicator,
   WorkflowPaneShimmerOverlay,
   createHelloChatIdentityStreak,
+  helloTellCustomerCalloutClass,
   helloWorkflowOfferPickShellClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
 import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
-import { PolicyDetailPanel } from "@/components/crm/ActivePoliciesPanel"
+import { PolicyDetailPanel, HelloPolicyChatDetailCard } from "@/components/crm/ActivePoliciesPanel"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,7 +42,6 @@ import {
   HELLO_EDIT_POLICY_EDIT_PICK_OPENING_ID,
   HELLO_EDIT_POLICY_MODE_PICK_OPENING_ID,
   HELLO_EDIT_POLICY_POLICY_PICK_OPENING_ID,
-  HELLO_EDIT_POLICY_SAME_ISSUE_PICK_OPENING_ID,
   helloComposerTriggersEditPolicyOffer,
   helloEditPolicyAdvisorScriptForKind,
   helloEditPolicyModeChoices,
@@ -67,10 +68,14 @@ import {
   HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS,
   HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS,
   helloFreeTextAckStub,
+  helloPolicyBarWorkflowOfferPickOptions,
   helloRaiseClaimChoices,
   helloSomethingElseAckComposerAlways,
   HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
   HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS,
+  HELLO_POLICY_BAR_ACK_LINE,
+  HELLO_POLICY_BAR_ASSISTANCE_PROMPT,
+  type HelloPolicyBarActionKey,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
 import {
   helloPolicyHeadingNumber,
@@ -89,6 +94,8 @@ export type HelloEditAssistantBody =
   | { kind: "edit_policy_self_serve_steps"; editField: EndorsementEditKind }
   | { kind: "edit_policy_self_serve_followup"; editField: EndorsementEditKind }
   | { kind: "edit_policy_workflow_success" }
+  | { kind: "policy_bar_detail_card"; policyId: string }
+  | { kind: "policy_bar_assistance_offer"; policyId: string; offerId: string }
 
 export type HelloEditChatMessage =
   | { id: string; role: "user"; text: string }
@@ -162,12 +169,8 @@ export function EditPolicyHelloView({
   /** Classic-style policy wizard — first beat when multiple policies. */
   const [policyPickVisible, setPolicyPickVisible] = useState(false)
   const [choicesRevealTyping, setChoicesRevealTyping] = useState(false)
-  /** Opening transcript — “same issue vs something else” before field radios. */
-  const [openingSameIssuePickVisible, setOpeningSameIssuePickVisible] = useState(false)
-  /** Opening transcript — “what to edit” radios (after policy is known and same issue confirmed). */
+  /** Opening transcript — “what to edit” radios once policy context is known (skips redundant same-issue gate). */
   const [openingEditPickVisible, setOpeningEditPickVisible] = useState(false)
-  /** Opening path — shared “use composer” ack after “something else” on same-issue step. */
-  const [openingSomethingElseAckVisible, setOpeningSomethingElseAckVisible] = useState(false)
   /** Opening transcript — workflow vs self-serve after field pick. */
   const [openingModePickVisible, setOpeningModePickVisible] = useState(false)
   const [openingFlowEditKind, setOpeningFlowEditKind] = useState<EndorsementEditKind | null>(null)
@@ -184,6 +187,8 @@ export function EditPolicyHelloView({
   )
   const [replyTyping, setReplyTyping] = useState(false)
 
+  const editPolicySuccessPushedRef = useRef(false)
+
   const rightPaneSplit = workflowActive || policyDetailPane.isOpen
 
   const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
@@ -198,13 +203,45 @@ export function EditPolicyHelloView({
     setMessages((prev) => [...prev, { id, role: "assistant", body }])
   }
 
-  /** After policy is known (opening): typing → “same issue” card. */
-  const scheduleSameIssuePickAfterPolicy = () => {
+  const schedulePolicyBarChatSequence = (policy: Policy) => {
+    const offerId = `policy-bar-offer-${policy.id}-${Date.now()}`
+    const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
+    const pauseMs = HELLO_BOT_REPLY_AFTER_USER_MS
+
+    setReplyTyping(true)
+    window.setTimeout(() => {
+      setReplyTyping(false)
+      pushAssistant({ kind: "text", text: HELLO_POLICY_BAR_ACK_LINE })
+
+      window.setTimeout(() => {
+        setReplyTyping(true)
+        window.setTimeout(() => {
+          setReplyTyping(false)
+          pushAssistant({ kind: "policy_bar_detail_card", policyId: policy.id })
+
+          window.setTimeout(() => {
+            setReplyTyping(true)
+            window.setTimeout(() => {
+              setReplyTyping(false)
+              pushAssistant({
+                kind: "policy_bar_assistance_offer",
+                policyId: policy.id,
+                offerId,
+              })
+            }, typingMs)
+          }, pauseMs)
+        }, typingMs)
+      }, pauseMs)
+    }, typingMs)
+  }
+
+  /** After policy is chosen (multi-policy opening): typing → “what to edit” radios. */
+  const scheduleEditPickAfterPolicy = () => {
     window.setTimeout(() => {
       setChoicesRevealTyping(true)
       window.setTimeout(() => {
         setChoicesRevealTyping(false)
-        setOpeningSameIssuePickVisible(true)
+        setOpeningEditPickVisible(true)
       }, typingMs)
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
   }
@@ -227,7 +264,7 @@ export function EditPolicyHelloView({
           schedule(() => {
             if (cancelled) return
             setChoicesRevealTyping(false)
-            setOpeningSameIssuePickVisible(true)
+            setOpeningEditPickVisible(true)
           }, typingMs)
         }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
       }, typingMs)
@@ -245,7 +282,7 @@ export function EditPolicyHelloView({
           schedule(() => {
             if (cancelled) return
             setChoicesRevealTyping(false)
-            setOpeningSameIssuePickVisible(true)
+            setOpeningEditPickVisible(true)
           }, typingMs)
         }, 0)
       }, typingMs)
@@ -256,6 +293,14 @@ export function EditPolicyHelloView({
       timeouts.forEach((t) => window.clearTimeout(t))
     }
   }, [needsPolicyPick, typingMs, inboundEditPolicyContext])
+
+  const prevWorkflowActiveRef = useRef(false)
+  useEffect(() => {
+    if (workflowActive && !prevWorkflowActiveRef.current) {
+      editPolicySuccessPushedRef.current = false
+    }
+    prevWorkflowActiveRef.current = workflowActive
+  }, [workflowActive])
 
   useEffect(() => {
     if (!workflowActive) {
@@ -284,8 +329,6 @@ export function EditPolicyHelloView({
     openingInboundIntroVisible,
     policyPickVisible,
     choicesRevealTyping,
-    openingSameIssuePickVisible,
-    openingSomethingElseAckVisible,
     openingEditPickVisible,
     openingModePickVisible,
     messages,
@@ -300,6 +343,50 @@ export function EditPolicyHelloView({
     setSpentOfferIds((prev) => new Set(prev).add(offerId))
   }
 
+  const handleHelloPolicyBarAction = (
+    actionKey: HelloPolicyBarActionKey,
+    policy: Policy,
+    offerId: string,
+    userEchoLabel: string,
+  ) => {
+    if (spentOfferIds.has(offerId)) return
+    spend(offerId)
+    setMessages((prev) => [
+      ...prev,
+      { id: `hello-edit-user-policy-bar-${Date.now()}`, role: "user", text: userEchoLabel },
+    ])
+
+    if (actionKey === "raise_claim") {
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+        pushAssistant({
+          kind: "text",
+          text: "To raise a claim, open the Raise Claim workflow from the CRM workspace. This journey is for Edit Policy.",
+        })
+      }, typingMs)
+      return
+    }
+
+    if (actionKey === "edit_policy") {
+      setSelectedPolicy(policy)
+      setComposerEditFlowKind(null)
+      setWorkflowActive(false)
+      setActiveWorkflowEditKind(null)
+      policyDetailPane.close()
+      window.setTimeout(() => {
+        setReplyTyping(true)
+        window.setTimeout(() => {
+          setReplyTyping(false)
+          pushAssistant({
+            kind: "edit_policy_edit_pick",
+            offerId: `policy-bar-edit-field-${Date.now()}`,
+          })
+        }, typingMs)
+      }, HELLO_BOT_REPLY_AFTER_USER_MS)
+    }
+  }
+
   const handleOpeningPolicyPick = (policyId: string, userEchoLabel: string) => {
     if (spentOfferIds.has(HELLO_EDIT_POLICY_POLICY_PICK_OPENING_ID)) return
     const policy = pickablePolicies.find((p) => p.id === policyId)
@@ -310,28 +397,7 @@ export function EditPolicyHelloView({
       ...prev,
       { id: `hello-edit-user-policy-${Date.now()}`, role: "user", text: userEchoLabel },
     ])
-    scheduleSameIssuePickAfterPolicy()
-  }
-
-  const handleOpeningSameIssuePick = (key: string, userEchoLabel: string) => {
-    if (spentOfferIds.has(HELLO_EDIT_POLICY_SAME_ISSUE_PICK_OPENING_ID)) return
-    spend(HELLO_EDIT_POLICY_SAME_ISSUE_PICK_OPENING_ID)
-    setMessages((prev) => [
-      ...prev,
-      { id: `hello-edit-user-same-issue-${Date.now()}`, role: "user", text: userEchoLabel },
-    ])
-    window.setTimeout(() => {
-      setReplyTyping(true)
-      window.setTimeout(() => {
-        setReplyTyping(false)
-        setOpeningSameIssuePickVisible(false)
-        if (key === "same_issue") {
-          setOpeningEditPickVisible(true)
-        } else {
-          setOpeningSomethingElseAckVisible(true)
-        }
-      }, typingMs)
-    }, HELLO_BOT_REPLY_AFTER_USER_MS)
+    scheduleEditPickAfterPolicy()
   }
 
   const handleComposerSameIssuePick = (key: string, userEchoLabel: string, offerId: string) => {
@@ -373,8 +439,8 @@ export function EditPolicyHelloView({
       window.setTimeout(() => {
         setReplyTyping(false)
         pushAssistant({
-          kind: "edit_policy_same_issue_pick",
-          offerId: `composer-same-issue-${Date.now()}`,
+          kind: "edit_policy_edit_pick",
+          offerId: `composer-edit-field-${Date.now()}`,
         })
       }, typingMs)
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
@@ -420,17 +486,10 @@ export function EditPolicyHelloView({
             setReplyTyping(false)
             pushAssistant({ kind: "text", text: helloEditPolicyPolicyholderNameRcTellCustomer })
             window.setTimeout(() => {
-              setReplyTyping(true)
-              window.setTimeout(() => {
-                setReplyTyping(false)
-                pushAssistant({ kind: "text", text: advisorScript })
-                window.setTimeout(() => {
-                  policyDetailPane.close()
-                  setActiveWorkflowEditKind(kind)
-                  setWorkflowActive(true)
-                }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
-              }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
-            }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
+              policyDetailPane.close()
+              setActiveWorkflowEditKind(kind)
+              setWorkflowActive(true)
+            }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
         }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
       }, typingMs)
@@ -559,8 +618,8 @@ export function EditPolicyHelloView({
           return
         }
         pushAssistant({
-          kind: "edit_policy_same_issue_pick",
-          offerId: `composer-same-issue-${Date.now()}`,
+          kind: "edit_policy_edit_pick",
+          offerId: `composer-edit-field-${Date.now()}`,
         })
       }, typingMs)
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
@@ -574,6 +633,8 @@ export function EditPolicyHelloView({
   }
 
   const handleEditPolicyWorkflowComplete = () => {
+    if (editPolicySuccessPushedRef.current) return
+    editPolicySuccessPushedRef.current = true
     window.setTimeout(() => {
       setWorkflowActive(false)
       setActiveWorkflowEditKind(null)
@@ -651,11 +712,9 @@ export function EditPolicyHelloView({
             ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
             : EDIT_POLICY_CUSTOMER_TAT_LINE
         return (
-          <div className="rounded-xl border border-[#e7e7f0] bg-gradient-to-b from-[#fafafa] to-white px-3.5 py-3">
-            <p className="mb-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              What to tell the customer
-            </p>
-            <ul className="space-y-2.5">
+          <div className={helloTellCustomerCalloutClass}>
+            <HelloTellCustomerLabel />
+            <ul className="mt-2 space-y-2.5">
               <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
                 {tatLine}
               </li>
@@ -673,6 +732,10 @@ export function EditPolicyHelloView({
             quotedLine={helloEditPolicyWorkflowSuccessQuotedLine}
           />
         )
+      case "policy_bar_detail_card":
+        return null
+      case "policy_bar_assistance_offer":
+        return null
     }
   }
 
@@ -681,6 +744,43 @@ export function EditPolicyHelloView({
     streak: ReturnType<typeof createHelloChatIdentityStreak>,
   ): ReactNode => {
     const body = message.body
+    if (body.kind === "policy_bar_detail_card") {
+      const policy = pickablePolicies.find((p) => p.id === body.policyId)
+      if (!policy) return null
+      return (
+        <div key={message.id} className="w-full min-w-0 max-w-full">
+          <HelloAiBubbleCard fullWidth showIdentity={streak.nextAiBubbleShowIdentity()}>
+            <HelloPolicyChatDetailCard policy={policy} />
+          </HelloAiBubbleCard>
+        </div>
+      )
+    }
+    if (body.kind === "policy_bar_assistance_offer") {
+      const policy = pickablePolicies.find((p) => p.id === body.policyId)
+      if (!policy) return null
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                {HELLO_POLICY_BAR_ASSISTANCE_PROMPT}
+              </p>
+            </HelloAiBubbleCard>
+          </div>
+          <div className={helloWorkflowOfferPickShellClass}>
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <WorkflowOfferPick
+                options={helloPolicyBarWorkflowOfferPickOptions()}
+                disabled={spentOfferIds.has(body.offerId)}
+                onPick={(key, label) =>
+                  handleHelloPolicyBarAction(key as HelloPolicyBarActionKey, policy, body.offerId, label)
+                }
+              />
+            </HelloAiBubbleCard>
+          </div>
+        </div>
+      )
+    }
     if (body.kind === "policy_pick") {
       return (
         <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
@@ -881,28 +981,6 @@ export function EditPolicyHelloView({
                   })()
                 : null}
 
-              {openingSameIssuePickVisible ? (
-                <>
-                  <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
-                    <p className="font-euclid text-[13px] font-normal leading-5 text-[#36354c]">
-                      {helloEditPolicySameIssuePrompt}
-                    </p>
-                  </HelloAiBubbleCard>
-                  <div className={helloWorkflowOfferPickShellClass}>
-                    <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
-                      <WorkflowOfferPick
-                        options={[
-                          { key: "same_issue", label: helloEditPolicySameIssueYesLabel },
-                          { key: "something_else", label: somethingElseChoiceLabel },
-                        ]}
-                        disabled={spentOfferIds.has(HELLO_EDIT_POLICY_SAME_ISSUE_PICK_OPENING_ID)}
-                        onPick={(key, label) => handleOpeningSameIssuePick(key, label)}
-                      />
-                    </HelloAiBubbleCard>
-                  </div>
-                </>
-              ) : null}
-
               {openingEditPickVisible ? (
                 <>
                   <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
@@ -942,14 +1020,6 @@ export function EditPolicyHelloView({
                   </div>
                 )
               })}
-
-              {openingSomethingElseAckVisible ? (
-                <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
-                  <p className="font-euclid text-[14px] font-normal leading-5 text-[#36354c]">
-                    {helloSomethingElseAckComposerAlways}
-                  </p>
-                </HelloAiBubbleCard>
-              ) : null}
 
               {openingModePickVisible && openingFlowEditKind ? (
                 <>
@@ -1092,9 +1162,11 @@ export function EditPolicyHelloView({
         activePolicies={pickablePolicies}
         inactivePolicies={inactivePolicies}
         onActivePolicyViewDetails={(p) => {
-          policyDetailPane.open(p)
+          setSelectedPolicy(p)
           setWorkflowActive(false)
           setActiveWorkflowEditKind(null)
+          policyDetailPane.close()
+          schedulePolicyBarChatSequence(p)
         }}
       />
 

@@ -191,7 +191,13 @@ export function RaiseClaimWorkflowPanel({
               disabled={rc.formDisabled}
               onSubmit={rc.dispatchRequest}
             />
-            <RequestRcWorkflowFollowup phase={rc.followupPhase} onApprove={rc.approveDocuments} />
+            <RequestRcWorkflowFollowup
+              phase={rc.followupPhase}
+              documentDeliveryIndex={rc.documentDeliveryIndex}
+              receivedAtMs={rc.receivedAtMs}
+              onApprove={rc.approveDocuments}
+              onReRequestDocuments={rc.reRequestDocuments}
+            />
           </AccordionContent>
         </AccordionItem>
 

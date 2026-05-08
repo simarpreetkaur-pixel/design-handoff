@@ -71,6 +71,34 @@ export const HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS = 2000
 /** Profile “Policies” drawer closes before the parent opens the policy-detail split (collapse-first). */
 export const HELLO_POLICIES_PANEL_COLLAPSE_BEFORE_OPEN_MS = 280
 
+/** First assistant turn after profile-bar policy pick — shown after typing, before the inline policy card. */
+export const HELLO_POLICY_BAR_ACK_LINE =
+  "As requested, let me open policy details here in the chat."
+
+/** Assistant line after the inline policy summary when picking an active policy from the profile bar. */
+export const HELLO_POLICY_BAR_ASSISTANCE_PROMPT =
+  "Does the customer need any assistance here?"
+
+export type HelloPolicyBarActionKey =
+  | "raise_claim"
+  | "edit_policy"
+  | "view_policy_document"
+  | "share_policy_document"
+
+/** Radio rows under {@link HELLO_POLICY_BAR_ASSISTANCE_PROMPT} — doc actions disabled until wired. */
+export function helloPolicyBarWorkflowOfferPickOptions(): {
+  key: HelloPolicyBarActionKey
+  label: string
+  disabled?: boolean
+}[] {
+  return [
+    { key: "raise_claim", label: "Raise a claim" },
+    { key: "edit_policy", label: "Edit Policy" },
+    { key: "view_policy_document", label: "View policy document", disabled: true },
+    { key: "share_policy_document", label: "Share policy document", disabled: true },
+  ]
+}
+
 /** Right pane: skeleton duration before {@link PolicyDetailPanel} mounts (demo pacing). */
 export const HELLO_POLICY_DETAIL_SKELETON_MS = 520
 
@@ -87,13 +115,16 @@ export const HELLO_SECOND_ACK_TYPING_INDICATOR_MS = 400
 export const helloSureCreatingWorkflowAck = "Sure — I'm creating the workflow for you."
 
 /**
- * Second bubble — network garage talking points for the agent to share with the customer.
+ * Bullet lines — network garage talking points (shown below the intro line in the Hello agent-behalf bubble).
  */
-export const helloSureCreatingWorkflowGaragePoints = [
-  "Meanwhile, share why our network garages matter:",
+export const HELLO_AGENT_BEHALF_NETWORK_GARAGE_BULLETS = [
   "• Cashless repairs at authorised garages — covered work is settled directly with us, so the customer avoids large upfront payments.",
   "• Quality-checked repairs and quicker turnaround — jobs stay on insurer-approved channels with clearer estimates and faster closure.",
-].join("\n")
+] as const
+
+export function helloAgentBehalfNetworkGarageBulletsJoined(): string {
+  return HELLO_AGENT_BEHALF_NETWORK_GARAGE_BULLETS.join("\n")
+}
 
 /** After FNOL submit — success line (shown with green check in Hello companion). */
 export const helloClaimRaisedSuccessHeadline = "The claim has been raised successfully."

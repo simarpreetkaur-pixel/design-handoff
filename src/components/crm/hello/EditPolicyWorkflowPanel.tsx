@@ -71,6 +71,10 @@ export function EditPolicyWorkflowPanel({
 }: EditPolicyWorkflowPanelProps) {
   const [phase, setPhase] = useState<WorkflowPhase>("step1_rc")
   const [openStep, setOpenStep] = useState<string>(() => phaseToOpenStep("step1_rc"))
+  const [advisorDraftDirty, setAdvisorDraftDirty] = useState(false)
+  /** Prevents double Submits (and duplicate success bubbles) before React re-renders. */
+  const workflowCompleteLockRef = useRef(false)
+  const [workflowCompleteDispatched, setWorkflowCompleteDispatched] = useState(false)
 
   const onRequestDispatched = useCallback(() => {
     onRcEmailSent?.()
@@ -91,6 +95,19 @@ export function EditPolicyWorkflowPanel({
   useEffect(() => {
     setOpenStep(phaseToOpenStep(phase))
   }, [phase])
+
+  useEffect(() => {
+    setAdvisorDraftDirty(false)
+    workflowCompleteLockRef.current = false
+    setWorkflowCompleteDispatched(false)
+  }, [phase, editKind, policy.id])
+
+  const handleSubmitUpdateClick = () => {
+    if (workflowCompleteLockRef.current) return
+    workflowCompleteLockRef.current = true
+    setWorkflowCompleteDispatched(true)
+    onEditPolicyWorkflowComplete?.()
+  }
 
   const step1Done = rc.documentsApproved
   const step2Locked = !step1Done
@@ -185,7 +202,13 @@ export function EditPolicyWorkflowPanel({
               disabled={rc.formDisabled}
               onSubmit={rc.dispatchRequest}
             />
-            <RequestRcWorkflowFollowup phase={rc.followupPhase} onApprove={rc.approveDocuments} />
+            <RequestRcWorkflowFollowup
+              phase={rc.followupPhase}
+              documentDeliveryIndex={rc.documentDeliveryIndex}
+              receivedAtMs={rc.receivedAtMs}
+              onApprove={rc.approveDocuments}
+              onReRequestDocuments={rc.reRequestDocuments}
+            />
           </AccordionContent>
         </AccordionItem>
 
@@ -227,14 +250,16 @@ export function EditPolicyWorkflowPanel({
                   key={`hello-edit-advisor-${policy.id}-${editKind}`}
                   policy={policy}
                   onBack={onClose ?? (() => {})}
+                  onDraftDirtyChange={setAdvisorDraftDirty}
                   embedded
                   variant="helloPane"
                 />
               </div>
               <Button
                 type="button"
+                disabled={step2Locked || !advisorDraftDirty || workflowCompleteDispatched}
                 className="h-10 w-full rounded-lg bg-[#7c47e1] font-euclid text-[14px] font-medium text-white hover:bg-[#7c47e1]/90 sm:ml-auto sm:w-auto sm:self-end"
-                onClick={() => onEditPolicyWorkflowComplete?.()}
+                onClick={handleSubmitUpdateClick}
               >
                 Submit update
               </Button>

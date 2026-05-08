@@ -86,6 +86,14 @@ export interface JTBD {
 
 export type StatusState = "completed" | "current" | "pending"
 
+/** Row inside the yellow survey / detail card on the claim timeline (Figma Claim Status). */
+export type ClaimCalloutRow = {
+  label: string
+  value: string
+  /** e.g. Status: Missed — red text + alert icon per design */
+  variant?: "default" | "error"
+}
+
 export interface ClaimStatus {
   step: string
   state: StatusState
@@ -99,6 +107,8 @@ export interface ClaimStatus {
    * e.g. "Action required from:" / "Rajesh Kumar"
    */
   calloutMeta?: { label: string; value: string }
+  /** Detail rows under the current step (survey date/time/agent/status, etc.). */
+  calloutRows?: ClaimCalloutRow[]
 }
 
 export interface AgentAction {

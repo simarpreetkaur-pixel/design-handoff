@@ -385,70 +385,77 @@ export const rajKapoorClaimStatusNexonJtbd: JTBD = {
   vehicle: "Tata Nexon 2025",
   isActive: true,
   openingQuickSummary:
-    "Active Nexon claim — repair is blocked until a preferred garage is confirmed in the app; customer is calling for a status update.",
+    "Active Nexon claim — survey was scheduled for 12 Feb'26 but marked missed; repair estimate is waiting on Ops / resurvey.",
   aiSummary: {
     bullets: [
-      "Last contact: customer could not finish preferred garage selection in the app after claim intimation.",
-      "Claim is active — repair authorisation is blocked until a garage is confirmed.",
+      "Last contact: customer confirmed the survey slot but could not receive the surveyor at the scheduled time.",
+      "Claim is active — repair estimate cannot proceed until the survey step is cleared or escalated.",
     ],
     sectionHeading: "Previous summary",
     headerIconVariant: "ai_summary",
     stackHeaderWithBullets: true,
     detailedSummaryTimeline: [
       {
-        title: "2 Feb'26, 14:22 — Arjun Mehta (CX)",
+        title: "12 Feb'26, 10:12 — Arjun Mehta (CX)",
         detail:
-          "Raj intimated a rear bumper claim after a parking scrape. FNOL completed; he asked whether OEM parts were mandatory. Agent confirmed cashless at network garages and shared how to upload photos.",
+          "Raj confirmed his rear-bumper claim was registered. He asked about survey timing; agent shared the 2–4 PM slot and expectations for vehicle access.",
       },
       {
-        title: "4 Feb'26, 09:05 — Priya Nair (CX)",
+        title: "12 Feb'26, 16:40 — Priya Nair (CX)",
         detail:
-          "Follow-up on garage shortlist — customer could not see preferred garages in-app. Agent walked through the app path and sent an ACKO Alert with a deep link. Garage was still not confirmed at end of call.",
+          "Survey marked missed in system — customer disputes availability. Agent documented the dispute and set expectation that Ops may need to reschedule or intervene.",
       },
     ],
   },
   status: [
     {
-      step: "Claim intimated",
+      step: "Claim registered",
       state: "completed",
-      date: "2 Feb'26",
+      date: "12 Feb'26",
     },
     {
-      step: "Photo / document review",
-      state: "completed",
-      date: "3 Feb'26",
-    },
-    {
-      step: "Garage shortlist",
+      step: "Survey scheduled",
       state: "current",
-      date: "4 Feb'26",
-      warning: "Preferred garage not selected yet — repair cannot progress.",
-      calloutMeta: { label: "Action required from:", value: "Raj Kapoor" },
+      date: "12 Feb'26",
+      calloutRows: [
+        { label: "Survey date", value: "12 Feb'26" },
+        { label: "Survey time slot", value: "2-4PM" },
+        { label: "Agent name", value: "Arun" },
+        { label: "Status", value: "Missed", variant: "error" },
+      ],
     },
     {
-      step: "Repair authorisation",
+      step: "Repair Estimate",
       state: "pending",
     },
   ],
   agentActions: [
     {
-      id: "raj-cs-1",
+      id: "raj-cs-escalate",
       step: 1,
-      description: "Walk the customer through garage selection in the ACKO app or send an ACKO Alert with the claim deep link.",
+      description:
+        "Survey was missed — escalate to Ops so the claim can be rescheduled or manually progressed before repair estimate.",
+      cta: "Escalate to Ops",
+      completed: false,
+    },
+    {
+      id: "raj-cs-1",
+      step: 2,
+      description: "Walk the customer through next steps in the ACKO app or send an ACKO Alert with the claim deep link.",
       cta: "Send ACKO Alert",
       completed: false,
     },
     {
       id: "raj-cs-2",
-      step: 2,
-      description: "If the customer wants hands-on help choosing a garage, schedule a claim handler callback.",
+      step: 3,
+      description: "If the customer wants hands-on help, schedule a claim handler callback.",
       cta: "Schedule CH Appointment",
       completed: false,
     },
   ],
-  quickActions: ["Send communication", "Send ACKO Alert", "Schedule CH Appointment"],
+  quickActions: ["Escalate to Ops", "Send communication", "Send ACKO Alert", "Schedule CH Appointment"],
   askInChatPrefill:
-    "Raj's Nexon claim is waiting on garage selection — what's the shortest path to get him unblocked?",
+    "Raj's Nexon claim — survey slot was missed; how do we align with Ops and unblock repair estimate?",
 }
 
 export const policyActions: PolicyAction[] = [

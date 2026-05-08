@@ -103,7 +103,7 @@ export type HelloCustomerProfileBarProps = {
    */
   activePolicies?: Policy[]
   inactivePolicies?: InactivePolicy[]
-  /** Hello only — active policy rows open classic {@link PolicyDetailPanel} in the parent split pane. */
+  /** Hello only — active policy rows inject {@link HelloPolicyChatDetailCard} + assistance radios into chat (no split until an action). */
   onActivePolicyViewDetails?: (policy: Policy) => void
 }
 

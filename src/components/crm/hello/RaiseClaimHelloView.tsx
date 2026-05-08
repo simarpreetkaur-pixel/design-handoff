@@ -31,16 +31,25 @@ import {
   HelloCxBubbleCard,
   HelloPolicyDetailPanelSkeleton,
   HelloRenewalReminderCard,
+  HelloTellCustomerLabel,
   TypingIndicator,
   WorkflowPaneShimmerOverlay,
   createHelloChatIdentityStreak,
+  helloTellCustomerCalloutClass,
   helloWorkflowOfferPickShellClass,
   HelloChatColumnBackground,
+  HelloWorkflowSplitHandle,
+  HELLO_SPLIT_GRIP_HOVER_BRIDGE_MS,
+  HELLO_SPLIT_LEFT_DEFAULT_PCT,
+  HELLO_SPLIT_LEFT_MAX_PCT,
+  HELLO_SPLIT_LEFT_MIN_PCT,
+  helloSplitShellTransitionClass,
+  helloWorkflowPaneShellClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
 import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
 import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
-import { PolicyDetailPanel } from "@/components/crm/ActivePoliciesPanel"
+import { PolicyDetailPanel, HelloPolicyChatDetailCard } from "@/components/crm/ActivePoliciesPanel"
 import { EndorsementAdvisorPanel } from "@/components/crm/EndorsementAdvisorPanel"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
 import { Button } from "@/components/ui/button"
@@ -55,6 +64,7 @@ import {
   HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS,
   helloComposerTriggersRaiseClaimOffer,
   helloFreeTextAckStub,
+  helloPolicyBarWorkflowOfferPickOptions,
   helloRaiseClaimChoices,
   helloRaiseClaimVehicleLabel,
   helloClaimRaisedSuccessHeadline,
@@ -62,13 +72,16 @@ import {
   helloDefaultRenewalNudgeAfterClaim,
   HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
   HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS,
+  HELLO_POLICY_BAR_ACK_LINE,
+  HELLO_POLICY_BAR_ASSISTANCE_PROMPT,
   HELLO_RENEWAL_NUDGE_AFTER_SUCCESS_MS,
   HELLO_SECOND_ACK_TYPING_INDICATOR_MS,
   HELLO_SELF_SERVE_READ_PAUSE_MS,
   helloSureCreatingWorkflowAck,
-  helloSureCreatingWorkflowGaragePoints,
+  helloAgentBehalfNetworkGarageBulletsJoined,
   helloSomethingElseAckComposerAlways,
   helloCxResponderName,
+  type HelloPolicyBarActionKey,
   type HelloRaiseClaimChoiceId,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
 import {
@@ -104,6 +117,7 @@ import {
 
 export type HelloAssistantBody =
   | { kind: "text"; text: string }
+  | { kind: "agent_behalf_network_garage" }
   | { kind: "self_serve_tip" }
   | { kind: "self_serve_steps" }
   | { kind: "self_serve_followup" }
@@ -117,6 +131,8 @@ export type HelloAssistantBody =
   | { kind: "edit_policy_workflow_success" }
   | { kind: "claim_raised_success" }
   | { kind: "renewal_reminder"; vehicleLabel: string; daysLeft: number }
+  | { kind: "policy_bar_detail_card"; policyId: string }
+  | { kind: "policy_bar_assistance_offer"; policyId: string; offerId: string }
 
 export type HelloChatMessage =
   | { id: string; role: "user"; text: string }
@@ -140,11 +156,6 @@ export type RaiseClaimHelloViewProps = {
   className?: string
 }
 
-/** Default Hello split: chat ~46% / workflow pane ~54%. Drag the left edge of the workflow panel to resize (up to ~81% / 150% of default pane width). */
-const HELLO_SPLIT_LEFT_DEFAULT_PCT = 46
-const HELLO_SPLIT_LEFT_MIN_PCT = 19
-const HELLO_SPLIT_LEFT_MAX_PCT = 74
-
 function RaiseClaimOpeningParagraph({ vehicleLabel }: { vehicleLabel: string }) {
   return (
     <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
@@ -154,38 +165,6 @@ function RaiseClaimOpeningParagraph({ vehicleLabel }: { vehicleLabel: string }) 
       <span className="font-bold">{vehicleLabel}</span>
       <span>, select the appropriate option.</span>
     </p>
-  )
-}
-
-/** Delay before hiding split grip after leaving companion — allows cursor to reach grip across the gap. */
-const HELLO_SPLIT_GRIP_HOVER_BRIDGE_MS = 220
-
-type HelloWorkflowSplitHandleProps = {
-  onMouseDown: (e: MouseEvent<HTMLDivElement>) => void
-  onMouseEnter: () => void
-  onMouseLeave: () => void
-  visible: boolean
-}
-
-/** Compact left-edge resize grip (document-level move/up handled by parent). */
-function HelloWorkflowSplitHandle({
-  onMouseDown,
-  onMouseEnter,
-  onMouseLeave,
-  visible,
-}: HelloWorkflowSplitHandleProps) {
-  if (!visible) return null
-
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize AI companion and side panel"
-      className="pointer-events-auto absolute top-1/2 left-0 z-30 hidden h-11 w-2 -translate-y-1/2 cursor-col-resize select-none bg-transparent hover:bg-[#7c47e1]/[0.06] active:bg-[#7c47e1]/10 lg:block"
-      onMouseDown={onMouseDown}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    />
   )
 }
 
@@ -245,7 +224,22 @@ export function RaiseClaimHelloView({
     editKind: EndorsementEditKind
   } | null>(null)
 
+  /** Policy chosen from profile-bar radios for Raise Claim workflow (defaults to journey prop). */
+  const [activeWorkflowPolicy, setActiveWorkflowPolicy] = useState<Policy | null>(null)
+
+  const editPolicySuccessPushedRef = useRef(false)
+  const prevEditPolicyWorkflowRef = useRef<typeof editPolicyWorkflow>(null)
+
+  useEffect(() => {
+    if (editPolicyWorkflow && !prevEditPolicyWorkflowRef.current) {
+      editPolicySuccessPushedRef.current = false
+    }
+    prevEditPolicyWorkflowRef.current = editPolicyWorkflow
+  }, [editPolicyWorkflow])
+
   const rightPaneSplit = workflowActive || editPolicyWorkflow !== null || policyDetailPane.isOpen
+
+  const claimWorkflowPolicy = activeWorkflowPolicy ?? raiseClaimPolicy
 
   const clampSplitLeftPct = useCallback((pct: number) => {
     return Math.min(HELLO_SPLIT_LEFT_MAX_PCT, Math.max(HELLO_SPLIT_LEFT_MIN_PCT, pct))
@@ -354,6 +348,80 @@ export function RaiseClaimHelloView({
   const pushAssistant = (body: HelloAssistantBody) => {
     const id = `hello-a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     setMessages((prev) => [...prev, { id, role: "assistant", body }])
+  }
+
+  /** Typing → ack line → typing → policy card → typing → assistance prompt + radios (profile bar pick). */
+  const schedulePolicyBarChatSequence = (policy: Policy) => {
+    const offerId = `policy-bar-offer-${policy.id}-${Date.now()}`
+    const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
+    const pauseMs = HELLO_BOT_REPLY_AFTER_USER_MS
+
+    setReplyTyping(true)
+    window.setTimeout(() => {
+      setReplyTyping(false)
+      pushAssistant({ kind: "text", text: HELLO_POLICY_BAR_ACK_LINE })
+
+      window.setTimeout(() => {
+        setReplyTyping(true)
+        window.setTimeout(() => {
+          setReplyTyping(false)
+          pushAssistant({ kind: "policy_bar_detail_card", policyId: policy.id })
+
+          window.setTimeout(() => {
+            setReplyTyping(true)
+            window.setTimeout(() => {
+              setReplyTyping(false)
+              pushAssistant({
+                kind: "policy_bar_assistance_offer",
+                policyId: policy.id,
+                offerId,
+              })
+            }, typingMs)
+          }, pauseMs)
+        }, typingMs)
+      }, pauseMs)
+    }, typingMs)
+  }
+
+  const handleHelloPolicyBarAction = (
+    actionKey: HelloPolicyBarActionKey,
+    policy: Policy,
+    offerId: string,
+    userEchoLabel: string,
+  ) => {
+    if (spentOfferIds.has(offerId)) return
+    setSpentOfferIds((prev) => new Set(prev).add(offerId))
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `hello-user-policy-bar-${Date.now()}`, role: "user", text: userEchoLabel },
+    ])
+
+    if (actionKey === "raise_claim") {
+      setActiveWorkflowPolicy(policy)
+      setEditPolicyWorkflow(null)
+      policyDetailPane.close()
+      setWorkflowActive(true)
+      return
+    }
+
+    if (actionKey === "edit_policy") {
+      setActiveWorkflowPolicy(null)
+      policyDetailPane.close()
+      setWorkflowActive(false)
+      setEditFlowPolicy(policy)
+      setEditFlowKind(null)
+      window.setTimeout(() => {
+        setReplyTyping(true)
+        window.setTimeout(() => {
+          setReplyTyping(false)
+          pushAssistant({
+            kind: "edit_policy_edit_pick",
+            offerId: `policy-bar-edit-field-${Date.now()}`,
+          })
+        }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+      }, HELLO_BOT_REPLY_AFTER_USER_MS)
+    }
   }
 
   useEffect(() => {
@@ -476,10 +544,11 @@ export function RaiseClaimHelloView({
           setReplyTyping(true)
           window.setTimeout(() => {
             setReplyTyping(false)
-            pushAssistant({ kind: "text", text: helloSureCreatingWorkflowGaragePoints })
+            pushAssistant({ kind: "agent_behalf_network_garage" })
             window.setTimeout(() => {
               policyDetailPane.close()
               setEditPolicyWorkflow(null)
+              setActiveWorkflowPolicy(null)
               setWorkflowActive(true)
             }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
@@ -603,17 +672,10 @@ export function RaiseClaimHelloView({
               setReplyTyping(false)
               pushAssistant({ kind: "text", text: helloEditPolicyPolicyholderNameRcTellCustomer })
               window.setTimeout(() => {
-                setReplyTyping(true)
-                window.setTimeout(() => {
-                  setReplyTyping(false)
-                  pushAssistant({ kind: "text", text: advisorScript })
-                  window.setTimeout(() => {
-                    policyDetailPane.close()
-                    setWorkflowActive(false)
-                    setEditPolicyWorkflow({ policy, editKind: kind })
-                  }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
-                }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
-              }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
+                policyDetailPane.close()
+                setWorkflowActive(false)
+                setEditPolicyWorkflow({ policy, editKind: kind })
+              }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
             }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
           }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
         }, typingMs)
@@ -645,6 +707,8 @@ export function RaiseClaimHelloView({
   }
 
   const handleEditPolicyWorkflowComplete = () => {
+    if (editPolicySuccessPushedRef.current) return
+    editPolicySuccessPushedRef.current = true
     window.setTimeout(() => {
       setEditPolicyWorkflow(null)
       setWorkflowActive(false)
@@ -746,6 +810,19 @@ export function RaiseClaimHelloView({
             {body.text}
           </p>
         )
+      case "agent_behalf_network_garage":
+        return (
+          <div className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+            <p>
+              Meanwhile, you should inform the customer about{" "}
+              <span className="font-bold">benefits</span>
+              {" "}
+              of giving your vehicle at the{" "}
+              <span className="font-bold">Network Garage</span>:
+            </p>
+            <p className="mt-3 whitespace-pre-line">{helloAgentBehalfNetworkGarageBulletsJoined()}</p>
+          </div>
+        )
       case "claim_raised_success":
         return (
           <HelloClaimRaisedSuccessBody
@@ -788,11 +865,9 @@ export function RaiseClaimHelloView({
         )
       case "self_serve_followup":
         return (
-          <div className="rounded-xl border border-[#e7e7f0] bg-gradient-to-b from-[#fafafa] to-white px-3.5 py-3">
-            <p className="mb-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              What to tell the customer
-            </p>
-            <ul className="space-y-2.5">
+          <div className={helloTellCustomerCalloutClass}>
+            <HelloTellCustomerLabel />
+            <ul className="mt-2 space-y-2.5">
               <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
                 {RAISE_CLAIM_HANDLER_CALLBACK_MESSAGE}
               </li>
@@ -853,11 +928,9 @@ export function RaiseClaimHelloView({
             ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
             : EDIT_POLICY_CUSTOMER_TAT_LINE
         return (
-          <div className="rounded-xl border border-[#e7e7f0] bg-gradient-to-b from-[#fafafa] to-white px-3.5 py-3">
-            <p className="mb-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              What to tell the customer
-            </p>
-            <ul className="space-y-2.5">
+          <div className={helloTellCustomerCalloutClass}>
+            <HelloTellCustomerLabel />
+            <ul className="mt-2 space-y-2.5">
               <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
                 {tatLine}
               </li>
@@ -870,6 +943,10 @@ export function RaiseClaimHelloView({
       }
       case "renewal_reminder":
         return null
+      case "policy_bar_detail_card":
+        return null
+      case "policy_bar_assistance_offer":
+        return null
     }
   }
 
@@ -878,6 +955,43 @@ export function RaiseClaimHelloView({
     streak: ReturnType<typeof createHelloChatIdentityStreak>,
   ): ReactNode => {
     const body = message.body
+    if (body.kind === "policy_bar_detail_card") {
+      const policy = activePolicies.find((p) => p.id === body.policyId)
+      if (!policy) return null
+      return (
+        <div key={message.id} className="w-full min-w-0 max-w-full">
+          <HelloAiBubbleCard fullWidth showIdentity={streak.nextAiBubbleShowIdentity()}>
+            <HelloPolicyChatDetailCard policy={policy} />
+          </HelloAiBubbleCard>
+        </div>
+      )
+    }
+    if (body.kind === "policy_bar_assistance_offer") {
+      const policy = activePolicies.find((p) => p.id === body.policyId)
+      if (!policy) return null
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                {HELLO_POLICY_BAR_ASSISTANCE_PROMPT}
+              </p>
+            </HelloAiBubbleCard>
+          </div>
+          <div className={helloWorkflowOfferPickShellClass}>
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <WorkflowOfferPick
+                options={helloPolicyBarWorkflowOfferPickOptions()}
+                disabled={spentOfferIds.has(body.offerId)}
+                onPick={(key, label) =>
+                  handleHelloPolicyBarAction(key as HelloPolicyBarActionKey, policy, body.offerId, label)
+                }
+              />
+            </HelloAiBubbleCard>
+          </div>
+        </div>
+      )
+    }
     if (body.kind === "raise_claim_offer") {
       return (
         <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
@@ -998,14 +1112,6 @@ export function RaiseClaimHelloView({
       </div>
     )
   }
-
-  /** Rounded shell only for the workflow pane — chat sits flush on page `#fafafa`. */
-  const workflowPaneShellClass =
-    "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-[box-shadow,transform] motion-safe:duration-300 motion-safe:ease-out"
-
-  /** Desktop: animate column widths so the chat pane squeezes while workflow emerges (grid-template-columns). */
-  const splitShellTransitionClass =
-    "motion-safe:lg:transition-[grid-template-columns,gap] motion-safe:lg:duration-[700ms] motion-safe:lg:ease-[cubic-bezier(0.22,1,0.36,1)]"
 
   const companionHeaderAndMessages = (
     <>
@@ -1129,7 +1235,7 @@ export function RaiseClaimHelloView({
             onKeyDown={handleComposerKeyDown}
             placeholder="Type a message…"
             className={cn(
-              "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-[#fafafa]/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
+              "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-white/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
               "outline-none ring-0 placeholder:text-[#8b87a3]",
               "focus-visible:placeholder:text-[#a39eb8]",
             )}
@@ -1208,9 +1314,7 @@ export function RaiseClaimHelloView({
         inactivePolicies={inactivePolicies}
         onActivePolicyViewDetails={(p) => {
           pendingPolicyDetailSubviewRef.current = null
-          policyDetailPane.open(p)
-          setWorkflowActive(false)
-          setEditPolicyWorkflow(null)
+          schedulePolicyBarChatSequence(p)
         }}
       />
 
@@ -1220,7 +1324,7 @@ export function RaiseClaimHelloView({
           "relative flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden px-[40px] pt-5 pb-5 lg:pb-6",
           "lg:grid lg:grid-rows-1 lg:items-stretch",
           rightPaneSplit ? "lg:gap-5" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,0fr)] lg:gap-0",
-          !splitResizeActive && splitShellTransitionClass,
+          !splitResizeActive && helloSplitShellTransitionClass,
         )}
         style={
           rightPaneSplit
@@ -1242,7 +1346,7 @@ export function RaiseClaimHelloView({
             <div
               className={cn(
                 "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
+                helloWorkflowPaneShellClass,
               )}
             >
               {rightPaneSplit ? (
@@ -1321,7 +1425,7 @@ export function RaiseClaimHelloView({
             <div
               className={cn(
                 "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
+                helloWorkflowPaneShellClass,
               )}
             >
               {rightPaneSplit ? (
@@ -1360,7 +1464,7 @@ export function RaiseClaimHelloView({
             <div
               className={cn(
                 "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
+                helloWorkflowPaneShellClass,
               )}
             >
               {rightPaneSplit ? (
@@ -1379,11 +1483,14 @@ export function RaiseClaimHelloView({
                   <RaiseClaimWorkflowPanel
                     key="hello-workflow"
                     customer={customer}
-                    policy={raiseClaimPolicy}
+                    policy={claimWorkflowPolicy}
                     scrollContainerRef={workflowPaneScrollRef}
                     onRcEmailSent={handleRcEmailSentFromWorkflow}
                     onFnolComplete={handleFnolCompleteFromWorkflow}
-                    onClose={() => setWorkflowActive(false)}
+                    onClose={() => {
+                      setWorkflowActive(false)
+                      setActiveWorkflowPolicy(null)
+                    }}
                   />
                 </div>
                 {workflowShimmerPhase !== "hidden" ? (

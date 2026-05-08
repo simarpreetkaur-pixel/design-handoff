@@ -1,4 +1,4 @@
-import type { ChangeEvent, KeyboardEvent, ReactNode } from "react"
+import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { CalendarDays, Check, Send, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -9,6 +9,9 @@ import { Card, CardContent } from "@/components/ui/card"
 /** At least 400px when the column allows; never wider than the parent (avoids small-viewport overflow). */
 export const helloChatBubbleMinWidthClass = "min-w-[min(100%,400px)]"
 
+/** Claim Status / wide companion bubbles — ~40% wider than {@link helloChatBubbleMinWidthClass}. */
+export const helloChatBubbleMinWidthClassWide = "min-w-[min(100%,560px)]"
+
 /** Narrow rail for radio-style offer picks — hugs options width up to CX-aligned cap. */
 export const helloWorkflowOfferPickShellClass = cn(
   "w-fit max-w-[min(100%,26rem)]",
@@ -17,6 +20,54 @@ export const helloWorkflowOfferPickShellClass = cn(
 
 /** Max width for assistant / renewal prose while bubbles stay content-sized. */
 export const helloAiBubbleReadableMaxClass = "max-w-[min(100%,42rem)]"
+
+/** Matches {@link helloChatBubbleMinWidthClassWide} scale (42rem × 1.4). */
+export const helloAiBubbleReadableMaxClassWide = "max-w-[min(100%,58.8rem)]"
+
+/** Default Hello split: chat ~46% / workflow pane ~54%. Drag workflow left edge to resize (Raise Claim pattern). */
+export const HELLO_SPLIT_LEFT_DEFAULT_PCT = 46
+export const HELLO_SPLIT_LEFT_MIN_PCT = 19
+export const HELLO_SPLIT_LEFT_MAX_PCT = 74
+
+/** Delay before hiding split grip after leaving companion — allows cursor to reach grip across the gap. */
+export const HELLO_SPLIT_GRIP_HOVER_BRIDGE_MS = 220
+
+/** Rounded shell for the right workflow pane — chat stays flush on page `#fafafa`. */
+export const helloWorkflowPaneShellClass =
+  "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-[box-shadow,transform] motion-safe:duration-300 motion-safe:ease-out"
+
+/** Desktop: animate column widths when the split opens (grid-template-columns). */
+export const helloSplitShellTransitionClass =
+  "motion-safe:lg:transition-[grid-template-columns,gap] motion-safe:lg:duration-[700ms] motion-safe:lg:ease-[cubic-bezier(0.22,1,0.36,1)]"
+
+export type HelloWorkflowSplitHandleProps = {
+  onMouseDown: (e: MouseEvent<HTMLDivElement>) => void
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+  visible: boolean
+}
+
+/** Compact left-edge resize grip (document-level move/up handled by parent). */
+export function HelloWorkflowSplitHandle({
+  onMouseDown,
+  onMouseEnter,
+  onMouseLeave,
+  visible,
+}: HelloWorkflowSplitHandleProps) {
+  if (!visible) return null
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize AI companion and side panel"
+      className="pointer-events-auto absolute top-1/2 left-0 z-30 hidden h-11 w-2 -translate-y-1/2 cursor-col-resize select-none bg-transparent hover:bg-[#7c47e1]/[0.06] active:bg-[#7c47e1]/10 lg:block"
+      onMouseDown={onMouseDown}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    />
+  )
+}
 
 /**
  * Tracks the last Hello chat “speaker” so {@link HelloAiBubbleCard} / {@link HelloCxBubbleCard} can hide the
@@ -53,16 +104,27 @@ export function createHelloChatIdentityStreak() {
 export function HelloAiBubbleCard({
   children,
   showIdentity = true,
+  /** Span the companion column (e.g. policy summary card). */
+  fullWidth = false,
+  /** Wider min/max bubble column (e.g. Claim Status timeline). */
+  bubbleWidth = "default",
 }: {
   children: ReactNode
   /** When `false`, consecutive AI bubbles read as one thread (no repeated label or avatar). */
   showIdentity?: boolean
+  fullWidth?: boolean
+  bubbleWidth?: "default" | "wide"
 }) {
+  const readableMax =
+    bubbleWidth === "wide" ? helloAiBubbleReadableMaxClassWide : helloAiBubbleReadableMaxClass
+  const bubbleMin =
+    bubbleWidth === "wide" ? helloChatBubbleMinWidthClassWide : helloChatBubbleMinWidthClass
+
   return (
     <div
       className={cn(
-        "inline-flex max-w-full min-w-0 items-start gap-3 align-top",
-        helloAiBubbleReadableMaxClass,
+        "flex max-w-full min-w-0 items-start gap-3 align-top",
+        fullWidth ? "w-full" : cn("inline-flex", readableMax),
       )}
     >
       <div className="flex w-5 shrink-0 justify-center pt-0.5" aria-hidden>
@@ -82,8 +144,8 @@ export function HelloAiBubbleCard({
       </div>
       <Card
         className={cn(
-          "min-w-0 w-fit border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]",
-          helloChatBubbleMinWidthClass,
+          "min-w-0 border-[#e7e7f0] bg-white shadow-[0px_1px_3px_rgba(54,53,76,0.06)]",
+          fullWidth ? "w-full" : cn("w-fit", bubbleMin),
           showIdentity
             ? "rounded-tl-[2px] rounded-tr-2xl rounded-b-2xl"
             : "rounded-2xl",
@@ -95,14 +157,25 @@ export function HelloAiBubbleCard({
               <p className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
                 {helloAiResponderLabel}
               </p>
-              <div className="min-w-0">{children}</div>
+              <div className="min-w-0 break-words">{children}</div>
             </div>
           ) : (
-            <div className="min-w-0">{children}</div>
+            <div className="min-w-0 break-words">{children}</div>
           )}
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/** Shared shell when the CX must relay scripted lines to the customer (claim success, self-serve follow-ups, etc.). */
+export const helloTellCustomerCalloutClass =
+  "min-w-0 rounded-lg border border-[#e7e7f0] bg-[#fafafa] px-3 py-2.5"
+
+/** Consistent label for all “tell the customer” callouts in Hello companion bubbles. */
+export function HelloTellCustomerLabel() {
+  return (
+    <p className="font-euclid text-[13px] font-medium leading-5 text-[#5b5675]">Tell the customer:</p>
   )
 }
 
@@ -127,8 +200,8 @@ export function HelloClaimRaisedSuccessBody({
           {headline}
         </p>
       </div>
-      <div className="min-w-0 rounded-lg border border-[#e7e7f0] bg-[#fafafa] px-3 py-2.5">
-        <p className="font-euclid text-[13px] font-medium leading-5 text-[#5b5675]">Tell the customer:</p>
+      <div className={helloTellCustomerCalloutClass}>
+        <HelloTellCustomerLabel />
         <p className="mt-1.5 font-euclid text-[14px] font-medium leading-6 text-[#36354c]">
           <span className="text-[#8b87a3]">&ldquo;</span>
           {quotedLine}
@@ -153,29 +226,28 @@ export function HelloRenewalReminderCard({
   return (
     <Card
       className={cn(
-        "w-full min-w-0 max-w-full rounded-xl border-[#ebe3d6] bg-gradient-to-b from-[#fffbf6] to-[#fff4e8]",
+        "w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-[#ebe3d6]",
+        "bg-gradient-to-br from-[#fffbf6] via-[#fff9f2] to-[#fff4e8]",
         "shadow-[0px_1px_3px_rgba(120,72,24,0.07)]",
       )}
     >
-      <CardContent className="p-3.5 sm:p-4">
-        <div className="flex items-start gap-3 sm:items-center">
+      <CardContent className="px-4 py-4 sm:px-5 sm:py-[18px]">
+        <div className="grid w-full max-w-[min(100%,42rem)] grid-cols-[auto_1fr] gap-x-4 gap-y-2 sm:gap-x-5">
           <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fff0dc] ring-1 ring-[#f0dcc4]"
+            className="row-span-2 flex w-11 shrink-0 items-center justify-center justify-self-start rounded-xl bg-[#fff0dc] ring-1 ring-[#f0dcc4]/90 sm:w-12"
             aria-hidden
           >
-            <CalendarDays className="size-4 text-[#b45309]" strokeWidth={2} />
+            <CalendarDays className="size-[18px] text-[#c2410c] sm:size-5" strokeWidth={2} />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-euclid text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9a3412]/85">
-              Renewal reminder
-            </p>
-            <p className="mt-1.5 font-euclid text-[14px] font-normal leading-6 text-[#431407]/90 sm:mt-1 sm:leading-5">
-              The customer&apos;s{" "}
-              <span className="font-semibold text-[#7c2d12]">{vehicleLabel}</span> policy expires in{" "}
-              <span className="font-semibold text-[#7c2d12]">{daysLeft} days</span>. Before you end the
-              call, remind them to renew so coverage stays continuous.
-            </p>
-          </div>
+          <span className="inline-flex w-fit items-center rounded-md bg-[#fff0dc]/95 px-2 py-0.5 font-euclid text-[10px] font-semibold uppercase tracking-[0.07em] text-[#9a3412] ring-1 ring-[#f0dcc4]/70">
+            Renewal reminder
+          </span>
+          <p className="min-w-0 font-euclid text-[14px] font-normal leading-[1.45] text-[#431407]/92">
+            The customer&apos;s{" "}
+            <span className="font-semibold text-[#7c2d12]">{vehicleLabel}</span> policy expires in{" "}
+            <span className="font-semibold text-[#7c2d12]">{daysLeft} days</span>. Before you end the
+            call, remind them to renew so coverage stays continuous.
+          </p>
         </div>
       </CardContent>
     </Card>

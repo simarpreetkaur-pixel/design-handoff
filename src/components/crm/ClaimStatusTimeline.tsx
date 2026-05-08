@@ -1,7 +1,8 @@
 import { Fragment } from "react"
-import { Check, Info } from "lucide-react"
+import { AlertCircle, Check, Info } from "lucide-react"
 
-import type { ClaimStatus, JTBDType } from "@/types/crm"
+import type { ClaimCalloutRow, ClaimStatus, JTBDType } from "@/types/crm"
+import { cn } from "@/lib/utils"
 
 interface ClaimStatusTimelineProps {
   steps: ClaimStatus[]
@@ -9,21 +10,21 @@ interface ClaimStatusTimelineProps {
   jtbdType?: JTBDType
 }
 
-/** 20px dots (2px smaller each side than 24px); rail passes behind. */
-const DOT = "size-5 shrink-0 rounded-full shadow-[0_0_0_2px_white]"
+/** 24px dots — Figma Claim Status timeline */
+const DOT = "size-6 shrink-0 rounded-full shadow-[0_0_0_2px_white]"
 
 function StepIcon({ state }: { state: ClaimStatus["state"] }) {
   if (state === "completed") {
     return (
-      <div className={`flex ${DOT} items-center justify-center bg-[#489f63]`}>
-        <Check className="h-3 w-3 text-white" strokeWidth={2.5} aria-hidden />
+      <div className={`flex ${DOT} items-center justify-center bg-[#0fa457]`}>
+        <Check className="h-3.5 w-3.5 text-white" strokeWidth={2.5} aria-hidden />
       </div>
     )
   }
   if (state === "current") {
     return (
       <div
-        className={`box-border flex ${DOT} items-center justify-center border-4 border-[#fef7e6] bg-[#e68a2e]`}
+        className={`box-border flex ${DOT} items-center justify-center border-4 border-[#fff7e5] bg-[#f58700]`}
         aria-hidden
       />
     )
@@ -31,37 +32,61 @@ function StepIcon({ state }: { state: ClaimStatus["state"] }) {
   return <div className={`${DOT} bg-[#e5e7eb]`} aria-hidden />
 }
 
-/** Yellow callout — Figma 8098:3752; width follows text column (indented from dots). */
+function resolveCalloutRows(step: ClaimStatus): ClaimCalloutRow[] {
+  if (step.calloutRows?.length) return step.calloutRows
+  if (step.calloutMeta?.label && step.calloutMeta?.value) {
+    return [{ label: step.calloutMeta.label, value: step.calloutMeta.value, variant: "default" }]
+  }
+  return []
+}
+
+/** Yellow detail card — Figma OMNI Post-Sales Claim Status (survey rows + optional error status). */
 function StatusCallout({
-  text,
-  meta,
-  showKeyValueRow,
+  leadText,
+  rows,
+  showRows,
 }: {
-  text: string
-  meta?: ClaimStatus["calloutMeta"]
-  showKeyValueRow: boolean
+  leadText?: string
+  rows: ClaimCalloutRow[]
+  showRows: boolean
 }) {
-  const kv = showKeyValueRow && meta?.label && meta?.value ? meta : null
+  const lead = leadText?.trim()
+  const visibleRows = showRows ? rows : []
+
+  if (!lead && visibleRows.length === 0) return null
 
   return (
-    <div className="mt-1 w-full min-w-0">
+    <div className="mt-1 w-full min-w-0 pl-2.5 sm:pl-[10px]">
       <div className="w-full min-w-0 overflow-hidden rounded-xl border border-[#e7e7f0] bg-[#fff7e5]">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-start gap-2 px-4 py-3">
-            <Info className="mt-0.5 size-4 shrink-0 text-[#d16900]" aria-hidden />
-            <p className="min-w-0 font-euclid text-[14px] font-medium leading-5 break-words text-[#d16900]">{text}</p>
-          </div>
-          {kv ? (
-            <>
-              <div className="h-px w-full bg-[#e7e7f0]" />
-              <div className="flex items-center justify-between gap-3 px-4 py-2">
-                <span className="font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">{kv.label}</span>
-                <span className="min-w-0 text-right font-euclid text-[14px] font-medium leading-5 text-[#36354c]">
-                  {kv.value}
-                </span>
-              </div>
-            </>
+        <div className="flex flex-col gap-1 py-3">
+          {lead ? (
+            <div className="flex items-start gap-2 px-4 pb-1 pt-0">
+              <Info className="mt-0.5 size-4 shrink-0 text-[#d16900]" aria-hidden />
+              <p className="min-w-0 font-euclid text-[14px] font-medium leading-5 break-words text-[#d16900]">
+                {lead}
+              </p>
+            </div>
           ) : null}
+          {visibleRows.map((row, i) => (
+            <Fragment key={`${row.label}-${i}`}>
+              {lead || i > 0 ? <div className="h-px w-full bg-[#e7e7f0]" /> : null}
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1 px-4 py-1.5 font-euclid text-[14px] leading-5">
+                <span className="min-w-0 max-w-[min(100%,12rem)] shrink font-normal break-words text-[#5b5675]">
+                  {row.label}
+                </span>
+                {row.variant === "error" ? (
+                  <span className="flex min-w-0 max-w-full flex-1 basis-[8rem] items-center justify-end gap-0.5 font-medium text-[#d83d37] sm:flex-none sm:basis-auto">
+                    <AlertCircle className="size-6 shrink-0" strokeWidth={2} aria-hidden />
+                    <span className="min-w-0 break-words text-right">{row.value}</span>
+                  </span>
+                ) : (
+                  <span className="min-w-0 max-w-full flex-1 basis-[10rem] break-words text-right font-medium text-[#36354c] sm:flex-none sm:basis-auto">
+                    {row.value}
+                  </span>
+                )}
+              </div>
+            </Fragment>
+          ))}
         </div>
       </div>
     </div>
@@ -69,7 +94,7 @@ function StatusCallout({
 }
 
 export function ClaimStatusTimeline({ steps, jtbdType = "claim" }: ClaimStatusTimelineProps) {
-  const showClaimCalloutMeta = jtbdType === "claim"
+  const showClaimCalloutRows = jtbdType === "claim"
 
   if (!steps.length) {
     return (
@@ -81,59 +106,61 @@ export function ClaimStatusTimeline({ steps, jtbdType = "claim" }: ClaimStatusTi
 
   return (
     <div className="w-full">
-      <div className="relative w-full rounded-xl border border-[#e7e7f0] bg-white p-4">
-        {/*
-          Grid col1 = 20px track: rail centered (left-1/2 -translate-x-1/2) through dot centers.
-          Col2 = titles + callout (same left edge).
-        */}
+      <div className="relative w-full rounded-2xl bg-white p-4">
         <div className="relative min-w-0">
           <div
-            className="pointer-events-none absolute left-0 top-5 bottom-5 z-0 w-5"
+            className="pointer-events-none absolute left-0 top-6 bottom-6 z-0 w-6"
             aria-hidden
           >
             <div className="absolute inset-y-0 left-1/2 w-0 -translate-x-1/2 border-l-2 border-dashed border-[#e2e4e9]" />
           </div>
 
-          <div className="relative z-[1] grid min-w-0 grid-cols-[20px_minmax(0,1fr)] gap-x-2 gap-y-0">
-            {steps.map((step, i) => (
-              <Fragment key={`${step.step}-${i}`}>
-                <div className="relative z-10 flex flex-col items-center justify-start pt-1">
-                  <StepIcon state={step.state} />
-                </div>
-                <div className="min-w-0 pb-2">
-                  <div className="flex w-full items-start justify-between gap-3 py-1.5">
-                    <p
-                      className={`min-w-0 font-euclid text-[14px] leading-5 ${
-                        step.state === "current" ? "font-medium text-[#36354c]" : "font-normal text-[#36354c]"
-                      }`}
-                    >
-                      {step.step}
-                    </p>
-                    {step.date ? (
-                      <span className="shrink-0 font-euclid text-[14px] font-normal leading-5 text-[#5b5675]">
-                        {step.date}
-                      </span>
+          <div className="relative z-[1] grid min-w-0 grid-cols-[24px_minmax(0,1fr)] gap-x-2 gap-y-0">
+            {steps.map((step, i) => {
+              const rows = resolveCalloutRows(step)
+              const leadText = step.warning ?? step.info ?? ""
+              const showCallout =
+                step.state === "current" && (Boolean(leadText.trim()) || rows.length > 0)
+
+              return (
+                <Fragment key={`${step.step}-${i}`}>
+                  <div className="relative z-10 flex flex-col items-center justify-start pt-0.5">
+                    <StepIcon state={step.state} />
+                  </div>
+                  <div className="min-w-0 pb-3">
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1 py-1.5">
+                      <p
+                        className={cn(
+                          "min-w-0 max-w-full font-euclid text-[14px] leading-5 break-words",
+                          step.state === "current" && "font-medium text-[#36354c]",
+                          step.state === "completed" && "font-normal text-[#36354c]",
+                          step.state === "pending" && "font-normal text-[#5b5675]",
+                        )}
+                      >
+                        {step.step}
+                      </p>
+                      {step.date ? (
+                        <span className="max-w-full shrink-0 font-euclid text-[14px] font-normal leading-5 break-words text-[#5b5675]">
+                          {step.date}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {showCallout ? (
+                      <StatusCallout
+                        leadText={leadText}
+                        rows={rows}
+                        showRows={showClaimCalloutRows}
+                      />
                     ) : null}
                   </div>
 
-                  {step.state === "current" && step.warning ? (
-                    <StatusCallout
-                      text={step.warning}
-                      meta={step.calloutMeta}
-                      showKeyValueRow={showClaimCalloutMeta}
-                    />
+                  {i < steps.length - 1 ? (
+                    <div className="col-span-2 h-2 shrink-0" aria-hidden />
                   ) : null}
-
-                  {step.state === "current" && step.info ? (
-                    <StatusCallout text={step.info} meta={step.calloutMeta} showKeyValueRow={showClaimCalloutMeta} />
-                  ) : null}
-                </div>
-
-                {i < steps.length - 1 ? (
-                  <div className="col-span-2 h-2 shrink-0" aria-hidden />
-                ) : null}
-              </Fragment>
-            ))}
+                </Fragment>
+              )
+            })}
           </div>
         </div>
       </div>

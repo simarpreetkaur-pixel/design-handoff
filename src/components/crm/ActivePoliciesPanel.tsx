@@ -3,6 +3,10 @@ import { useState, useEffect } from "react"
 import { policyActions } from "@/data/mockCustomers"
 import type { Policy } from "@/types/crm"
 import { cn } from "@/lib/utils"
+import {
+  helloPolicyHeadingNumber,
+  helloPolicyHeadingProduct,
+} from "@/components/crm/hello/useHelloPolicyDetailPane"
 
 const HEALTH_MEMBERS: Record<string, { name: string; relation: string }[]> = {
   "policy-health-1": [
@@ -150,6 +154,8 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick }: ActivePol
 type PolicyDetailPanelProps = {
   policy: Policy
   onPolicyActionClick?: (action: string, policy: Policy) => void
+  /** When false, hides the “Policy Related Actions” link row (e.g. Hello chat summary card). */
+  showRelatedActions?: boolean
   /**
    * `embedded` — no outer card; Hello/CRM pane shell + scroll padding already frame the block.
    */
@@ -170,6 +176,7 @@ export function PolicyDetailPanel({
   policy,
   onPolicyActionClick,
   variant = "card",
+  showRelatedActions = true,
 }: PolicyDetailPanelProps) {
   const isHealth = isHealthPolicy(policy)
   const members = policy.coveredMembers ?? HEALTH_MEMBERS[policy.id] ?? []
@@ -244,21 +251,49 @@ export function PolicyDetailPanel({
         </div>
       ) : null}
 
-      <div className="flex w-full flex-col gap-3">
-        <h4 className="text-[14px] font-medium leading-5 text-[#36354c]">Policy Related Actions</h4>
-        <div className="flex flex-wrap content-center gap-x-10 gap-y-2 rounded-xl border border-[#e7e7f0] bg-white p-4">
-          {policyActions.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              onClick={() => onPolicyActionClick?.(action.action, policy)}
-              className="font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/20 rounded-sm"
-            >
-              {action.label}
-            </button>
-          ))}
+      {showRelatedActions ? (
+        <div className="flex w-full flex-col gap-3">
+          <h4 className="text-[14px] font-medium leading-5 text-[#36354c]">Policy Related Actions</h4>
+          <div className="flex flex-wrap content-center gap-x-10 gap-y-2 rounded-xl border border-[#e7e7f0] bg-white p-4">
+            {policyActions.map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                onClick={() => onPolicyActionClick?.(action.action, policy)}
+                className="rounded-sm font-euclid text-[14px] font-medium leading-5 text-[#7c47e1] transition-colors hover:text-[#44277b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/20"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** Compact policy summary for Hello chat (profile-bar policy pick) — matches split-pane header + View Policy Details card. */
+export function HelloPolicyChatDetailCard({ policy }: { policy: Policy }) {
+  const headlineProduct = helloPolicyHeadingProduct(policy)
+  const headlineNumber = helloPolicyHeadingNumber(policy)
+
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-4 font-euclid">
+      <div className="border-b border-[#e7e7f0] pb-3">
+        <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
+          Policy details
+        </p>
+        <p className="mt-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
+          {headlineProduct}
+          {headlineNumber ? (
+            <>
+              <span className="font-semibold text-[#040222]"> · </span>
+              <span className="font-semibold text-[#040222]">{headlineNumber}</span>
+            </>
+          ) : null}
+        </p>
       </div>
+      <PolicyDetailPanel variant="embedded" policy={policy} showRelatedActions={false} />
     </div>
   )
 }

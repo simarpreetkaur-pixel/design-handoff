@@ -13,22 +13,108 @@ import type { RequestRcFollowupPhase } from "@/components/crm/useRequestRcWorkfl
 
 type RequestRcWorkflowFollowupProps = {
   phase: RequestRcFollowupPhase | null
+  /** 0 = first customer upload; higher = after re-request cycle(s). */
+  documentDeliveryIndex: number
+  /** Wall-clock ms when current batch arrived; “Received … ago” on file row, refreshes every minute. */
+  receivedAtMs: number | null
   onApprove: () => void
+  /** Close preview + return to waiting-for-customer; new upload arrives after demo delay. */
+  onReRequestDocuments: () => void
+}
+
+type PreviewDoc = {
+  title: string
+  fileLabel: string
+}
+
+function previewForDelivery(documentDeliveryIndex: number): PreviewDoc {
+  if (documentDeliveryIndex <= 0) {
+    return {
+      title: "Document preview",
+      fileLabel: "RC_copy_and_driving_licence.pdf",
+    }
+  }
+  return {
+    title: "Updated documents",
+    fileLabel: "RC_resend_after_request.pdf",
+  }
+}
+
+/** Minute-granularity copy; recomputed on an interval (no per-second ticking). */
+function formatReceivedAgoMinuteTick(receivedAtMs: number): string {
+  const elapsedMs = Date.now() - receivedAtMs
+  if (elapsedMs < 0) return "Received just now"
+  const secs = Math.floor(elapsedMs / 1000)
+  if (secs < 60) return "Received less than a minute ago"
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `Received ${mins} min ago`
+  const hrs = Math.floor(mins / 60)
+  return `Received ${hrs} hr ago`
+}
+
+const RECEIVED_AGO_REFRESH_MS = 60_000
+
+function useReceivedAgoLabel(receivedAtMs: number | null): string | null {
+  const [label, setLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (receivedAtMs == null) {
+      setLabel(null)
+      return
+    }
+    const tick = () => setLabel(formatReceivedAgoMinuteTick(receivedAtMs))
+    tick()
+    const id = window.setInterval(tick, RECEIVED_AGO_REFRESH_MS)
+    return () => window.clearInterval(id)
+  }, [receivedAtMs])
+
+  return label
+}
+
+/** Demo asset — Indian RC reference (customer upload preview). */
+const SAMPLE_RC_IMAGE_SRC = "/sample-rc-reference.png"
+
+function RcDocumentPreview() {
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#e7e7f0] bg-[#e8f4fc] shadow-sm">
+      <img
+        src={SAMPLE_RC_IMAGE_SRC}
+        alt="Vehicle registration certificate sample (demo)"
+        className="mx-auto max-h-[min(52vh,360px)] w-full object-contain object-top"
+        loading="lazy"
+        decoding="async"
+      />
+    </div>
+  )
 }
 
 /**
  * Post-send states: polling for customer reply, then document preview + Approve (Hello workflow RC step).
  */
-export function RequestRcWorkflowFollowup({ phase, onApprove }: RequestRcWorkflowFollowupProps) {
+export function RequestRcWorkflowFollowup({
+  phase,
+  documentDeliveryIndex,
+  receivedAtMs,
+  onApprove,
+  onReRequestDocuments,
+}: RequestRcWorkflowFollowupProps) {
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
+
+  const previewDoc = previewForDelivery(documentDeliveryIndex)
+  const receivedLabel = useReceivedAgoLabel(receivedAtMs)
 
   useEffect(() => {
     if (phase === null) {
       setPreviewOpen(false)
-      setHasOpenedPreview(false)
+      return
     }
-  }, [phase])
+    if (phase === "awaiting_customer") {
+      setPreviewOpen(false)
+      return
+    }
+    // documents_received: close preview whenever a new batch arrives (incl. after re-request).
+    setPreviewOpen(false)
+  }, [phase, documentDeliveryIndex])
 
   if (!phase) return null
 
@@ -68,43 +154,49 @@ export function RequestRcWorkflowFollowup({ phase, onApprove }: RequestRcWorkflo
         type="button"
         onClick={() => {
           setPreviewOpen(true)
-          setHasOpenedPreview(true)
         }}
-        className="inline-flex w-full min-w-0 items-center justify-start gap-2 rounded-lg border border-[#e7e7f0] bg-white px-3 py-2.5 text-left font-euclid text-[13px] text-[#36354c] shadow-sm transition hover:border-[#7c47e1]/40"
+        className="inline-flex w-full min-w-0 items-start justify-start gap-2 rounded-lg border border-[#e7e7f0] bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-[#7c47e1]/40"
       >
-        <FileText className="size-4 shrink-0 text-[#7c47e1]" aria-hidden strokeWidth={2} />
-        <span className="truncate">RC_copy_and_driving_licence.pdf</span>
-        <span className="ml-auto shrink-0 font-euclid text-[11px] font-medium text-[#7c47e1]">
+        <FileText className="mt-0.5 size-4 shrink-0 text-[#7c47e1]" aria-hidden strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <span className="block truncate font-euclid text-[13px] text-[#36354c]">{previewDoc.fileLabel}</span>
+          {receivedLabel ? (
+            <span className="mt-0.5 block font-euclid text-[11px] font-medium leading-4 text-[#8b87a3]">
+              {receivedLabel}
+            </span>
+          ) : null}
+        </div>
+        <span className="ml-auto shrink-0 self-center font-euclid text-[11px] font-medium text-[#7c47e1]">
           Preview
         </span>
       </button>
 
-      <Button
-        type="button"
-        disabled={!hasOpenedPreview}
-        className="h-10 w-full bg-[#0fa457] font-euclid text-[14px] font-semibold text-white hover:bg-[#0d8f49] disabled:pointer-events-none disabled:opacity-45 sm:w-auto sm:self-start"
-        onClick={onApprove}
+      <Dialog
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open)
+        }}
       >
-        Approve
-      </Button>
-
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-md gap-4">
+        <DialogContent className="max-w-lg gap-4">
           <DialogHeader>
             <DialogTitle className="font-euclid text-left text-[16px] font-semibold text-[#040222]">
-              Document preview
+              {previewDoc.title}
             </DialogTitle>
           </DialogHeader>
-          <div className="rounded-lg border border-[#e7e7f0] bg-[#fafafa] px-6 py-10 text-center">
-            <FileText className="mx-auto size-14 text-[#7c47e1]/45" strokeWidth={1.25} aria-hidden />
-            <p className="mt-4 font-euclid text-[13px] leading-5 text-[#5b5675]">
-              Combined preview of RC and driving licence (demo). In production this would render the
-              customer upload.
-            </p>
+          <div className="max-h-[min(75vh,560px)] overflow-y-auto rounded-lg border border-[#e7e7f0] bg-[#fafafa] px-4 py-4 sm:px-5 sm:py-5">
+            <RcDocumentPreview />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" className="font-euclid" onClick={() => setPreviewOpen(false)}>
-              Close
+            <Button
+              type="button"
+              variant="outline"
+              className="font-euclid"
+              onClick={() => {
+                setPreviewOpen(false)
+                onReRequestDocuments()
+              }}
+            >
+              Re-request documents
             </Button>
             <Button
               type="button"
