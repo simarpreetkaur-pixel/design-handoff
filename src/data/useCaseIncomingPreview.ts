@@ -45,6 +45,16 @@ export function mergeUseCaseIncomingPreview(
     }
   }
 
+  if (customerId === "raj-kapoor" && crmDemo?.chatMockCase === "raj_live_listening_raise_claim") {
+    return {
+      ...vm,
+      ongoingIssue: ONGOING_RAISE_CLAIM,
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Tata Nexon",
+      showCallVehicle: true,
+      showLastCall: false,
+    }
+  }
+
   if (customerId === "raj-kapoor" && crmDemo?.chatMockCase === "raj_cold_nexon") {
     return {
       ...vm,
@@ -83,6 +93,16 @@ export function mergeUseCaseIncomingPreview(
       ...vm,
       ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Unknown",
       showCallVehicle: false,
+      showLastCall: false,
+    }
+  }
+
+  if (customerId === "sunil-gupta" && crmDemo?.chatMockCase === "sunil_escalation_refund_payment") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Refund Status",
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Honda City",
+      showCallVehicle: true,
       showLastCall: false,
     }
   }

@@ -79,6 +79,47 @@ export const HELLO_POLICY_BAR_ACK_LINE =
 export const HELLO_POLICY_BAR_ASSISTANCE_PROMPT =
   "Does the customer need any assistance here?"
 
+/** Profile ribbon → split pane shortcuts (active policy expand menu). */
+export type HelloProfilePolicyRibbonAction =
+  | "view_details"
+  | "raise_claim"
+  | "edit_policy"
+  | "share_policy_document"
+
+/** Typing indicator before the ribbon acknowledgement line — same cadence as {@link HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS}. */
+export const HELLO_PROFILE_RIBBON_ACK_TYPING_MS = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
+
+/** Pause after the ack bubble before opening the right pane (readable beat). */
+export const HELLO_PROFILE_RIBBON_AFTER_ACK_MS = 450
+
+/** Primary label for ribbon copy — vehicle / plan / product name. */
+export function helloProfileRibbonPolicyDisplayName(policy: Policy): string {
+  const v = policy.vehicle?.trim()
+  if (v) return v
+  const n = policy.name?.trim()
+  if (n) return n
+  const p = policy.planDisplayName?.trim()
+  if (p) return p
+  return policy.type || "this policy"
+}
+
+export function helloProfileRibbonPolicyAckMessage(
+  policy: Policy,
+  action: HelloProfilePolicyRibbonAction,
+): string {
+  const label = helloProfileRibbonPolicyDisplayName(policy)
+  switch (action) {
+    case "view_details":
+      return `As requested, opening policy details for ${label} for you.`
+    case "raise_claim":
+      return `As requested, opening raise a claim for ${label} for you.`
+    case "edit_policy":
+      return `As requested, opening the edit policy for ${label} for you.`
+    case "share_policy_document":
+      return `As requested, opening share policy document for ${label} for you.`
+  }
+}
+
 export type HelloPolicyBarActionKey =
   | "raise_claim"
   | "edit_policy"
@@ -144,6 +185,26 @@ export const helloClaimRaisedChatSuccess = [
 
 /** Brief pause so the FNOL success state is visible in the workflow before the split closes. */
 export const HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS = 900
+
+// Escalation Success Messages
+
+/** Tech team escalation success headline (shown with green check in Hello companion). */
+export const helloTechEscalationSuccessHeadline = "The escalation has been submitted successfully."
+
+/**
+ * Verbatim line for the CX to say to the customer for tech team escalation — rendered in quotes in the Hello success card.
+ */
+export const helloTechEscalationSuccessQuotedLine =
+  "The tech team will review your case and contact you within 24-48 hours."
+
+/** F-ops escalation success headline (shown with green check in Hello companion). */
+export const helloFopsEscalationSuccessHeadline = "The escalation has been submitted successfully."
+
+/**
+ * Verbatim line for the CX to say to the customer for F-ops escalation — rendered in quotes in the Hello success card.
+ */
+export const helloFopsEscalationSuccessQuotedLine =
+  "The operations team will review your case and contact you within 24-48 hours."
 
 /** Pause after the claim-raised bubble before the renewal nudge typing indicator (readable beat). */
 export const HELLO_RENEWAL_NUDGE_AFTER_SUCCESS_MS = 640

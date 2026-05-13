@@ -4,6 +4,12 @@
 
 import type { EndorsementEditKind } from "@/types/crm"
 
+/**
+ * Profile ribbon “Edit Policy” opens the workflow without the chat “what to edit” pick —
+ * this default field drives the embedded {@link EditPolicyWorkflowPanel} copy until wired per product.
+ */
+export const HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND: EndorsementEditKind = "phone_number"
+
 /** Classic AI chat policy wizard — matches {@link AIChatPanel} endorsement bootstrap copy. */
 export const helloEditPolicyPolicyPickContextLabel = "Policy"
 

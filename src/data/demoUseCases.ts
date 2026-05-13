@@ -1,6 +1,7 @@
 import type { CrmDemoState } from "@/types/navigation"
 import {
   rajKapoorClaimStatusNexonJtbd,
+  sunilGuptaRefundEscalationJtbd,
   sunilGuptaSwiftDzireEditNameJtbd,
 } from "@/data/mockCustomers"
 import {
@@ -92,8 +93,27 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
     ],
   },
   {
-    id: "sunil-unknown-reason",
+    id: "escalation-case-refund",
     number: 5,
+    title: "Escalation case",
+    pills: [
+      {
+        label: "Sunil Gupta",
+        customerId: "sunil-gupta",
+        crmDemo: {
+          chatMockCase: "sunil_escalation_refund_payment",
+          initialSelectedJtbdId: sunilGuptaRefundEscalationJtbd.id,
+          callContextOverride: {
+            reason: "Refund Status",
+            vehicle: "Honda City",
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: "sunil-unknown-reason",
+    number: 6,
     title: "Unknown reason",
     pills: [
       {
@@ -103,6 +123,38 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
           chatMockCase: SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
           callContextOverride: {
             reason: "Unknown",
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: "unknown-caller",
+    number: 7,
+    title: "Unknown caller",
+    pills: [
+      {
+        label: "Unknown caller",
+        customerId: "unknown-caller",
+        crmDemo: {
+          chatMockCase: "unknown_caller_resolution",
+        },
+      },
+    ],
+  },
+  {
+    id: "live-listening-raise-claim",
+    number: 8,
+    title: "Live listening",
+    pills: [
+      {
+        label: "Raj Kapoor",
+        customerId: "raj-kapoor",
+        crmDemo: {
+          chatMockCase: "raj_live_listening_raise_claim",
+          callContextOverride: {
+            reason: "Raise a claim",
+            vehicle: "Tata Nexon",
           },
         },
       },

@@ -8,9 +8,16 @@
  */
 export const SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK = "sunil_endorsement_edit_name" as const
 
-/** Drawer #5 — “Unknown reason”; same journey as UC3 today, forked copy for independent edits. */
+/** Drawer #5 — “Unknown reason”; forked journey (wrong lookup → **1234** unlocks policies in CRM demo). */
 export const SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK =
   "sunil_endorsement_unknown_reason" as const
+
+/** AI Companion first bubble after answer — Unknown reason use case. */
+export const SUNIL_UNKNOWN_REASON_COMPANION_OPENER =
+  "Check reason of call from customer and type it in the chat for resolution."
+
+/** Demo: save this lookup (digits only) in Edit phone to load policies on file. */
+export const SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS = "1234" as const
 
 export type SunilEditPolicyDrawerChatMock =
   | typeof SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK

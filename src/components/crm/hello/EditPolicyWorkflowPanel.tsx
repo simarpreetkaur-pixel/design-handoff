@@ -32,6 +32,11 @@ export type EditPolicyWorkflowPanelProps = {
   onRcEmailSent?: () => void
   onClose?: () => void
   onEditPolicyWorkflowComplete?: () => void
+  /**
+   * When false, omits the inner title + close row — use when a parent shell already shows
+   * the workflow title and dismiss control (e.g. Live listening split header).
+   */
+  showPanelHeader?: boolean
 }
 
 type WorkflowPhase = "step1_rc" | "step2_edit"
@@ -68,6 +73,7 @@ export function EditPolicyWorkflowPanel({
   onRcEmailSent,
   onClose,
   onEditPolicyWorkflowComplete,
+  showPanelHeader = true,
 }: EditPolicyWorkflowPanelProps) {
   const [phase, setPhase] = useState<WorkflowPhase>("step1_rc")
   const [openStep, setOpenStep] = useState<string>(() => phaseToOpenStep("step1_rc"))
@@ -132,23 +138,25 @@ export function EditPolicyWorkflowPanel({
 
   return (
     <div className="flex min-h-0 w-full flex-col gap-4">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <h2 className="min-w-0 flex-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
-          {helloEditWorkflowPaneTitle(vehicleLabel(policy))}
-        </h2>
-        {onClose ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-[#5b5675] hover:bg-[#f5f3fc] hover:text-[#36354c]"
-            onClick={onClose}
-            aria-label="Close workflow panel"
-          >
-            <X className="size-4" strokeWidth={2} />
-          </Button>
-        ) : null}
-      </div>
+      {showPanelHeader ? (
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <h2 className="min-w-0 flex-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
+            {helloEditWorkflowPaneTitle(vehicleLabel(policy))}
+          </h2>
+          {onClose ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-[#5b5675] hover:bg-[#f5f3fc] hover:text-[#36354c]"
+              onClick={onClose}
+              aria-label="Close workflow panel"
+            >
+              <X className="size-4" strokeWidth={2} />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Accordion
         type="single"

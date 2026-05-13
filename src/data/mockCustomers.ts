@@ -385,7 +385,7 @@ export const rajKapoorClaimStatusNexonJtbd: JTBD = {
   vehicle: "Tata Nexon 2025",
   isActive: true,
   openingQuickSummary:
-    "Active Nexon claim — survey was scheduled for 12 Feb'26 but marked missed; repair estimate is waiting on Ops / resurvey.",
+    "Survey slot missed (12 Feb); claim active — repair estimate on hold until survey/Ops moves.",
   aiSummary: {
     bullets: [
       "Last contact: customer confirmed the survey slot but could not receive the surveyor at the scheduled time.",
@@ -596,7 +596,8 @@ export const sunilGuptaGmcEditNameJtbd: JTBD = {
   vehicle: "GMC policy",
   isActive: true,
   status: [],
-  askInChatPrefill: "What should I check before updating name on the GMC health policy?",
+  askInChatPrefill:
+    "What should I check before updating name on the GMC health policy?",
   agentActions: [
     {
       id: "sunil-gmc-edit-1",
@@ -624,6 +625,45 @@ export const sunilGuptaGmcEditNameJtbd: JTBD = {
     },
   ],
   quickActions: [],
+}
+
+/** UC6 — Escalation (Sunil · Honda City): refund past TAT; Hello scripted path + refund timeline. */
+export const sunilGuptaRefundEscalationJtbd: JTBD = {
+  id: "jtbd-sunil-refund-escalation",
+  type: "claim",
+  title: "Refund status",
+  vehicle: "Honda City",
+  isActive: true,
+  openingQuickSummary:
+    "Third call on refund — payment debited on a failed purchase; CX advised 2 working days; TAT exceeded with no credit.",
+  aiSummary: {
+    bullets: [
+      "Customer called 3x for refund status; money not reversed after technical payment failure.",
+      "Last CX (10 May'26): wait 2 working days for credit — still not reflected in account.",
+    ],
+    sectionHeading: "Context",
+    headerIconVariant: "ai_summary",
+    stackHeaderWithBullets: true,
+    detailedSummaryTimeline: [],
+  },
+  status: [
+    { step: "Payment debited", state: "completed", date: "8 May'26" },
+    {
+      step: "Refund initiated",
+      state: "current",
+      date: "9 May'26",
+      calloutRows: [
+        { label: "TAT committed", value: "2 working days" },
+        { label: "Business days elapsed", value: "5+", variant: "error" },
+        { label: "Credit status", value: "Not received", variant: "error" },
+      ],
+    },
+    { step: "Amount credited to account", state: "pending" },
+  ],
+  agentActions: [],
+  quickActions: [],
+  askInChatPrefill:
+    "Sunil Gupta — Honda City refund stuck past TAT; how do we escalate to tech / payments?",
 }
 
 export const ayushSinghal: Customer = {
@@ -1163,7 +1203,7 @@ export function searchCustomer(
 
   /** Demo shortcut from “Unknown caller” resolution screen (policy id fragment). */
   if (cleanQuery === "1234") {
-    return mockCustomers["rajesh-kumar"]
+    return mockCustomers["sunil-gupta"]
   }
 
   // Search through all customers

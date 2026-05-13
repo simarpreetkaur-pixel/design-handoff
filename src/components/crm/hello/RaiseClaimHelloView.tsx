@@ -46,7 +46,12 @@ import {
   helloSplitShellTransitionClass,
   helloWorkflowPaneShellClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
-import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
+import {
+  HelloCustomerProfileBar,
+  helloProfileNonPolicyRibbonAckMessage,
+  helloProfileNonPolicyRibbonActionLabel,
+  type HelloProfileNonPolicyRibbonActionId,
+} from "@/components/crm/hello/HelloCustomerProfileBar"
 import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
 import { PolicyDetailPanel, HelloPolicyChatDetailCard } from "@/components/crm/ActivePoliciesPanel"
@@ -65,6 +70,7 @@ import {
   helloComposerTriggersRaiseClaimOffer,
   helloFreeTextAckStub,
   helloPolicyBarWorkflowOfferPickOptions,
+  helloProfileRibbonPolicyAckMessage,
   helloRaiseClaimChoices,
   helloRaiseClaimVehicleLabel,
   helloClaimRaisedSuccessHeadline,
@@ -72,7 +78,6 @@ import {
   helloDefaultRenewalNudgeAfterClaim,
   HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
   HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS,
-  HELLO_POLICY_BAR_ACK_LINE,
   HELLO_POLICY_BAR_ASSISTANCE_PROMPT,
   HELLO_RENEWAL_NUDGE_AFTER_SUCCESS_MS,
   HELLO_SECOND_ACK_TYPING_INDICATOR_MS,
@@ -84,12 +89,15 @@ import {
   type HelloPolicyBarActionKey,
   type HelloRaiseClaimChoiceId,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
+import { scheduleHelloProfileRibbonAckSequence } from "@/components/crm/hello/helloProfileRibbonAckSchedule"
+import { HelloRibbonBlankSplitPane } from "@/components/crm/hello/HelloRibbonBlankSplitPane"
 import {
   EDIT_POLICY_CUSTOMER_STEPS,
   EDIT_POLICY_CUSTOMER_TAT_LINE,
   EDIT_POLICY_HEALTH_NOTE_LINE,
   EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS,
   EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE,
+  HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND,
   editPolicyPolicyholderNameSelfServeTip,
   editPolicyTalktrackAdvisorEmphasis,
   editPolicyTalktrackLead,
@@ -115,19 +123,184 @@ import {
   useHelloPolicyDetailPane,
 } from "@/components/crm/hello/useHelloPolicyDetailPane"
 
+function RaiseClaimSelfServeStepsPanel({ 
+  onCancel, 
+  onDone 
+}: { 
+  onCancel?: () => void; 
+  onDone?: () => void 
+}) {
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      {/* Header with Cancel button */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Customer Steps
+          </p>
+          <h2 className="mt-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
+            Steps to raise claim
+          </h2>
+          <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
+            Guide the customer through these steps to raise their claim.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          aria-label="Cancel steps guide"
+        >
+          <X className="size-5" aria-hidden />
+        </button>
+      </div>
+
+      {/* Steps content */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-xl border border-[#e7e7f0] bg-white p-4">
+        <div>
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Steps to raise claim
+          </p>
+          <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
+            {RAISE_CLAIM_CUSTOMER_STEPS.map((step, index) => (
+              <li key={index}>{step}</li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="rounded-lg border-l-2 border-[#7c47e1]/35 bg-[#f8f7fc] p-3">
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#7c47e1]">
+            Tell the customer
+          </p>
+          <div className="mt-2 space-y-2.5">
+            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+              {RAISE_CLAIM_CUSTOMER_TAT_LINE}
+            </p>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="mt-auto flex justify-end gap-3 pt-4 border-t border-[#e7e7f0]">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-[#e7e7f0] bg-white px-4 py-2 font-euclid text-[14px] font-medium text-[#5b5675] transition-colors hover:bg-[#f4f4f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg bg-[#7c47e1] px-4 py-2 font-euclid text-[14px] font-medium text-white transition-colors hover:bg-[#6b3ccd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EditPolicySelfServeStepsPanel({ 
+  editKind, 
+  onCancel, 
+  onDone 
+}: { 
+  editKind: EndorsementEditKind; 
+  onCancel?: () => void; 
+  onDone?: () => void 
+}) {
+  const steps = editKind === "policy_holder_name"
+    ? EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS
+    : EDIT_POLICY_CUSTOMER_STEPS
+  
+  const tatLine = editKind === "policy_holder_name"
+    ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
+    : EDIT_POLICY_CUSTOMER_TAT_LINE
+
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      {/* Header with Cancel button */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Customer Steps
+          </p>
+          <h2 className="mt-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
+            Steps for the customer
+          </h2>
+          <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
+            Guide the customer through these steps to complete their edit policy request.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          aria-label="Cancel steps guide"
+        >
+          <X className="size-5" aria-hidden />
+        </button>
+      </div>
+
+      {/* Steps content */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-xl border border-[#e7e7f0] bg-white p-4">
+        <div>
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Steps for the customer
+          </p>
+          <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
+            {steps.map((step, index) => (
+              <li key={index}>{step}</li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="rounded-lg border-l-2 border-[#7c47e1]/35 bg-[#f8f7fc] p-3">
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#7c47e1]">
+            Tell the customer
+          </p>
+          <div className="mt-2 space-y-2.5">
+            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+              {tatLine}
+            </p>
+            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+              {EDIT_POLICY_HEALTH_NOTE_LINE}
+            </p>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="mt-auto flex justify-end gap-3 pt-4 border-t border-[#e7e7f0]">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-[#e7e7f0] bg-white px-4 py-2 font-euclid text-[14px] font-medium text-[#5b5675] transition-colors hover:bg-[#f4f4f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg bg-[#7c47e1] px-4 py-2 font-euclid text-[14px] font-medium text-white transition-colors hover:bg-[#6b3ccd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export type HelloAssistantBody =
   | { kind: "text"; text: string }
   | { kind: "agent_behalf_network_garage" }
   | { kind: "self_serve_tip" }
-  | { kind: "self_serve_steps" }
-  | { kind: "self_serve_followup" }
   | { kind: "raise_claim_offer"; offerId: string }
   | { kind: "edit_policy_policy_pick"; offerId: string }
   | { kind: "edit_policy_edit_pick"; offerId: string }
   | { kind: "edit_policy_mode_offer"; offerId: string; introText: string }
   | { kind: "edit_policy_self_serve_tip"; editField: EndorsementEditKind }
-  | { kind: "edit_policy_self_serve_steps"; editField: EndorsementEditKind }
-  | { kind: "edit_policy_self_serve_followup"; editField: EndorsementEditKind }
   | { kind: "edit_policy_workflow_success" }
   | { kind: "claim_raised_success" }
   | { kind: "renewal_reminder"; vehicleLabel: string; daysLeft: number }
@@ -208,6 +381,9 @@ export function RaiseClaimHelloView({
   const [messages, setMessages] = useState<HelloChatMessage[]>([])
   const [composerText, setComposerText] = useState("")
   const [workflowActive, setWorkflowActive] = useState(false)
+  const [selfServeStepsActive, setSelfServeStepsActive] = useState(false)
+  const [selfServeStepsType, setSelfServeStepsType] = useState<"raise_claim" | "edit_policy" | null>(null)
+  const [selfServeStepsEditKind, setSelfServeStepsEditKind] = useState<EndorsementEditKind | null>(null)
   const policyDetailPane = useHelloPolicyDetailPane()
   /** Shimmer mask phases on the right pane when the split opens */
   const [workflowShimmerPhase, setWorkflowShimmerPhase] = useState<"hidden" | "show" | "hide">(
@@ -227,6 +403,14 @@ export function RaiseClaimHelloView({
   /** Policy chosen from profile-bar radios for Raise Claim workflow (defaults to journey prop). */
   const [activeWorkflowPolicy, setActiveWorkflowPolicy] = useState<Policy | null>(null)
 
+  const ribbonAckCleanupRef = useRef<(() => void) | null>(null)
+  const [nonPolicyRibbonPane, setNonPolicyRibbonPane] = useState<HelloProfileNonPolicyRibbonActionId | null>(null)
+
+  useEffect(() => () => {
+    ribbonAckCleanupRef.current?.()
+    ribbonAckCleanupRef.current = null
+  }, [])
+
   const editPolicySuccessPushedRef = useRef(false)
   const prevEditPolicyWorkflowRef = useRef<typeof editPolicyWorkflow>(null)
 
@@ -237,7 +421,12 @@ export function RaiseClaimHelloView({
     prevEditPolicyWorkflowRef.current = editPolicyWorkflow
   }, [editPolicyWorkflow])
 
-  const rightPaneSplit = workflowActive || editPolicyWorkflow !== null || policyDetailPane.isOpen
+  const rightPaneSplit =
+    workflowActive ||
+    editPolicyWorkflow !== null ||
+    policyDetailPane.isOpen ||
+    nonPolicyRibbonPane !== null ||
+    selfServeStepsActive
 
   const claimWorkflowPolicy = activeWorkflowPolicy ?? raiseClaimPolicy
 
@@ -350,39 +539,6 @@ export function RaiseClaimHelloView({
     setMessages((prev) => [...prev, { id, role: "assistant", body }])
   }
 
-  /** Typing → ack line → typing → policy card → typing → assistance prompt + radios (profile bar pick). */
-  const schedulePolicyBarChatSequence = (policy: Policy) => {
-    const offerId = `policy-bar-offer-${policy.id}-${Date.now()}`
-    const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
-    const pauseMs = HELLO_BOT_REPLY_AFTER_USER_MS
-
-    setReplyTyping(true)
-    window.setTimeout(() => {
-      setReplyTyping(false)
-      pushAssistant({ kind: "text", text: HELLO_POLICY_BAR_ACK_LINE })
-
-      window.setTimeout(() => {
-        setReplyTyping(true)
-        window.setTimeout(() => {
-          setReplyTyping(false)
-          pushAssistant({ kind: "policy_bar_detail_card", policyId: policy.id })
-
-          window.setTimeout(() => {
-            setReplyTyping(true)
-            window.setTimeout(() => {
-              setReplyTyping(false)
-              pushAssistant({
-                kind: "policy_bar_assistance_offer",
-                policyId: policy.id,
-                offerId,
-              })
-            }, typingMs)
-          }, pauseMs)
-        }, typingMs)
-      }, pauseMs)
-    }, typingMs)
-  }
-
   const handleHelloPolicyBarAction = (
     actionKey: HelloPolicyBarActionKey,
     policy: Policy,
@@ -486,6 +642,7 @@ export function RaiseClaimHelloView({
     policyDetailPane.pane,
     replyTyping,
     workflowShimmerPhase,
+    nonPolicyRibbonPane,
   ])
 
   const handleOpeningPick = (
@@ -513,14 +670,16 @@ export function RaiseClaimHelloView({
             setReplyTyping(true)
             window.setTimeout(() => {
               setReplyTyping(false)
-              pushAssistant({ kind: "self_serve_steps" })
+              pushAssistant({ kind: "text", text: "Opening the customer steps guide on the right." })
               window.setTimeout(() => {
-                setReplyTyping(true)
-                window.setTimeout(() => {
-                  setReplyTyping(false)
-                  pushAssistant({ kind: "self_serve_followup" })
-                }, typingMs)
-              }, readMs)
+                policyDetailPane.close()
+                setWorkflowActive(false)
+                setActiveWorkflowPolicy(null)
+                setEditPolicyWorkflow(null)
+                setSelfServeStepsType("raise_claim")
+                setSelfServeStepsEditKind(null)
+                setSelfServeStepsActive(true)
+              }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
             }, typingMs)
           }, readMs)
         }, typingMs)
@@ -645,14 +804,16 @@ export function RaiseClaimHelloView({
             setReplyTyping(true)
             window.setTimeout(() => {
               setReplyTyping(false)
-              pushAssistant({ kind: "edit_policy_self_serve_steps", editField: kind })
+              pushAssistant({ kind: "text", text: "Opening the customer steps guide on the right." })
               window.setTimeout(() => {
-                setReplyTyping(true)
-                window.setTimeout(() => {
-                  setReplyTyping(false)
-                  pushAssistant({ kind: "edit_policy_self_serve_followup", editField: kind })
-                }, typingMs)
-              }, readMs)
+                policyDetailPane.close()
+                setWorkflowActive(false)
+                setActiveWorkflowPolicy(null)
+                setEditPolicyWorkflow(null)
+                setSelfServeStepsType("edit_policy")
+                setSelfServeStepsEditKind(kind)
+                setSelfServeStepsActive(true)
+              }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
             }, typingMs)
           }, readMs)
         }, typingMs)
@@ -850,33 +1011,6 @@ export function RaiseClaimHelloView({
           </p>
         )
       }
-      case "self_serve_steps":
-        return (
-          <div>
-            <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              Steps to raise claim
-            </p>
-            <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
-              {RAISE_CLAIM_CUSTOMER_STEPS.map((step, index) => (
-                <li key={index}>{step}</li>
-              ))}
-            </ol>
-          </div>
-        )
-      case "self_serve_followup":
-        return (
-          <div className={helloTellCustomerCalloutClass}>
-            <HelloTellCustomerLabel />
-            <ul className="mt-2 space-y-2.5">
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {RAISE_CLAIM_HANDLER_CALLBACK_MESSAGE}
-              </li>
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {RAISE_CLAIM_SETTLEMENT_TAT_MESSAGE}
-              </li>
-            </ul>
-          </div>
-        )
       case "raise_claim_offer":
         return null
       case "edit_policy_policy_pick":
@@ -904,43 +1038,6 @@ export function RaiseClaimHelloView({
             {editPolicyTalktrackTrail}
           </p>
         )
-      case "edit_policy_self_serve_steps": {
-        const steps =
-          body.editField === "policy_holder_name"
-            ? EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS
-            : EDIT_POLICY_CUSTOMER_STEPS
-        return (
-          <div>
-            <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              Steps for the customer
-            </p>
-            <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
-              {steps.map((step, index) => (
-                <li key={index}>{step}</li>
-              ))}
-            </ol>
-          </div>
-        )
-      }
-      case "edit_policy_self_serve_followup": {
-        const tatLine =
-          body.editField === "policy_holder_name"
-            ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
-            : EDIT_POLICY_CUSTOMER_TAT_LINE
-        return (
-          <div className={helloTellCustomerCalloutClass}>
-            <HelloTellCustomerLabel />
-            <ul className="mt-2 space-y-2.5">
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {tatLine}
-              </li>
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {EDIT_POLICY_HEALTH_NOTE_LINE}
-              </li>
-            </ul>
-          </div>
-        )
-      }
       case "renewal_reminder":
         return null
       case "policy_bar_detail_card":
@@ -1312,9 +1409,57 @@ export function RaiseClaimHelloView({
         customer={customer}
         activePolicies={activePolicies}
         inactivePolicies={inactivePolicies}
-        onActivePolicyViewDetails={(p) => {
+        onActivePolicyRibbonAction={(policy, action) => {
           pendingPolicyDetailSubviewRef.current = null
-          schedulePolicyBarChatSequence(p)
+          ribbonAckCleanupRef.current?.()
+          ribbonAckCleanupRef.current = scheduleHelloProfileRibbonAckSequence({
+            setTyping: setReplyTyping,
+            appendAck: () => {
+              pushAssistant({ kind: "text", text: helloProfileRibbonPolicyAckMessage(policy, action) })
+            },
+            thenOpen: () => {
+              setNonPolicyRibbonPane(null)
+              if (action === "view_details" || action === "share_policy_document") {
+                setWorkflowActive(false)
+                setEditPolicyWorkflow(null)
+                setActiveWorkflowPolicy(null)
+                policyDetailPane.open(policy)
+                return
+              }
+              if (action === "raise_claim") {
+                setActiveWorkflowPolicy(policy)
+                setEditPolicyWorkflow(null)
+                policyDetailPane.close()
+                setWorkflowActive(true)
+                return
+              }
+              if (action === "edit_policy") {
+                setActiveWorkflowPolicy(null)
+                policyDetailPane.close()
+                setWorkflowActive(false)
+                setEditPolicyWorkflow({
+                  policy,
+                  editKind: HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND,
+                })
+              }
+            },
+          })
+        }}
+        onNonPolicyRibbonAction={(action) => {
+          ribbonAckCleanupRef.current?.()
+          ribbonAckCleanupRef.current = scheduleHelloProfileRibbonAckSequence({
+            setTyping: setReplyTyping,
+            appendAck: () => {
+              pushAssistant({ kind: "text", text: helloProfileNonPolicyRibbonAckMessage(action) })
+            },
+            thenOpen: () => {
+              setWorkflowActive(false)
+              setEditPolicyWorkflow(null)
+              setActiveWorkflowPolicy(null)
+              policyDetailPane.close()
+              setNonPolicyRibbonPane(action)
+            },
+          })
         }}
       />
 
@@ -1460,6 +1605,30 @@ export function RaiseClaimHelloView({
                 ) : null}
               </div>
             </div>
+          ) : nonPolicyRibbonPane !== null ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <HelloRibbonBlankSplitPane
+                title={helloProfileNonPolicyRibbonActionLabel(nonPolicyRibbonPane)}
+                onCancel={() => {
+                  ribbonAckCleanupRef.current?.()
+                  ribbonAckCleanupRef.current = null
+                  setNonPolicyRibbonPane(null)
+                }}
+              />
+            </div>
           ) : workflowActive ? (
             <div
               className={cn(
@@ -1499,6 +1668,79 @@ export function RaiseClaimHelloView({
                     fadeMs={HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS}
                   />
                 ) : null}
+              </div>
+            </div>
+          ) : selfServeStepsActive && selfServeStepsType ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                  ref={workflowPaneScrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
+                >
+                  {selfServeStepsType === "raise_claim" ? (
+                    <RaiseClaimSelfServeStepsPanel
+                      onCancel={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                      }}
+                      onDone={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                        // Add success message to chat
+                        window.setTimeout(() => {
+                          setReplyTyping(true)
+                          window.setTimeout(() => {
+                            setReplyTyping(false)
+                            pushAssistant({ 
+                              kind: "text", 
+                              text: "Steps shared with customer successfully. They can now proceed with raising their claim using the guidance provided." 
+                            })
+                          }, 800) // Typing delay
+                        }, 300) // Brief pause before typing starts
+                      }}
+                    />
+                  ) : selfServeStepsEditKind ? (
+                    <EditPolicySelfServeStepsPanel
+                      editKind={selfServeStepsEditKind}
+                      onCancel={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                      }}
+                      onDone={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                        // Add success message to chat
+                        window.setTimeout(() => {
+                          setReplyTyping(true)
+                          window.setTimeout(() => {
+                            setReplyTyping(false)
+                            pushAssistant({ 
+                              kind: "text", 
+                              text: "Steps shared with customer successfully. They can now proceed with the edit policy process using the guidance provided." 
+                            })
+                          }, 800) // Typing delay
+                        }, 300) // Brief pause before typing starts
+                      }}
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : (

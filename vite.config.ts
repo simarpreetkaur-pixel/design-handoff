@@ -12,6 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 4002,
+    /** `npm run dev` runs `scripts/dev-4002.mjs`, which frees 4002 first; keep strict so we never silently hop ports. */
     strictPort: true,
   },
 })

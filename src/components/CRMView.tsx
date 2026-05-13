@@ -9,6 +9,7 @@ import {
   rajKapoorRaiseClaimNexonJtbd,
   rajKapoorRoadSideAssistanceJtbd,
   sunilGuptaGmcEditNameJtbd,
+  sunilGuptaRefundEscalationJtbd,
   sunilGuptaSwiftDzireEditNameJtbd,
 } from "@/data/mockCustomers"
 import { buildAiCompanionWelcomeMessage } from "@/lib/aiCompanionWelcome"
@@ -22,6 +23,8 @@ import { EditPolicyHelloView } from "@/components/crm/hello/EditPolicyHelloView"
 import { RaiseClaimHelloView } from "@/components/crm/hello/RaiseClaimHelloView"
 import { RoadsideAssistanceHelloView } from "@/components/crm/hello/RoadsideAssistanceHelloView"
 import { ClaimStatusHelloView } from "@/components/crm/hello/ClaimStatusHelloView"
+import { EscalationCaseHelloView } from "@/components/crm/hello/EscalationCaseHelloView"
+import { LiveListeningRaiseClaimHelloView } from "@/components/crm/hello/LiveListeningRaiseClaimHelloView"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
 import { JTBDPanel } from "@/components/crm/JTBDPanel"
 import { AIChatPanel, type AIChatCaseContext, type ChatMockCase } from "@/components/crm/AIChatPanel"
@@ -42,26 +45,38 @@ import { performCustomerSearch } from "@/utils/customerSearch"
 import {
   SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
   SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+  SUNIL_UNKNOWN_REASON_COMPANION_OPENER,
+  SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS,
 } from "@/data/sunilEditPolicyUseCases"
 
 function UnknownCallerResolutionView({
   onCustomerResolved,
 }: {
-  onCustomerResolved: (customerId: string) => void
+  onCustomerResolved: (customerId: string, searchQuery: string) => void
 }) {
   const [query, setQuery] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [skeletonLoading, setSkeletonLoading] = useState(false)
 
   const runSearch = async () => {
     const q = query.trim()
     if (!q) return
     setBusy(true)
     setError("")
-    await new Promise((r) => window.setTimeout(r, 450))
+    
+    // Special handling for "1234" - show skeleton loading for 2 seconds
+    if (q.toLowerCase() === "1234") {
+      setSkeletonLoading(true)
+      await new Promise((r) => window.setTimeout(r, 2000))
+      setSkeletonLoading(false)
+    } else {
+      await new Promise((r) => window.setTimeout(r, 450))
+    }
+    
     const res = performCustomerSearch(q)
     if (res.found && res.result) {
-      onCustomerResolved(res.result.customer.id)
+      onCustomerResolved(res.result.customer.id, q)
     } else {
       setError(
         "No data found for this number or ID. Ask the customer for their registered mobile number or policy ID, then try again.",
@@ -70,13 +85,49 @@ function UnknownCallerResolutionView({
     setBusy(false)
   }
 
+  if (skeletonLoading) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#fafafa]">
+        {/* Top Navigation Skeleton */}
+        <div className="flex h-[72px] w-full items-center gap-[14px] bg-white px-[40px] py-[18px] shadow-[0px_2px_10px_0px_rgba(0,0,0,0.08)]">
+          <div className="h-[36px] w-[158px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+          <div className="h-[26px] w-[26px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+          <div className="h-[34px] flex-1 rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+          <div className="h-[36px] w-[120px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+        </div>
+
+        {/* Main Content Skeleton */}
+        <div className="flex h-[calc(100vh-72px)] w-full">
+          {/* Left Panel */}
+          <div className="w-[300px] border-r border-[#e7e7f0] bg-white p-6">
+            <div className="space-y-4">
+              <div className="h-[24px] w-[200px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              <div className="h-[100px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-[16px] w-[150px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                <div className="h-[60px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel */}
+          <div className="flex-1 bg-[#fafafa] p-6">
+            <div className="space-y-4">
+              <div className="h-[32px] w-[300px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              <div className="h-[400px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-72px)] w-full flex-col items-center justify-center bg-[#fafafa] px-6 py-12">
       <div className="w-full max-w-lg rounded-[12px] border border-[#e7e7f0] bg-white p-8 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.06)]">
-        <h2 className="font-euclid text-lg font-semibold text-[#040222]">No data from this number</h2>
+        <h2 className="font-euclid text-lg font-semibold text-[#040222]">Unknown caller</h2>
         <p className="mt-2 font-euclid text-[14px] leading-5 text-[#5b5675]">
-          We couldn&apos;t match the inbound caller ID to a profile. Ask the customer for their registered mobile
-          number or policy ID and search below.
+          Customer is calling from non-registered number. Enter the registered mobile number/email ID/name to identify the user.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
           <div className="flex min-h-12 flex-1 items-center gap-2 rounded-lg border border-[#e7e7f0] bg-[#fafafa] px-3">
@@ -91,10 +142,10 @@ function UnknownCallerResolutionView({
               onKeyDown={(e) => {
                 if (e.key === "Enter") void runSearch()
               }}
-              placeholder="Registered mobile or policy number"
+              placeholder="Registered mobile/email ID/name"
               className="min-w-0 flex-1 border-0 bg-transparent font-euclid text-[14px] text-[#36354c] outline-none placeholder:text-[#9c9aaf]"
               disabled={busy}
-              aria-label="Registered mobile or policy number"
+              aria-label="Registered mobile/email ID/name"
             />
           </div>
           <Button
@@ -113,7 +164,7 @@ function UnknownCallerResolutionView({
           </div>
         ) : null}
         <p className="mt-6 font-euclid text-[12px] leading-[18px] text-[#9c9aaf]">
-          Demo: search <span className="font-medium text-[#5b5675]">1234</span> to open Rajesh Kumar&apos;s profile.
+          Demo: search <span className="font-medium text-[#5b5675]">1234</span> to open Sunil Gupta&apos;s profile.
         </p>
       </div>
     </div>
@@ -127,6 +178,7 @@ export function CRMView() {
   const callState = useCall()
 
   const crmDemo = (location.state as { crmDemo?: CrmDemoState } | undefined)?.crmDemo
+  const unknownCallerSearchQuery = (location.state as { unknownCallerSearchQuery?: string } | undefined)?.unknownCallerSearchQuery
 
   // AI Chat panel state
   const [aiChatWidth, setAiChatWidth] = useState(() => Math.round(334 * 1.1)) // +10% vs 334px ≈ 367px
@@ -141,6 +193,7 @@ export function CRMView() {
   const [claimHandlerModalOpen, setClaimHandlerModalOpen] = useState(false)
   const [claimHandlerModalMode, setClaimHandlerModalMode] = useState<"create" | "edit">("create")
   const [crmToast, setCrmToast] = useState<string | null>(null)
+  const [sunilUnknownPolicyUnlockLoading, setSunilUnknownPolicyUnlockLoading] = useState(false)
   const aiChatColumnRef = useRef<HTMLDivElement>(null)
   
   // Ozontel states
@@ -203,6 +256,9 @@ export function CRMView() {
   const isRajKapoorRaiseClaimFlow =
     customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc"
 
+  const isRajKapoorLiveListeningFlow =
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_live_listening_raise_claim"
+
   const isRajKapoorRsaFlow =
     customerId === "raj-kapoor" && resolvedChatMockCase === "raj_road_side_assistance"
 
@@ -214,6 +270,9 @@ export function CRMView() {
   const isSunilEditPolicyHelloFlowCase4 =
     customerId === "sunil-gupta" && resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK
   const isSunilEditPolicyHelloFlow = isSunilEditPolicyHelloFlowCase3 || isSunilEditPolicyHelloFlowCase4
+
+  const isSunilEscalationRefundFlow =
+    customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_escalation_refund_payment"
 
   /** Use case 3 only — Hello inbound copy + implied Swift motor policy (does not apply to Unknown reason / homepage Sunil default). */
   const sunilEditPolicyUc3HelloInbound = useMemo(() => {
@@ -265,6 +324,35 @@ export function CRMView() {
     }
   }, [data, crmDemo?.callContextOverride])
 
+  const sunilEscalationDemoMotorPolicy = useMemo((): Policy | null => {
+    if (!isSunilEscalationRefundFlow || !displayCustomer) return null
+    const v = displayCustomer.callContext.vehicle?.trim() || "Honda City"
+    return {
+      id: "policy-sunil-escalation-honda-city",
+      name: "Comprehensive Plan",
+      type: "Motor Insurance",
+      policyNumber: "ACK-DEMO-REFUND-UPI",
+      expiryDate: "—",
+      vehicle: v,
+      policyHolder: displayCustomer.name,
+      planDisplayName: "Car_Comprehensive",
+      policyPeriodLabel: "Failed purchase — refund pending",
+      tenureLabel: "—",
+    }
+  }, [isSunilEscalationRefundFlow, displayCustomer])
+
+  const sunilUnknownPoliciesUnlocked = useMemo(() => {
+    if (!isSunilEditPolicyHelloFlowCase4) return true
+    const digits = displayLookupPhone.replace(/\D/g, "")
+    return digits === SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS
+  }, [isSunilEditPolicyHelloFlowCase4, displayLookupPhone])
+
+  const effectiveActivePolicies = useMemo((): Policy[] => {
+    if (!data?.activePolicies) return []
+    if (isSunilEditPolicyHelloFlowCase4 && !sunilUnknownPoliciesUnlocked) return []
+    return data.activePolicies
+  }, [data, data?.activePolicies, isSunilEditPolicyHelloFlowCase4, sunilUnknownPoliciesUnlocked])
+
   // Sync call state with current customer on mount
   useEffect(() => {
     if (customerId && data && callState.state === 'idle') {
@@ -276,9 +364,10 @@ export function CRMView() {
   // Initialize and reset display phone when customer changes
   useEffect(() => {
     if (data?.customer) {
-      setDisplayLookupPhone(data.customer.phone)
+      // Use the search query from unknown caller resolution if available, otherwise use customer's phone
+      setDisplayLookupPhone(unknownCallerSearchQuery || data.customer.phone)
     }
-  }, [data?.customer, customerId])
+  }, [data?.customer, customerId, unknownCallerSearchQuery])
 
   useEffect(() => {
     if (chatWorkflowTimerRef.current) {
@@ -302,6 +391,7 @@ export function CRMView() {
     const rajHelloDefault =
       customerId === "raj-kapoor" &&
       (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+        resolvedChatMockCase === "raj_live_listening_raise_claim" ||
         resolvedChatMockCase === "raj_road_side_assistance" ||
         resolvedChatMockCase === "raj_cold_nexon")
     setRajKapoorCrmUiVariant(rajHelloDefault ? "hello" : "classic")
@@ -309,7 +399,8 @@ export function CRMView() {
     const sunilHelloDefault =
       customerId === "sunil-gupta" &&
       (resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK ||
-        resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK)
+        resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK ||
+        resolvedChatMockCase === "sunil_escalation_refund_payment")
     setSunilGuptaCrmUiVariant(sunilHelloDefault ? "hello" : "classic")
   }, [customerId, resolvedChatMockCase])
 
@@ -327,6 +418,9 @@ export function CRMView() {
     if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon") {
       return [rajKapoorClaimStatusNexonJtbd]
     }
+    if (customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_escalation_refund_payment") {
+      return [sunilGuptaRefundEscalationJtbd]
+    }
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "swift") {
       return [sunilGuptaSwiftDzireEditNameJtbd]
     }
@@ -339,7 +433,8 @@ export function CRMView() {
 
     if (
       customerId === "raj-kapoor" &&
-      resolvedChatMockCase === "raj_raise_claim_nexon_gmc" &&
+      (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+        resolvedChatMockCase === "raj_live_listening_raise_claim") &&
       !chatCreatedRaiseClaimJtbd &&
       !list.some((j) => j.id === demoRaiseClaimId)
     ) {
@@ -367,13 +462,20 @@ export function CRMView() {
     if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_road_side_assistance") {
       return rajKapoorRoadSideAssistanceJtbd.id
     }
+    if (customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_escalation_refund_payment") {
+      return crmDemo?.initialSelectedJtbdId ?? sunilGuptaRefundEscalationJtbd.id
+    }
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "swift") {
       return sunilGuptaSwiftDzireEditNameJtbd.id
     }
     if (customerId === "sunil-gupta" && sunilEndorsementChoice === "gmc") {
       return sunilGuptaGmcEditNameJtbd.id
     }
-    if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc") {
+    if (
+      customerId === "raj-kapoor" &&
+      (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+        resolvedChatMockCase === "raj_live_listening_raise_claim")
+    ) {
       return crmDemo?.initialSelectedJtbdId ?? rajKapoorRaiseClaimNexonJtbd.id
     }
     if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon") {
@@ -533,22 +635,21 @@ export function CRMView() {
 
   const chatCaseContext = useMemo((): AIChatCaseContext | null => {
     if (!data || !selectedJtbd) return null
-    const { activePolicies } = data
     const firstToken = selectedJtbd.vehicle.split(/\s+/)[0]
     const motor =
       (firstToken
-        ? activePolicies.find(
+        ? effectiveActivePolicies.find(
             (p) =>
               p.vehicle && p.vehicle.toLowerCase().includes(firstToken.toLowerCase()),
           )
-        : undefined) ?? activePolicies.find((p) => p.type === "Motor Insurance")
+        : undefined) ?? effectiveActivePolicies.find((p) => p.type === "Motor Insurance")
     return {
       jtbdLabel: canonicalOngoingJtbdTitle(selectedJtbd),
       vehicle: selectedJtbd.vehicle,
       jtbdType: selectedJtbd.type,
       policyNumber: motor?.policyNumber,
     }
-  }, [data, selectedJtbd])
+  }, [data, selectedJtbd, effectiveActivePolicies])
 
   const claimHandlerModalContextSubtitle = useMemo(() => {
     if (!chatCaseContext) return undefined
@@ -559,8 +660,8 @@ export function CRMView() {
 
   const aiCompanionWelcomeText = useMemo(() => {
     if (!displayCustomer) return ""
-    return buildAiCompanionWelcomeMessage(displayCustomer, selectedJtbd, data!.activePolicies)
-  }, [displayCustomer, selectedJtbd, data])
+    return buildAiCompanionWelcomeMessage(displayCustomer, selectedJtbd, effectiveActivePolicies)
+  }, [displayCustomer, selectedJtbd, effectiveActivePolicies])
 
   const workflowChatContext = useMemo(() => {
     if (!data || !displayCustomer) return undefined
@@ -571,11 +672,11 @@ export function CRMView() {
     )
     return {
       customerName: displayCustomer.name,
-      activePolicies: data.activePolicies,
+      activePolicies: effectiveActivePolicies,
       callContextVehicle: displayCustomer.callContext.vehicle,
       ongoingRaiseClaimWorkflowPresent,
     }
-  }, [data, displayCustomer, panelJtbds])
+  }, [data, displayCustomer, panelJtbds, effectiveActivePolicies])
 
   /** Stable for the CRM visit / call so chat is not wiped when JTBD or injected tabs change; new customer or answered-call session gets a new key. */
   const aiCompanionSessionKey = useMemo(() => {
@@ -664,7 +765,17 @@ export function CRMView() {
 
   const handleSavePhone = (newPhone: string) => {
     setDisplayLookupPhone(newPhone)
-    // TODO: In a real implementation, this would trigger a new customer lookup
+    const digits = newPhone.replace(/\D/g, "")
+    if (
+      customerId === "sunil-gupta" &&
+      resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK &&
+      digits === SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS
+    ) {
+      setSunilUnknownPolicyUnlockLoading(true)
+      setTimeout(() => {
+        setSunilUnknownPolicyUnlockLoading(false)
+      }, 2000)
+    }
   }
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -738,11 +849,30 @@ export function CRMView() {
         </div>
 
         <UnknownCallerResolutionView
-          onCustomerResolved={(id) => {
+          onCustomerResolved={(id, searchQuery) => {
             const bundle = mockCustomers[id]
             if (!bundle) return
             callState.openCRMForCustomer(id, bundle)
-            navigate(`/crm/call/${id}`, { replace: true, state: { crmDemo } })
+            
+            // Special case: If resolving to Sunil Gupta, use the Unknown reason chat mock case
+            let finalCrmDemo = crmDemo
+            if (id === "sunil-gupta") {
+              finalCrmDemo = {
+                ...crmDemo,
+                chatMockCase: SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+                callContextOverride: {
+                  reason: "Unknown",
+                },
+              }
+            }
+            
+            navigate(`/crm/call/${id}`, { 
+              replace: true, 
+              state: { 
+                crmDemo: finalCrmDemo,
+                unknownCallerSearchQuery: searchQuery 
+              } 
+            })
           }}
         />
 
@@ -784,10 +914,13 @@ export function CRMView() {
     )
   }
 
-    const { activePolicies, inactivePolicies } = data
+    const { inactivePolicies } = data
+    const activePolicies = effectiveActivePolicies
     const profileCustomer = displayCustomer!
     const raiseClaimHelloPolicy =
-      activePolicies.find((p) => p.id === "policy-raj-motor-1") ?? activePolicies[0]
+      activePolicies.find((p) => p.id === "policy-raj-motor-1") ??
+      activePolicies[0] ??
+      data.activePolicies[0]
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#fafafa]">
@@ -810,7 +943,12 @@ export function CRMView() {
             OMNI Support
           </h1>
           <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-3">
-            {isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow || isSunilEditPolicyHelloFlow ? (
+            {isRajKapoorRaiseClaimFlow ||
+            isRajKapoorLiveListeningFlow ||
+            isRajKapoorRsaFlow ||
+            isRajKapoorClaimStatusFlow ||
+            isSunilEditPolicyHelloFlow ||
+            isSunilEscalationRefundFlow ? (
               <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#f0f0f6] bg-[#f8f7fc] px-2 py-1.5">
                 <span className="hidden whitespace-nowrap font-euclid text-xs font-medium text-[#5b5675] sm:inline">
                   Classic view
@@ -819,22 +957,33 @@ export function CRMView() {
                   type="button"
                   role="switch"
                   aria-checked={
-                    isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow
+                    isRajKapoorRaiseClaimFlow ||
+                    isRajKapoorLiveListeningFlow ||
+                    isRajKapoorRsaFlow ||
+                    isRajKapoorClaimStatusFlow
                       ? rajKapoorCrmUiVariant === "hello"
                       : sunilGuptaCrmUiVariant === "hello"
                   }
                   aria-label="Toggle between Classic view and Hello view"
                   onClick={() => {
-                    if (isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow) {
+                    if (
+                      isRajKapoorRaiseClaimFlow ||
+                      isRajKapoorLiveListeningFlow ||
+                      isRajKapoorRsaFlow ||
+                      isRajKapoorClaimStatusFlow
+                    ) {
                       setRajKapoorCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
                     }
-                    if (isSunilEditPolicyHelloFlow) {
+                    if (isSunilEditPolicyHelloFlow || isSunilEscalationRefundFlow) {
                       setSunilGuptaCrmUiVariant((v) => (v === "classic" ? "hello" : "classic"))
                     }
                   }}
                   className={cn(
                     "relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/40",
-                    (isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow
+                    (isRajKapoorRaiseClaimFlow ||
+                    isRajKapoorLiveListeningFlow ||
+                    isRajKapoorRsaFlow ||
+                    isRajKapoorClaimStatusFlow
                       ? rajKapoorCrmUiVariant
                       : sunilGuptaCrmUiVariant) === "hello"
                       ? "bg-[#7c47e1]"
@@ -844,7 +993,10 @@ export function CRMView() {
                   <span
                     className={cn(
                       "pointer-events-none absolute top-0.5 left-0.5 block h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out",
-                      (isRajKapoorRaiseClaimFlow || isRajKapoorRsaFlow || isRajKapoorClaimStatusFlow
+                      (isRajKapoorRaiseClaimFlow ||
+                      isRajKapoorLiveListeningFlow ||
+                      isRajKapoorRsaFlow ||
+                      isRajKapoorClaimStatusFlow
                         ? rajKapoorCrmUiVariant
                         : sunilGuptaCrmUiVariant) === "hello"
                         ? "translate-x-5"
@@ -880,7 +1032,19 @@ export function CRMView() {
         </div>
       </div>
 
-      {isRajKapoorRaiseClaimFlow && rajKapoorCrmUiVariant === "hello" ? (
+      {isRajKapoorLiveListeningFlow && rajKapoorCrmUiVariant === "hello" ? (
+        <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+          <LiveListeningRaiseClaimHelloView
+            customer={profileCustomer}
+            raiseClaimPolicy={raiseClaimHelloPolicy}
+            activePolicies={activePolicies}
+            inactivePolicies={inactivePolicies}
+            displayPhone={displayLookupPhone}
+            onHelloToast={(message) => setCrmToast(message)}
+            className="h-full min-h-0 overflow-hidden"
+          />
+        </div>
+      ) : isRajKapoorRaiseClaimFlow && rajKapoorCrmUiVariant === "hello" ? (
         <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
           <RaiseClaimHelloView
             customer={profileCustomer}
@@ -922,14 +1086,30 @@ export function CRMView() {
             className="h-full min-h-0 overflow-hidden"
           />
         </div>
+      ) : isSunilEscalationRefundFlow && sunilGuptaCrmUiVariant === "hello" && sunilEscalationDemoMotorPolicy ? (
+        <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+          <EscalationCaseHelloView
+            customer={profileCustomer}
+            jtbd={sunilGuptaRefundEscalationJtbd}
+            motorPolicy={sunilEscalationDemoMotorPolicy}
+            activePolicies={activePolicies}
+            inactivePolicies={inactivePolicies}
+            displayPhone={displayLookupPhone}
+            onAppointmentScheduled={handleConfirmClaimHandlerAppointment}
+            onHelloToast={(message) => setCrmToast(message)}
+            className="h-full min-h-0 overflow-hidden"
+          />
+        </div>
       ) : isSunilEditPolicyHelloFlow && sunilGuptaCrmUiVariant === "hello" ? (
         <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
           <EditPolicyHelloView
+            key={`edit-policy-hello-${sunilUnknownPoliciesUnlocked ? 'unlocked' : 'locked'}`}
             customer={profileCustomer}
-            pickablePolicies={activePolicies}
+            pickablePolicies={effectiveActivePolicies}
             inactivePolicies={inactivePolicies}
             displayPhone={displayLookupPhone}
             inboundEditPolicyContext={sunilEditPolicyUc3HelloInbound}
+            isUnknownReasonCase={isSunilEditPolicyHelloFlowCase4}
             className="h-full min-h-0 overflow-hidden"
           />
         </div>
@@ -1010,7 +1190,7 @@ export function CRMView() {
                     <CustomerProfileCard customer={profileCustomer} />
 
                     <JTBDPanel
-                        key={`${customerId}-${mergedInitialJtbdId ?? ""}-${String(crmDemo?.chatMockCase ?? "")}-${sunilEndorsementChoice ?? ""}-${chatCreatedEndorsementJtbd?.id ?? ""}`}
+                        key={`${customerId}-${mergedInitialJtbdId ?? ""}-${String(crmDemo?.chatMockCase ?? "")}-${sunilEndorsementChoice ?? ""}-${chatCreatedEndorsementJtbd?.id ?? ""}-ap-${effectiveActivePolicies.length}`}
                         customerId={customerId}
                         jtbds={panelJtbds}
                         activePolicies={activePolicies}
@@ -1126,7 +1306,11 @@ export function CRMView() {
                 chatMockCase={resolvedChatMockCase}
                 caseContext={chatCaseContext}
                 contextualWelcomeText={
-                  resolvedChatMockCase === "unknown_jtbd_iteration" ? undefined : aiCompanionWelcomeText
+                  resolvedChatMockCase === "unknown_jtbd_iteration"
+                    ? undefined
+                    : resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK
+                      ? SUNIL_UNKNOWN_REASON_COMPANION_OPENER
+                      : aiCompanionWelcomeText
                 }
                 onCrmFlowAction={handleCrmFlowFromChat}
                 onEndorsementPolicySelected={
@@ -1271,6 +1455,48 @@ export function CRMView() {
             {crmToast}
           </div>
         ) : null}
+
+        {/* Full-page skeleton loader for Unknown reason policy unlock */}
+        {sunilUnknownPolicyUnlockLoading && (
+          <div className="fixed inset-0 z-[100] bg-[#fafafa]">
+            {/* Top Navigation Skeleton */}
+            <div className="flex h-[72px] w-full items-center gap-[14px] bg-white px-[40px] py-[18px] shadow-[0px_2px_10px_0px_rgba(0,0,0,0.08)]">
+              <div className="h-[36px] w-[158px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              <div className="h-[26px] w-[26px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              <div className="h-[34px] flex-1 rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+              <div className="h-[36px] w-[120px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+            </div>
+            
+            {/* Main Content Skeleton */}
+            <div className="flex h-[calc(100vh-72px)] w-full">
+              {/* Left Panel */}
+              <div className="w-[300px] border-r border-[#e7e7f0] bg-white p-6">
+                <div className="space-y-4">
+                  <div className="h-[24px] w-[200px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                  <div className="h-[80px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                  <div className="h-[120px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                  <div className="h-[60px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                </div>
+              </div>
+              
+              {/* Main Chat Area */}
+              <div className="flex-1 bg-[#fafafa] p-[40px]">
+                <div className="flex h-full flex-col gap-4">
+                  <div className="h-[48px] w-[300px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                  <div className="flex flex-1 flex-col gap-3 rounded-xl bg-white p-6">
+                    <div className="h-[20px] w-[150px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                    <div className="space-y-3">
+                      <div className="h-[60px] w-[400px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                      <div className="ml-auto h-[40px] w-[200px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                      <div className="h-[80px] w-[450px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="h-[60px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   )
 }

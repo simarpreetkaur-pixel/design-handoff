@@ -43,6 +43,8 @@ import {
   helloProfileRibbonPolicyAckMessage,
   helloProfileRibbonPolicyDisplayName,
   helloRaiseClaimVehicleLabel,
+  helloTechEscalationSuccessHeadline,
+  helloTechEscalationSuccessQuotedLine,
   type HelloProfilePolicyRibbonAction,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
 import { scheduleHelloProfileRibbonAckSequence } from "@/components/crm/hello/helloProfileRibbonAckSchedule"
@@ -54,24 +56,39 @@ import {
 } from "@/components/crm/hello/useHelloPolicyDetailPane"
 import { cn } from "@/lib/utils"
 
-const HELLO_CLAIM_STATUS_FLOW_OFFER_ID = "claim-status-hello-main-offer"
+const HELLO_ESCALATION_TECH_TOAST = "Escalated to tech team."
 
-const HELLO_CLAIM_STATUS_ESCALATE_TOAST = "Escalated to F-ops."
+/** Prefer chat for first-line resolution; profile bar is for edge cases (tenured agents / bad AI reads). */
+const HELLO_ESCALATION_CHAT_FIRST_RESOLUTION_HINT =
+  "Type the customer's call reason in chat to get a resolution."
 
-function claimStatusPreviousCxSummaryCopy(jtbd: JTBD): string {
-  const raw =
-    jtbd.openingQuickSummary?.trim() ||
-    jtbd.aiSummary?.bullets?.[0]?.trim() ||
-    "Survey follow-up; claim active on file."
-  const oneLine = raw.replace(/\s+/g, " ").trim()
-  const max = 110
-  const body = oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
-  return `Brief Summary: ${body}`
+/** Demo: open refund timeline from free-text when the agent asks for it in chat (mirrors “View Refund timeline”). */
+function wantsRefundTimelineFromComposer(text: string): boolean {
+  const q = text.toLowerCase().trim()
+  if (!q) return false
+  if (/\b(refund\s+timeline|refund\s+status\s+timeline|view\s+refund\s+timeline|show\s+refund\s+timeline)\b/.test(q))
+    return true
+  if (/\b(open|show|view|see|pull\s+up)\s+(the\s+)?(refund\s+)?timeline\b/.test(q)) return true
+  if (q.includes("timeline") && (q.includes("refund") || q.includes("payment") || q.includes("credit"))) return true
+  if (q.includes("refund") && (q.includes("timeline") || q.includes("where") || q.includes("status"))) return true
+  return false
 }
 
-const HELLO_CLAIM_STATUS_CHOICE_PROMPT = "What would you like to do?"
+/** Demo: detect raise a claim intent from free-text chat input. */
+function wantsRaiseClaimFromComposer(text: string): boolean {
+  const q = text.toLowerCase().trim()
+  if (!q) return false
+  if (/\b(raise\s+(a\s+)?claim|create\s+(a\s+)?claim|file\s+(a\s+)?claim|submit\s+(a\s+)?claim)\b/.test(q)) return true
+  if (/\b(new\s+claim|start\s+claim|claim\s+process)\b/.test(q)) return true
+  if (q === "claim" || q === "raise claim" || q === "file claim") return true
+  return false
+}
 
-function EscalateToOpsWireframePanel({ onCancel, onDone }: { onCancel?: () => void; onDone?: () => void }) {
+const HELLO_ESCALATION_CHOICE_PROMPT = "What would you like to do?"
+
+const HELLO_ESCALATION_CHOICE_FOLLOW_UP_PROMPT = "What would you like to do next?"
+
+function EscalateToTechWireframePanel({ onCancel, onDone }: { onCancel?: () => void; onDone?: () => void }) {
   return (
     <div className="flex min-h-0 flex-col gap-4">
       {/* Header with Cancel button */}
@@ -81,10 +98,10 @@ function EscalateToOpsWireframePanel({ onCancel, onDone }: { onCancel?: () => vo
             Wireframe
           </p>
           <h2 className="mt-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
-            Escalate to F-ops
+            Escalate to tech team
           </h2>
           <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
-            Ops workspace preview — fields and actions will render here.
+            Tech / payments workspace preview — fields and actions will render here.
           </p>
         </div>
         <button
@@ -134,23 +151,23 @@ function EscalateToOpsWireframePanel({ onCancel, onDone }: { onCancel?: () => vo
   )
 }
 
-export type ClaimStatusHelloViewProps = {
+export type EscalationCaseHelloViewProps = {
   customer: Customer
   jtbd: JTBD
   motorPolicy: Policy
   activePolicies: Policy[]
   inactivePolicies: InactivePolicy[]
   displayPhone?: string
-  /** Retained for CRM wiring; CH scheduler was removed from this Hello journey in favour of Ops escalation. */
+  /** Retained for CRM wiring. */
   onAppointmentScheduled: (value: { scheduledAt: string; note: string }) => void
   onHelloToast?: (message: string) => void
   className?: string
 }
 
 /**
- * Hello-only Claim Status — chat stays conversational; claim timeline and other widgets live in the split right pane.
+ * Hello-only Escalation (refund / payment) — scripted companion + refund timeline in the split right pane.
  */
-export function ClaimStatusHelloView({
+export function EscalationCaseHelloView({
   customer,
   jtbd,
   motorPolicy,
@@ -160,7 +177,7 @@ export function ClaimStatusHelloView({
   onAppointmentScheduled: _onAppointmentScheduled,
   onHelloToast,
   className,
-}: ClaimStatusHelloViewProps) {
+}: EscalationCaseHelloViewProps) {
   void _onAppointmentScheduled
 
   const vehicleLabel = helloRaiseClaimVehicleLabel(motorPolicy)
@@ -181,10 +198,13 @@ export function ClaimStatusHelloView({
   const [showTypingBeforeChoices, setShowTypingBeforeChoices] = useState(false)
   const [showChoices, setShowChoices] = useState(false)
 
-  const [spentFlowOfferIds, setSpentFlowOfferIds] = useState<Set<string>>(() => new Set())
+  /** Track which actions have been performed at least once for prompt changes, but allow repeated use. */
+  const [completedEscalationChoiceKeys, setCompletedEscalationChoiceKeys] = useState<Set<string>>(
+    () => new Set(),
+  )
   const [selectedFlowOfferKey, setSelectedFlowOfferKey] = useState<string | null>(null)
 
-  const [opsEscalatePanelOpen, setOpsEscalatePanelOpen] = useState(false)
+  const [techEscalatePanelOpen, setTechEscalatePanelOpen] = useState(false)
   const [composerText, setComposerText] = useState("")
   const [composerAppend, setComposerAppend] = useState<
     { id: string; role: "user" | "assistant"; text: string }[]
@@ -351,7 +371,7 @@ export function ClaimStatusHelloView({
     showBubble3,
     showTypingBeforeChoices,
     showChoices,
-    opsEscalatePanelOpen,
+    techEscalatePanelOpen,
     policyDetailPane.pane,
     composerAppend,
     composerReplyTyping,
@@ -364,43 +384,77 @@ export function ClaimStatusHelloView({
     const trimmed = composerText.trim()
     if (!trimmed) return
     const base = `${Date.now()}`
+    const openTimelineFromChat = wantsRefundTimelineFromComposer(trimmed)
+    const raiseClaimFromChat = wantsRaiseClaimFromComposer(trimmed)
     setComposerAppend((prev) => [...prev, { id: `${base}-u`, role: "user", text: trimmed }])
     setComposerText("")
     window.setTimeout(() => {
       setComposerReplyTyping(true)
       window.setTimeout(() => {
         setComposerReplyTyping(false)
+        if (openTimelineFromChat) {
+          setRightPaneSplit(true)
+          setTechEscalatePanelOpen(false)
+          policyDetailPane.close()
+          setRibbonExtraPane(null)
+          setComposerAppend((prev) => [
+            ...prev,
+            {
+              id: `${base}-a`,
+              role: "assistant",
+              text: "Opening the refund timeline on the right.",
+            },
+          ])
+          return
+        }
+        if (raiseClaimFromChat) {
+          setRightPaneSplit(true)
+          setTechEscalatePanelOpen(false)
+          policyDetailPane.close()
+          setRibbonExtraPane({
+            kind: "policy_stub",
+            title: "Raise a claim",
+            subtitle: helloRaiseClaimVehicleLabel(motorPolicy),
+          })
+          setComposerAppend((prev) => [
+            ...prev,
+            {
+              id: `${base}-a`,
+              role: "assistant",
+              text: "Opening the raise claim workspace on the right.",
+            },
+          ])
+          return
+        }
         setComposerAppend((prev) => [
           ...prev,
           { id: `${base}-a`, role: "assistant", text: helloFreeTextAckStub },
         ])
       }, typingMs)
     }, pauseBeforeTypingMs)
-  }, [composerText, pauseBeforeTypingMs, typingMs])
+  }, [composerText, pauseBeforeTypingMs, policyDetailPane, typingMs, motorPolicy])
 
-  const handleClaimStatusFlowPick = useCallback(
+  const handleEscalationFlowPick = useCallback(
     (key: string, userEchoLabel: string) => {
-      if (spentFlowOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID)) return
-      setSpentFlowOfferIds((prev) => new Set(prev).add(HELLO_CLAIM_STATUS_FLOW_OFFER_ID))
+      // Track completion for prompt changes, but allow repeated selections
+      setCompletedEscalationChoiceKeys((prev) => new Set(prev).add(key))
       setSelectedFlowOfferKey(key)
-      setComposerAppend((prev) => [...prev, { id: `claim-flow-u-${Date.now()}`, role: "user", text: userEchoLabel }])
+      setComposerAppend((prev) => [...prev, { id: `escalation-flow-u-${Date.now()}`, role: "user", text: userEchoLabel }])
 
-      // Open the correct right-pane surface immediately. If we only update after typing delays, a split that
-      // already shows the default timeline (e.g. after "something else") stays on claim status until then.
-      if (key === "escalate_f_ops") {
+      if (key === "escalate_tech_team") {
         setRightPaneSplit(true)
         setRibbonExtraPane(null)
         policyDetailPane.close()
-        setOpsEscalatePanelOpen(true)
-        onHelloToast?.(HELLO_CLAIM_STATUS_ESCALATE_TOAST)
-      } else if (key === "view_communication_history") {
+        setTechEscalatePanelOpen(true)
+        onHelloToast?.(HELLO_ESCALATION_TECH_TOAST)
+      } else if (key === "view_refund_timeline") {
         setRightPaneSplit(true)
-        setOpsEscalatePanelOpen(false)
+        setTechEscalatePanelOpen(false)
         policyDetailPane.close()
-        setRibbonExtraPane({ kind: "non_policy", action: "communication_history" })
-      } else if (key === "something_else" || key === "view_claim_status_timeline") {
-        setRightPaneSplit(true)
-        setOpsEscalatePanelOpen(false)
+        setRibbonExtraPane(null)
+      } else if (key === "something_else") {
+        setRightPaneSplit(false)
+        setTechEscalatePanelOpen(false)
         policyDetailPane.close()
         setRibbonExtraPane(null)
       }
@@ -409,68 +463,51 @@ export function ClaimStatusHelloView({
         setComposerReplyTyping(true)
         window.setTimeout(() => {
           setComposerReplyTyping(false)
-          if (key === "escalate_f_ops") {
+          if (key === "escalate_tech_team") {
             setComposerAppend((prev) => [
               ...prev,
               {
-                id: `claim-flow-a-${Date.now()}`,
+                id: `escalation-flow-a-${Date.now()}`,
                 role: "assistant",
-                text: "Opening the F-ops escalation workspace on the right.",
+                text: "Opening the tech team escalation workspace on the right.",
               },
             ])
-            return
-          }
-          if (key === "view_communication_history") {
+          } else if (key === "view_refund_timeline") {
             setComposerAppend((prev) => [
               ...prev,
               {
-                id: `claim-flow-a-${Date.now()}`,
+                id: `escalation-flow-a-${Date.now()}`,
                 role: "assistant",
-                text: "Opening communication history on the right.",
+                text: "Opening the refund timeline on the right.",
               },
             ])
-            return
-          }
-          if (key === "something_else") {
+          } else if (key === "something_else") {
             setComposerAppend((prev) => [
               ...prev,
               {
-                id: `claim-flow-a-${Date.now()}`,
+                id: `escalation-flow-a-${Date.now()}`,
                 role: "assistant",
-                text: "Opening the claim status workspace on the right — you can review the timeline there.",
+                text: HELLO_ESCALATION_CHAT_FIRST_RESOLUTION_HINT,
               },
             ])
-            return
-          }
-          if (key === "view_claim_status_timeline") {
+          } else {
             setComposerAppend((prev) => [
               ...prev,
               {
-                id: `claim-flow-a-${Date.now()}`,
+                id: `escalation-flow-a-${Date.now()}`,
                 role: "assistant",
-                text: "Opening the claim status timeline on the right.",
+                text: HELLO_ESCALATION_CHAT_FIRST_RESOLUTION_HINT,
               },
             ])
-            return
           }
-          setComposerAppend((prev) => [
-            ...prev,
-            {
-              id: `claim-flow-a-${Date.now()}`,
-              role: "assistant",
-              text: "Type the customer's call reason in chat to get a resolution.",
-            },
-          ])
+          // Clear selection after action is processed
+          window.setTimeout(() => {
+            setSelectedFlowOfferKey(null)
+          }, 500)
         }, typingMs)
       }, pauseBeforeTypingMs)
     },
-    [
-      onHelloToast,
-      pauseBeforeTypingMs,
-      policyDetailPane,
-      spentFlowOfferIds,
-      typingMs,
-    ],
+    [completedEscalationChoiceKeys, onHelloToast, pauseBeforeTypingMs, policyDetailPane, typingMs],
   )
 
   const helloIdentityStreak = createHelloChatIdentityStreak()
@@ -491,8 +528,8 @@ export function ClaimStatusHelloView({
           showIdentity={helloIdentityStreak.nextAiBubbleShowIdentity()}
         >
           <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
-            Customer is calling to ask the Claim Status of their{" "}
-            <span className="font-semibold text-[#36354c]">{vehicleLabel}</span>.
+            Customer is calling 3rd time to check{" "}
+            <span className="font-semibold text-[#36354c]">Refund Status</span>.
           </p>
         </HelloAiBubbleCard>
       ) : null}
@@ -511,7 +548,8 @@ export function ClaimStatusHelloView({
           showIdentity={helloIdentityStreak.nextAiBubbleShowIdentity()}
         >
           <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
-            {claimStatusPreviousCxSummaryCopy(jtbd)}
+            Customer purchased a policy and due to technical error the payment failed but money debited from their
+            account.
           </p>
         </HelloAiBubbleCard>
       ) : null}
@@ -530,7 +568,11 @@ export function ClaimStatusHelloView({
           showIdentity={helloIdentityStreak.nextAiBubbleShowIdentity()}
         >
           <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
-            Best possible action is to escalate this issue to F-ops team.
+            Last conversation with CX (10 May&apos;26): CX asked to wait for 2 working days and the amount will be
+            credited.
+          </p>
+          <p className="mt-2 font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+            Escalate this issue to the tech team.
           </p>
         </HelloAiBubbleCard>
       ) : null}
@@ -550,19 +592,35 @@ export function ClaimStatusHelloView({
             showIdentity={helloIdentityStreak.nextAiBubbleShowIdentity()}
           >
             <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
-              {HELLO_CLAIM_STATUS_CHOICE_PROMPT}
+              {completedEscalationChoiceKeys.size > 0
+                ? HELLO_ESCALATION_CHOICE_FOLLOW_UP_PROMPT
+                : HELLO_ESCALATION_CHOICE_PROMPT}
             </p>
             <div className="mt-3">
               <WorkflowOfferPick
                 options={[
-                  { key: "escalate_f_ops", label: "Escalate to F-ops" },
-                  { key: "view_communication_history", label: "View Communication history" },
-                  { key: "view_claim_status_timeline", label: "View claim status timeline" },
-                  { key: "something_else", label: "Customer calling for something else." },
+                  {
+                    key: "escalate_tech_team",
+                    label: "Escalate to tech team",
+                    userEchoLabel: "Escalate to tech team",
+                    disabled: false,
+                  },
+                  {
+                    key: "view_refund_timeline",
+                    label: "View Refund timeline",
+                    userEchoLabel: "View Refund timeline",
+                    disabled: false,
+                  },
+                  {
+                    key: "something_else",
+                    label: "Customer calling for something else.",
+                    userEchoLabel: "Customer calling for something else.",
+                    disabled: false,
+                  },
                 ]}
-                disabled={spentFlowOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID)}
+                disabled={false}
                 selectedKey={selectedFlowOfferKey}
-                onPick={handleClaimStatusFlowPick}
+                onPick={handleEscalationFlowPick}
               />
             </div>
           </HelloAiBubbleCard>
@@ -595,8 +653,8 @@ export function ClaimStatusHelloView({
           <HelloAiBubbleCard key={row.id} bubbleWidth="wide" showIdentity={showIdentity}>
             {row.id.includes("escalation-success") ? (
               <HelloClaimRaisedSuccessBody
-                headline={helloFopsEscalationSuccessHeadline}
-                quotedLine={helloFopsEscalationSuccessQuotedLine}
+                headline={row.text.includes("tech team") ? helloTechEscalationSuccessHeadline : helloFopsEscalationSuccessHeadline}
+                quotedLine={row.text.includes("tech team") ? helloTechEscalationSuccessQuotedLine : helloFopsEscalationSuccessQuotedLine}
               />
             ) : (
               <p className="font-euclid text-[14px] leading-5 text-[#36354c]">{row.text}</p>
@@ -610,7 +668,7 @@ export function ClaimStatusHelloView({
       const showIdentity = prev !== "assistant"
       nodes.push(
         <TypingIndicator
-          key="claim-status-append-typing"
+          key="escalation-case-append-typing"
           labelId={composerTypingLabelId}
           showIdentity={showIdentity}
         />,
@@ -630,7 +688,7 @@ export function ClaimStatusHelloView({
   const aiCompanionColumn = (
     <div
       className={cn(
-        "relative z-10 flex min-h-0 flex-col overflow-hidden",
+        "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden",
         HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
         rightPaneSplit
           ? "min-h-0 w-full min-w-0"
@@ -656,7 +714,7 @@ export function ClaimStatusHelloView({
         </div>
       </div>
       <HelloChatComposerBar
-        id="claim-status-hello-composer"
+        id="escalation-case-hello-composer"
         value={composerText}
         onChange={setComposerText}
         onSend={handleSendComposer}
@@ -678,7 +736,7 @@ export function ClaimStatusHelloView({
     [policyDetailHead.product, policyDetailHead.number].filter(Boolean).join(" · ")
 
   const appendComposerAssistant = useCallback((text: string) => {
-    const id = `claim-status-ribbon-a-${Date.now()}`
+    const id = `escalation-case-ribbon-a-${Date.now()}`
     setComposerAppend((prev) => [...prev, { id, role: "assistant", text }])
   }, [])
 
@@ -694,12 +752,12 @@ export function ClaimStatusHelloView({
           setRibbonExtraPane(null)
           if (action === "view_details" || action === "share_policy_document") {
             setRightPaneSplit(true)
-            setOpsEscalatePanelOpen(false)
+            setTechEscalatePanelOpen(false)
             policyDetailPane.open(policy)
             return
           }
           setRightPaneSplit(true)
-          setOpsEscalatePanelOpen(false)
+          setTechEscalatePanelOpen(false)
           policyDetailPane.close()
           if (action === "raise_claim") {
             setRibbonExtraPane({
@@ -730,7 +788,7 @@ export function ClaimStatusHelloView({
         },
         thenOpen: () => {
           setRightPaneSplit(true)
-          setOpsEscalatePanelOpen(false)
+          setTechEscalatePanelOpen(false)
           policyDetailPane.close()
           setRibbonExtraPane({ kind: "non_policy", action })
         },
@@ -741,12 +799,12 @@ export function ClaimStatusHelloView({
 
   return (
     <div
-      data-omni-ai-surface="hello-claim-status"
+      data-omni-ai-surface="hello-escalation-case"
       className={cn(
         "relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#fafafa]",
         className,
       )}
-      aria-label="Claim status — Hello view"
+      aria-label="Escalation case — Hello view"
     >
       <HelloCustomerProfileBar
         customer={customer}
@@ -809,7 +867,7 @@ export function ClaimStatusHelloView({
                 }}
               />
             </div>
-          ) : opsEscalatePanelOpen ? (
+          ) : techEscalatePanelOpen ? (
             <div
               className={cn(
                 "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
@@ -826,14 +884,14 @@ export function ClaimStatusHelloView({
               ) : null}
               <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5">
-                  <EscalateToOpsWireframePanel
+                  <EscalateToTechWireframePanel
                     onCancel={() => {
                       setRightPaneSplit(false)
-                      setOpsEscalatePanelOpen(false)
+                      setTechEscalatePanelOpen(false)
                     }}
                     onDone={() => {
                       setRightPaneSplit(false)
-                      setOpsEscalatePanelOpen(false)
+                      setTechEscalatePanelOpen(false)
                       // Add success message to chat
                       window.setTimeout(() => {
                         setComposerReplyTyping(true)
@@ -844,7 +902,7 @@ export function ClaimStatusHelloView({
                             {
                               id: `escalation-success-${Date.now()}`,
                               role: "assistant",
-                              text: helloFopsEscalationSuccessHeadline,
+                              text: helloTechEscalationSuccessHeadline,
                             },
                           ])
                         }, 800) // Typing delay
@@ -928,7 +986,7 @@ export function ClaimStatusHelloView({
               <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#e7e7f0] bg-white px-4 py-3 lg:px-5">
                 <div className="min-w-0 flex-1 pr-2">
                   <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-                    Claim status
+                    Refund status
                   </p>
                   <p className="truncate font-euclid text-[14px] font-semibold leading-5 text-[#040222]">
                     {vehicleLabel}
@@ -938,12 +996,12 @@ export function ClaimStatusHelloView({
                   type="button"
                   onClick={() => {
                     setRightPaneSplit(false)
-                    setOpsEscalatePanelOpen(false)
+                    setTechEscalatePanelOpen(false)
                     policyDetailPane.close()
                     setRibbonExtraPane(null)
                   }}
                   className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-                  aria-label="Close claim status workspace"
+                  aria-label="Close refund status workspace"
                 >
                   <X className="size-5" aria-hidden />
                 </button>

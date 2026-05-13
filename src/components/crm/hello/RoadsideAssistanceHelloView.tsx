@@ -12,13 +12,14 @@ import {
   createHelloChatIdentityStreak,
   helloWorkflowOfferPickShellClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
-import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
+import { HelloCustomerProfileBar, helloProfileNonPolicyRibbonActionLabel } from "@/components/crm/hello/HelloCustomerProfileBar"
 import {
   HELLO_BOT_REPLY_AFTER_USER_MS,
   HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
   HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS,
   helloFreeTextAckStub,
   helloSomethingElseAckComposerAlways,
+  type HelloProfilePolicyRibbonAction,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
 import { helloRsaOpeningLead, helloRsaTransferFollowupAi } from "@/components/crm/hello/helloRsaCopy"
 
@@ -123,6 +124,31 @@ export function RoadsideAssistanceHelloView({
     ])
   }, [appendAssistantAfterTyping, composerText])
 
+  const handlePolicyRibbonAction = useCallback(
+    (policy: Policy, action: HelloProfilePolicyRibbonAction) => {
+      const labels: Record<HelloProfilePolicyRibbonAction, string> = {
+        view_details: "View policy details",
+        raise_claim: "Raise a claim",
+        edit_policy: "Edit Policy",
+        share_policy_document: "Share policy document",
+      }
+      const policyLine = policy.name?.trim() || policy.planDisplayName?.trim() || policy.type
+      setLines((prev) => [
+        ...prev,
+        { id: newId("u"), kind: "user", text: `${labels[action]} · ${policyLine}` },
+      ])
+      appendAssistantAfterTyping((prev) => [
+        ...prev,
+        {
+          id: newId("a"),
+          kind: "assistant_composer_stub",
+          text: "Open Raise Claim or Edit Policy from the CRM workspace for the full split-pane workflow. This RSA view keeps policy shortcuts in the profile ribbon only.",
+        },
+      ])
+    },
+    [appendAssistantAfterTyping],
+  )
+
   const renderThread = () => {
     const streak = createHelloChatIdentityStreak()
     const nodes: ReactNode[] = []
@@ -222,6 +248,18 @@ export function RoadsideAssistanceHelloView({
         customer={customer}
         activePolicies={activePolicies}
         inactivePolicies={inactivePolicies}
+        onActivePolicyRibbonAction={handlePolicyRibbonAction}
+        onNonPolicyRibbonAction={(action) => {
+          const label = helloProfileNonPolicyRibbonActionLabel(action)
+          setLines((prev) => [
+            ...prev,
+            {
+              id: newId("a"),
+              kind: "assistant_composer_stub",
+              text: `${label} — wire this shortcut to CRM history when available.`,
+            },
+          ])
+        }}
       />
 
       <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden px-[40px] pt-5 pb-5 lg:pb-6">

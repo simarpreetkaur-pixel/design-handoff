@@ -4,6 +4,7 @@ import {
   useEffect,
   useCallback,
   useId,
+  useMemo,
   type KeyboardEvent,
   type ReactNode,
 } from "react"
@@ -30,8 +31,13 @@ import { cn } from "@/lib/utils"
 import {
   SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
   SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
+  SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS,
 } from "@/data/sunilEditPolicyUseCases"
 import { helloEditPolicyWhatToUpdatePrompt } from "@/components/crm/hello/helloEditPolicyCopy"
+
+const SUNIL_UNKNOWN_REASON_COMPOSER_SUGGESTIONS: { id: string; label: string; sendText: string }[] = [
+  { id: "edit_policy", label: "Edit policy", sendText: "Edit policy" },
+]
 
 function customerFirstNameOrFull(full: string): string {
   const t = full.trim()
@@ -102,11 +108,15 @@ export type ChatMockCase =
   | "raj_cold_nexon"
   /** Raj Kapoor — raise claim for Tata Nexon + GMC policy context (nav “Raise a claim”) */
   | "raj_raise_claim_nexon_gmc"
+  /** Raj Kapoor — live call transcript + AI suggested raise claim (drawer #6). */
+  | "raj_live_listening_raise_claim"
   /** Raj Kapoor — Road Side Assistance (drawer #4); transfer-only agent path. */
   | "raj_road_side_assistance"
   | "sunil_endorsement_edit_name"
   /** Sunil — Unknown reason (drawer #5); fork of UC3 chat behavior (separate branches in {@link buildBotReply}). */
   | "sunil_endorsement_unknown_reason"
+  /** Sunil — Escalation / refund past TAT (drawer #6); Hello scripted journey. */
+  | "sunil_escalation_refund_payment"
   | "unknown_jtbd_iteration"
 
 interface AIChatPanelProps {
@@ -153,6 +163,10 @@ interface AIChatPanelProps {
   composerFooterClassName?: string
   /** Unknown JTBD state 0: render beside the composer (e.g. Ozontel) so the bar reads as one chat control strip. */
   fullBleedComposerAccessory?: ReactNode
+  /** Hide the top “AI Companion” chrome — parent supplies a floating shell (e.g. Live listening FAB). */
+  hideHeader?: boolean
+  /** Delay before the bot reply appears after the user sends (demo pacing). Default 700ms. */
+  botReplyDelayMs?: number
 }
 
 const WELCOME_BOT_TEXT =
@@ -427,6 +441,89 @@ function buildBotReply(
     }
   }
 
+  if (chatMockCase === "sunil_escalation_refund_payment") {
+    return {
+      contextLabel: "Refund / payments",
+      text: "Anchor on TAT breach and account non-credit. Suggested steps:",
+      steps: [
+        {
+          title: "Verify",
+          detail: "Confirm UTR / PG reference and last debit timestamp before promising a new date.",
+        },
+        {
+          title: "Tech / payments",
+          detail: "If past committed TAT, escalate to **tech team** with ticket id and call count (3rd attempt).",
+        },
+        { title: "Customer comms", detail: "One clear apology + one concrete next action — avoid open-ended waits." },
+      ],
+    }
+  }
+
+  if (chatMockCase === "raj_live_listening_raise_claim") {
+    const kycTiming =
+      (q.includes("kyc") &&
+        (q.includes("how long") ||
+          q.includes("how much time") ||
+          q.includes("take") ||
+          q.includes("duration") ||
+          q.includes("time") ||
+          q.includes("happen"))) ||
+      (q.includes("verification") && (q.includes("long") || q.includes("time")))
+
+    if (kycTiming) {
+      return {
+        contextLabel: "KYC timing",
+        text: "Share this with the customer:",
+        steps: [
+          {
+            title: "Typical turnaround",
+            detail:
+              "KYC review is usually **1–2 working days** from ACKO’s side once documents are clear, complete, and match the application.",
+          },
+          {
+            title: "If it’s stuck longer",
+            detail:
+              "Confirm upload status in the app, then use **Send Communication** or KYC Ops escalation with ticket / reference details.",
+          },
+        ],
+      }
+    }
+
+    if (parseRaiseClaimChatIntent(userText)) {
+      return {
+        contextLabel: "Raise claim",
+        text: "Open the **Raise claim** workspace in the **center** to continue intake (RC + FNOL) for this live call.",
+        steps: [
+          {
+            title: "Next step",
+            detail: "Use the center accordion—same steps as the standard Raise claim journey.",
+            crmCta: { label: "Open Raise claim", crmAction: "raise_claim" },
+          },
+        ],
+      }
+    }
+
+    const editPolicyLiveIntent =
+      /\b(dob|date of birth|birth date)\b/i.test(userText) ||
+      (q.includes("edit") && q.includes("policy")) ||
+      (q.includes("health") && (q.includes("wrong") || q.includes("correct") || q.includes("change"))) ||
+      (q.includes("name") && q.includes("policy"))
+
+    if (editPolicyLiveIntent) {
+      return {
+        contextLabel: "Edit policy",
+        text: "Open **Edit policy** in the **center** for health endorsements (for example DOB or insured details per SOP).",
+        steps: [
+          {
+            title: "Next step",
+            detail: "Request RC + licence where required, then complete the edit workflow from the center panel.",
+            crmCta: { label: "Open Edit policy", crmAction: "advisor_ui" },
+          },
+        ],
+      }
+    }
+  }
+
   if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK) {
     const editNameIntent =
       /\b(edit name|name edit|endorsement name|name correction|correct spelling|change name on policy|change name|update name|name on policy|spelling)\b/i.test(
@@ -446,19 +543,47 @@ function buildBotReply(
   }
 
   if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK) {
-    const editNameIntent =
-      /\b(edit name|name edit|endorsement name|name correction|correct spelling|change name on policy|change name|update name|name on policy|spelling)\b/i.test(
-        userText,
-      ) ||
-      (q.includes("name") && (q.includes("policy") || q.includes("endorsement")))
-    if (editNameIntent) {
-      return {
-        contextLabel: "Which policy?",
-        text: "Which policy are you referring to?",
-        policyChoices: [
-          { key: "swift", label: "Swift Dzire" },
-          { key: "gmc", label: "GMC policy" },
-        ],
+    const wc = workflowChatContext
+    const policyCount = wc?.activePolicies.length ?? 0
+    if (wc && policyCount === 0) {
+      const intent = parseChatWorkflowCreationIntent(userText, {
+        policies: wc.activePolicies,
+        callContextVehicle: wc.callContextVehicle,
+        caseVehicle: caseContext?.vehicle,
+      })
+      if (intent) {
+        return {
+          contextLabel: "No policies on this lookup",
+          text: "Customer has no active policies from this number so can't perform edit, confirm the customer's contact number associated with the policy and update it.",
+          steps: [
+            {
+              title: "Confirm the policy number on file",
+              detail:
+                "Validate the customer’s contact number registered on the policy (not only the inbound caller ID).",
+            },
+            {
+              title: "Update lookup (demo)",
+              detail: `Save **${SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS}** as the lookup number, and this view reloads with two active policies so you can continue.`,
+            },
+          ],
+        }
+      }
+    }
+    if (policyCount > 0) {
+      const editNameIntent =
+        /\b(edit name|name edit|endorsement name|name correction|correct spelling|change name on policy|change name|update name|name on policy|spelling)\b/i.test(
+          userText,
+        ) ||
+        (q.includes("name") && (q.includes("policy") || q.includes("endorsement")))
+      if (editNameIntent) {
+        return {
+          contextLabel: "Which policy?",
+          text: "Which policy are you referring to?",
+          policyChoices: [
+            { key: "swift", label: "Swift Dzire" },
+            { key: "gmc", label: "GMC policy" },
+          ],
+        }
       }
     }
   }
@@ -625,7 +750,11 @@ function buildBotReply(
     }
   }
 
-  if (chatMockCase === "raj_cold_nexon" || chatMockCase === "raj_raise_claim_nexon_gmc") {
+  if (
+    chatMockCase === "raj_cold_nexon" ||
+    chatMockCase === "raj_raise_claim_nexon_gmc" ||
+    chatMockCase === "raj_live_listening_raise_claim"
+  ) {
     const isCoverageQuickAsk =
       (q.includes("cover") && (q.includes("nexon") || q.includes("comprehens") || q.includes("comprehensive") || q.includes("car_") || q.includes("policy"))) ||
       (q.includes("what") && q.includes("cover")) ||
@@ -704,19 +833,26 @@ function buildBotReply(
   }
 
   if (chatMockCase === SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK) {
+    const policyCount = workflowChatContext?.activePolicies.length ?? 0
+    if (policyCount > 0) {
+      return {
+        contextLabel: "Edit name",
+        text: "Start here:",
+        steps: [
+          {
+            title: "Clarify",
+            detail: "Confirm they need a name correction or spelling update on documents.",
+          },
+          {
+            title: "Narrow policy",
+            detail: "Customer holds Swift Dzire motor + ACKO GMC — pick the right policy before creating the workflow.",
+          },
+        ],
+      }
+    }
     return {
-      contextLabel: "Edit name",
-      text: "Start here:",
-      steps: [
-        {
-          title: "Clarify",
-          detail: "Confirm they need a name correction or spelling update on documents.",
-        },
-        {
-          title: "Narrow policy",
-          detail: "Customer holds Swift Dzire motor + ACKO GMC — pick the right policy before creating the workflow.",
-        },
-      ],
+      contextLabel: "Tip",
+      text: "Ask what the customer needs in plain language and type it here to get the next best step.",
     }
   }
 
@@ -876,6 +1012,8 @@ export function AIChatPanel({
   onUnknownJtbdSplitUnlock,
   composerFooterClassName,
   fullBleedComposerAccessory,
+  hideHeader = false,
+  botReplyDelayMs = 700,
 }: AIChatPanelProps = {}) {
   const welcomeText =
     contextualWelcomeText !== undefined && contextualWelcomeText.trim().length > 0
@@ -902,6 +1040,13 @@ export function AIChatPanel({
   const inputRef = useRef<HTMLInputElement>(null)
   const lastPrefillNonceRef = useRef(0)
   const lastComposerFocusNonceRef = useRef(0)
+
+  const sunilUnknownComposerSuggestionMatches = useMemo(() => {
+    if (chatMockCase !== SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK) return []
+    const q = input.trim().toLowerCase()
+    if (q.length < 2) return []
+    return SUNIL_UNKNOWN_REASON_COMPOSER_SUGGESTIONS.filter((s) => s.sendText.toLowerCase().includes(q))
+  }, [chatMockCase, input])
 
   const scrollToBottom = () => {
     const el = messagesScrollRef.current
@@ -963,10 +1108,11 @@ export function AIChatPanel({
           raiseClaimGuidanceLayout: reply.raiseClaimGuidanceLayout,
         }
         setMessages((prev) => [...prev, botMessage])
-      }, 700)
+      }, botReplyDelayMs)
     },
     [
       activeJtbdType,
+      botReplyDelayMs,
       chatMockCase,
       caseContext,
       workflowChatContext,
@@ -1026,30 +1172,32 @@ export function AIChatPanel({
         fullBleedComposerAccessory ? "bg-[#f8f7fc]" : "bg-white",
       )}
     >
-      <div
-        className={cn(
-          "flex items-center gap-3 border-b border-[#ececf2] bg-white px-4 shadow-[0_1px_0_rgba(28,11,62,0.04)]",
-          fullBleedComposerAccessory ? "py-2.5" : "py-4",
-        )}
-      >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
-          <img
-            src="/icons/ai-companion-header.png"
-            alt="AI Companion"
-            width={40}
-            height={40}
-            className="h-10 w-10 object-cover"
-          />
+      {!hideHeader ? (
+        <div
+          className={cn(
+            "flex items-center gap-3 border-b border-[#ececf2] bg-white px-4 shadow-[0_1px_0_rgba(28,11,62,0.04)]",
+            fullBleedComposerAccessory ? "py-2.5" : "py-4",
+          )}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
+            <img
+              src="/icons/ai-companion-header.png"
+              alt="AI Companion"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-cover"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-euclid text-[14px] font-semibold text-[#2c2067]">AI Companion</h3>
+            <p className="font-euclid text-[12px] leading-snug text-[#6c6c80]">
+              {fullBleedComposerAccessory
+                ? "Pick a path with the chips, or type in the message bar."
+                : "Crisp answers for this case"}
+            </p>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-euclid text-[14px] font-semibold text-[#2c2067]">AI Companion</h3>
-          <p className="font-euclid text-[12px] leading-snug text-[#6c6c80]">
-            {fullBleedComposerAccessory
-              ? "Pick a path with the chips, or type in the message bar."
-              : "Crisp answers for this case"}
-          </p>
-        </div>
-      </div>
+      ) : null}
 
       <div
         ref={messagesScrollRef}
@@ -1667,6 +1815,28 @@ export function AIChatPanel({
         ) : (
           <div className={cn("flex w-full items-end gap-3")}>
             <div className="w-full">
+              {sunilUnknownComposerSuggestionMatches.length > 0 ? (
+                <div
+                  className="mb-2 flex max-h-[min(40vh,220px)] flex-col gap-1 overflow-y-auto rounded-xl border border-[#ececf2] bg-[#fafafa] p-1.5 shadow-sm"
+                  role="listbox"
+                  aria-label="Suggested messages"
+                >
+                  {sunilUnknownComposerSuggestionMatches.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="option"
+                      className="rounded-lg px-3 py-2 text-left font-euclid text-[13px] font-medium text-[#36354c] transition-colors hover:bg-[#f0eef9]"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        sendUserText(s.sendText)
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <div
                 className={cn(
                   "flex items-center gap-2 rounded-full border bg-gradient-to-t from-white to-[#f8f7fc] px-3 py-2 shadow-[0px_4px_12px_rgba(28,11,62,0.08)] transition-[box-shadow,border-color,ring] duration-200",

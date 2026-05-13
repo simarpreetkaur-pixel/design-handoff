@@ -154,7 +154,10 @@ export function ActivePoliciesPanel({ policies, onPolicyActionClick }: ActivePol
 type PolicyDetailPanelProps = {
   policy: Policy
   onPolicyActionClick?: (action: string, policy: Policy) => void
-  /** When false, hides the “Policy Related Actions” link row (e.g. Hello chat summary card). */
+  /**
+   * When false, hides the “Policy Related Actions” link row.
+   * Default: shown for `variant="card"` (Classic panel), hidden for `variant="embedded"` (Hello right pane).
+   */
   showRelatedActions?: boolean
   /**
    * `embedded` — no outer card; Hello/CRM pane shell + scroll padding already frame the block.
@@ -176,8 +179,9 @@ export function PolicyDetailPanel({
   policy,
   onPolicyActionClick,
   variant = "card",
-  showRelatedActions = true,
+  showRelatedActions,
 }: PolicyDetailPanelProps) {
+  const showRelatedRow = showRelatedActions ?? variant !== "embedded"
   const isHealth = isHealthPolicy(policy)
   const members = policy.coveredMembers ?? HEALTH_MEMBERS[policy.id] ?? []
   const healthPolicyHolderDisplay =
@@ -251,7 +255,7 @@ export function PolicyDetailPanel({
         </div>
       ) : null}
 
-      {showRelatedActions ? (
+      {showRelatedRow ? (
         <div className="flex w-full flex-col gap-3">
           <h4 className="text-[14px] font-medium leading-5 text-[#36354c]">Policy Related Actions</h4>
           <div className="flex flex-wrap content-center gap-x-10 gap-y-2 rounded-xl border border-[#e7e7f0] bg-white p-4">

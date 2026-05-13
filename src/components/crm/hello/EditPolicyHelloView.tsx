@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Send, X } from "lucide-react"
 
 import { formatPolicyChatRadioEcho, PolicyChatRadioContent } from "@/lib/policyChatRadioLabel"
@@ -22,7 +22,12 @@ import {
   helloTellCustomerCalloutClass,
   helloWorkflowOfferPickShellClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
-import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
+import {
+  HelloCustomerProfileBar,
+  helloProfileNonPolicyRibbonAckMessage,
+  helloProfileNonPolicyRibbonActionLabel,
+  type HelloProfileNonPolicyRibbonActionId,
+} from "@/components/crm/hello/HelloCustomerProfileBar"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
 import { PolicyDetailPanel, HelloPolicyChatDetailCard } from "@/components/crm/ActivePoliciesPanel"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
@@ -42,6 +47,7 @@ import {
   HELLO_EDIT_POLICY_EDIT_PICK_OPENING_ID,
   HELLO_EDIT_POLICY_MODE_PICK_OPENING_ID,
   HELLO_EDIT_POLICY_POLICY_PICK_OPENING_ID,
+  HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND,
   helloComposerTriggersEditPolicyOffer,
   helloEditPolicyAdvisorScriptForKind,
   helloEditPolicyModeChoices,
@@ -69,19 +75,121 @@ import {
   HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS,
   helloFreeTextAckStub,
   helloPolicyBarWorkflowOfferPickOptions,
+  helloProfileRibbonPolicyAckMessage,
+  helloProfileRibbonPolicyDisplayName,
   helloRaiseClaimChoices,
   helloSomethingElseAckComposerAlways,
   HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
   HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS,
-  HELLO_POLICY_BAR_ACK_LINE,
   HELLO_POLICY_BAR_ASSISTANCE_PROMPT,
   type HelloPolicyBarActionKey,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
+import { scheduleHelloProfileRibbonAckSequence } from "@/components/crm/hello/helloProfileRibbonAckSchedule"
+import { HelloRibbonBlankSplitPane } from "@/components/crm/hello/HelloRibbonBlankSplitPane"
 import {
   helloPolicyHeadingNumber,
   helloPolicyHeadingProduct,
   useHelloPolicyDetailPane,
 } from "@/components/crm/hello/useHelloPolicyDetailPane"
+import {
+  SUNIL_UNKNOWN_REASON_COMPANION_OPENER,
+  SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS,
+} from "@/data/sunilEditPolicyUseCases"
+
+const SUNIL_UNKNOWN_REASON_HELLO_COMPOSER_SUGGESTIONS: { id: string; label: string; sendText: string }[] = [
+  { id: "edit_policy", label: "Edit policy", sendText: "Edit policy" },
+]
+
+function SelfServeStepsPanel({ 
+  editKind, 
+  onCancel, 
+  onDone 
+}: { 
+  editKind: EndorsementEditKind; 
+  onCancel?: () => void; 
+  onDone?: () => void 
+}) {
+  const steps = editKind === "policy_holder_name"
+    ? EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS
+    : EDIT_POLICY_CUSTOMER_STEPS
+  
+  const tatLine = editKind === "policy_holder_name"
+    ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
+    : EDIT_POLICY_CUSTOMER_TAT_LINE
+
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      {/* Header with Cancel button */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Customer Steps
+          </p>
+          <h2 className="mt-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
+            Steps for the customer
+          </h2>
+          <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
+            Guide the customer through these steps to complete their edit policy request.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          aria-label="Cancel steps guide"
+        >
+          <X className="size-5" aria-hidden />
+        </button>
+      </div>
+
+      {/* Steps content */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-xl border border-[#e7e7f0] bg-white p-4">
+        <div>
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
+            Steps for the customer
+          </p>
+          <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
+            {steps.map((step, index) => (
+              <li key={index}>{step}</li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="rounded-lg border-l-2 border-[#7c47e1]/35 bg-[#f8f7fc] p-3">
+          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#7c47e1]">
+            Tell the customer
+          </p>
+          <div className="mt-2 space-y-2.5">
+            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+              {tatLine}
+            </p>
+            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
+              {EDIT_POLICY_HEALTH_NOTE_LINE}
+            </p>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="mt-auto flex justify-end gap-3 pt-4 border-t border-[#e7e7f0]">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-[#e7e7f0] bg-white px-4 py-2 font-euclid text-[14px] font-medium text-[#5b5675] transition-colors hover:bg-[#f4f4f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg bg-[#7c47e1] px-4 py-2 font-euclid text-[14px] font-medium text-white transition-colors hover:bg-[#6b3ccd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export type HelloEditAssistantBody =
   | { kind: "text"; text: string }
@@ -91,8 +199,6 @@ export type HelloEditAssistantBody =
   | { kind: "edit_policy_edit_pick"; offerId: string }
   | { kind: "edit_policy_mode_offer"; offerId: string; introText: string }
   | { kind: "edit_policy_self_serve_tip"; editField: EndorsementEditKind }
-  | { kind: "edit_policy_self_serve_steps"; editField: EndorsementEditKind }
-  | { kind: "edit_policy_self_serve_followup"; editField: EndorsementEditKind }
   | { kind: "edit_policy_workflow_success" }
   | { kind: "policy_bar_detail_card"; policyId: string }
   | { kind: "policy_bar_assistance_offer"; policyId: string; offerId: string }
@@ -128,6 +234,8 @@ export type EditPolicyHelloViewProps = {
    * Sunil UC3 — inbound already scoped to a motor line; skips policy pick and mirrors Raise Claim Hello opening.
    */
   inboundEditPolicyContext?: EditPolicyHelloInboundContext
+  /** Sunil UC4 — "Unknown reason" use case where customer calls from different number */
+  isUnknownReasonCase?: boolean
   className?: string
 }
 
@@ -141,6 +249,7 @@ export function EditPolicyHelloView({
   inactivePolicies = [],
   displayPhone,
   inboundEditPolicyContext,
+  isUnknownReasonCase = false,
   className,
 }: EditPolicyHelloViewProps) {
   const typingLabelId = useId()
@@ -181,15 +290,32 @@ export function EditPolicyHelloView({
   const [composerText, setComposerText] = useState("")
   const [workflowActive, setWorkflowActive] = useState(false)
   const [activeWorkflowEditKind, setActiveWorkflowEditKind] = useState<EndorsementEditKind | null>(null)
+  const [selfServeStepsActive, setSelfServeStepsActive] = useState(false)
+  const [selfServeStepsEditKind, setSelfServeStepsEditKind] = useState<EndorsementEditKind | null>(null)
   const policyDetailPane = useHelloPolicyDetailPane()
   const [workflowShimmerPhase, setWorkflowShimmerPhase] = useState<"hidden" | "show" | "hide">(
     "hidden",
   )
   const [replyTyping, setReplyTyping] = useState(false)
 
-  const editPolicySuccessPushedRef = useRef(false)
+  // Unknown reason case - dynamic suggestions
+  const sunilUnknownComposerSuggestionMatches = useMemo(() => {
+    if (!isUnknownReasonCase) return []
+    const q = composerText.trim().toLowerCase()
+    if (q.length < 2) return []
+    return SUNIL_UNKNOWN_REASON_HELLO_COMPOSER_SUGGESTIONS.filter((s) => s.sendText.toLowerCase().includes(q))
+  }, [isUnknownReasonCase, composerText])
 
-  const rightPaneSplit = workflowActive || policyDetailPane.isOpen
+  const editPolicySuccessPushedRef = useRef(false)
+  const ribbonAckCleanupRef = useRef<(() => void) | null>(null)
+
+  const [extraRibbonPane, setExtraRibbonPane] = useState<
+    | null
+    | { kind: "non_policy"; action: HelloProfileNonPolicyRibbonActionId }
+    | { kind: "raise_claim_stub"; policyLabel: string }
+  >(null)
+
+  const rightPaneSplit = workflowActive || policyDetailPane.isOpen || extraRibbonPane !== null || selfServeStepsActive
 
   const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
   const readMs = HELLO_SELF_SERVE_READ_PAUSE_MS
@@ -201,38 +327,6 @@ export function EditPolicyHelloView({
   const pushAssistant = (body: HelloEditAssistantBody) => {
     const id = `hello-edit-a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     setMessages((prev) => [...prev, { id, role: "assistant", body }])
-  }
-
-  const schedulePolicyBarChatSequence = (policy: Policy) => {
-    const offerId = `policy-bar-offer-${policy.id}-${Date.now()}`
-    const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
-    const pauseMs = HELLO_BOT_REPLY_AFTER_USER_MS
-
-    setReplyTyping(true)
-    window.setTimeout(() => {
-      setReplyTyping(false)
-      pushAssistant({ kind: "text", text: HELLO_POLICY_BAR_ACK_LINE })
-
-      window.setTimeout(() => {
-        setReplyTyping(true)
-        window.setTimeout(() => {
-          setReplyTyping(false)
-          pushAssistant({ kind: "policy_bar_detail_card", policyId: policy.id })
-
-          window.setTimeout(() => {
-            setReplyTyping(true)
-            window.setTimeout(() => {
-              setReplyTyping(false)
-              pushAssistant({
-                kind: "policy_bar_assistance_offer",
-                policyId: policy.id,
-                offerId,
-              })
-            }, typingMs)
-          }, pauseMs)
-        }, typingMs)
-      }, pauseMs)
-    }, typingMs)
   }
 
   /** After policy is chosen (multi-policy opening): typing → “what to edit” radios. */
@@ -268,6 +362,12 @@ export function EditPolicyHelloView({
           }, typingMs)
         }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
       }, typingMs)
+    } else if (isUnknownReasonCase) {
+      // Unknown reason case - just show initial message, wait for user input
+      schedule(() => {
+        if (cancelled) return
+        setOpeningTyping(false)
+      }, typingMs)
     } else {
       schedule(() => {
         if (cancelled) return
@@ -292,7 +392,12 @@ export function EditPolicyHelloView({
       cancelled = true
       timeouts.forEach((t) => window.clearTimeout(t))
     }
-  }, [needsPolicyPick, typingMs, inboundEditPolicyContext])
+  }, [needsPolicyPick, typingMs, inboundEditPolicyContext, isUnknownReasonCase])
+
+  useEffect(() => () => {
+    ribbonAckCleanupRef.current?.()
+    ribbonAckCleanupRef.current = null
+  }, [])
 
   const prevWorkflowActiveRef = useRef(false)
   useEffect(() => {
@@ -337,6 +442,8 @@ export function EditPolicyHelloView({
     policyDetailPane.pane,
     replyTyping,
     workflowShimmerPhase,
+    extraRibbonPane,
+    selfServeStepsActive,
   ])
 
   const spend = (offerId: string) => {
@@ -461,14 +568,14 @@ export function EditPolicyHelloView({
           setReplyTyping(true)
           window.setTimeout(() => {
             setReplyTyping(false)
-            pushAssistant({ kind: "edit_policy_self_serve_steps", editField: kind })
+            pushAssistant({ kind: "text", text: "Opening the customer steps guide on the right." })
             window.setTimeout(() => {
-              setReplyTyping(true)
-              window.setTimeout(() => {
-                setReplyTyping(false)
-                pushAssistant({ kind: "edit_policy_self_serve_followup", editField: kind })
-              }, typingMs)
-            }, readMs)
+              policyDetailPane.close()
+              setWorkflowActive(false)
+              setActiveWorkflowEditKind(null)
+              setSelfServeStepsEditKind(kind)
+              setSelfServeStepsActive(true)
+            }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, typingMs)
         }, readMs)
       }, typingMs)
@@ -598,18 +705,33 @@ export function EditPolicyHelloView({
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
   }
 
-  const handleSendComposer = () => {
-    const trimmed = composerText.trim()
-    if (!trimmed) return
-    setMessages((prev) => [...prev, { id: `hello-edit-user-${Date.now()}`, role: "user", text: trimmed }])
+  const sendUserText = (text: string) => {
     setComposerText("")
+    setMessages((prev) => [...prev, { id: `hello-edit-user-${Date.now()}`, role: "user", text }])
 
     window.setTimeout(() => {
       setReplyTyping(true)
       window.setTimeout(() => {
         setReplyTyping(false)
-        if (!helloComposerTriggersEditPolicyOffer(trimmed)) {
-          pushAssistant({ kind: "text", text: helloFreeTextAckStub })
+        
+        // Handle "Unknown reason" case with no policies
+        if (isUnknownReasonCase && pickablePolicies.length === 0 && helloComposerTriggersEditPolicyOffer(text)) {
+          pushAssistant({
+            kind: "text",
+            text: "Customer has no active policies from this number so can't perform edit, confirm the customer's contact number associated with the policy and update it."
+          })
+          return
+        }
+
+        // For unknown reason case with policies available, be more lenient with edit policy detection
+        const isEditPolicyIntent = helloComposerTriggersEditPolicyOffer(text) || 
+          (isUnknownReasonCase && pickablePolicies.length > 0 && /\b(edit|policy|change|update|modify)\b/i.test(text))
+
+        if (!isEditPolicyIntent) {
+          const fallbackText = isUnknownReasonCase
+            ? "Ask what the customer needs in plain language and type it here to get the next best step."
+            : helloFreeTextAckStub
+          pushAssistant({ kind: "text", text: fallbackText })
           return
         }
         setComposerEditFlowKind(null)
@@ -623,6 +745,12 @@ export function EditPolicyHelloView({
         })
       }, typingMs)
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
+  }
+
+  const handleSendComposer = () => {
+    const trimmed = composerText.trim()
+    if (!trimmed) return
+    sendUserText(trimmed)
   }
 
   const handleComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -688,43 +816,6 @@ export function EditPolicyHelloView({
             {editPolicyTalktrackTrail}
           </p>
         )
-      case "edit_policy_self_serve_steps": {
-        const steps =
-          body.editField === "policy_holder_name"
-            ? EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS
-            : EDIT_POLICY_CUSTOMER_STEPS
-        return (
-          <div>
-            <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
-              Steps for the customer
-            </p>
-            <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
-              {steps.map((step, index) => (
-                <li key={index}>{step}</li>
-              ))}
-            </ol>
-          </div>
-        )
-      }
-      case "edit_policy_self_serve_followup": {
-        const tatLine =
-          body.editField === "policy_holder_name"
-            ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
-            : EDIT_POLICY_CUSTOMER_TAT_LINE
-        return (
-          <div className={helloTellCustomerCalloutClass}>
-            <HelloTellCustomerLabel />
-            <ul className="mt-2 space-y-2.5">
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {tatLine}
-              </li>
-              <li className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-                {EDIT_POLICY_HEALTH_NOTE_LINE}
-              </li>
-            </ul>
-          </div>
-        )
-      }
       case "edit_policy_workflow_success":
         return (
           <HelloClaimRaisedSuccessBody
@@ -944,6 +1035,14 @@ export function EditPolicyHelloView({
                 </HelloAiBubbleCard>
               ) : null}
 
+              {isUnknownReasonCase && !openingTyping && !openingInboundIntroVisible ? (
+                <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                  <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                    {SUNIL_UNKNOWN_REASON_COMPANION_OPENER}
+                  </p>
+                </HelloAiBubbleCard>
+              ) : null}
+
               {needsPolicyPick && policyPickVisible ? (
                 <>
                   <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
@@ -1066,43 +1165,67 @@ export function EditPolicyHelloView({
   const companionComposer = (
     <div className="relative z-20 shrink-0 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
       <div className="mx-auto flex w-full max-w-2xl min-w-0 justify-center">
-        <div
-          className={cn(
-            "flex w-full min-w-0 items-end gap-2 rounded-3xl border border-[#e7e7f0] bg-white py-2 pl-4 pr-2 sm:pl-5 sm:pr-1.5",
-            "shadow-[0px_12px_40px_rgba(54,53,76,0.14),0px_4px_12px_rgba(54,53,76,0.06)]",
-            "ring-1 ring-[#36354c]/[0.05]",
-          )}
-        >
-          <label htmlFor="edit-policy-hello-composer" className="sr-only">
-            Message as CX
-          </label>
-          <textarea
-            id="edit-policy-hello-composer"
-            rows={1}
-            value={composerText}
-            onChange={(e) => setComposerText(e.target.value)}
-            onKeyDown={handleComposerKeyDown}
-            placeholder="Type a message…"
+        <div className="w-full">
+          {sunilUnknownComposerSuggestionMatches.length > 0 ? (
+            <div
+              className="mb-2 flex max-h-[min(40vh,220px)] flex-col gap-1 overflow-y-auto rounded-xl border border-[#ececf2] bg-[#fafafa] p-1.5 shadow-sm"
+              role="listbox"
+              aria-label="Suggested messages"
+            >
+              {sunilUnknownComposerSuggestionMatches.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="option"
+                  className="rounded-lg px-3 py-2 text-left font-euclid text-[13px] font-medium text-[#36354c] transition-colors hover:bg-[#f0eef9]"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    sendUserText(s.sendText)
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div
             className={cn(
-              "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-[#fafafa]/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
-              "outline-none ring-0 placeholder:text-[#8b87a3]",
-              "focus-visible:placeholder:text-[#a39eb8]",
-            )}
-          />
-          <Button
-            type="button"
-            size="icon"
-            onClick={handleSendComposer}
-            disabled={!composerText.trim()}
-            aria-label="Send message"
-            className={cn(
-              "mb-0.5 size-11 shrink-0 rounded-full bg-[#7c47e1] text-white shadow-md transition-[box-shadow,transform]",
-              "hover:bg-[#6b3ccd] hover:shadow-lg active:scale-[0.98]",
-              "disabled:pointer-events-none disabled:opacity-40",
+              "flex w-full min-w-0 items-end gap-2 rounded-3xl border border-[#e7e7f0] bg-white py-2 pl-4 pr-2 sm:pl-5 sm:pr-1.5",
+              "shadow-[0px_12px_40px_rgba(54,53,76,0.14),0px_4px_12px_rgba(54,53,76,0.06)]",
+              "ring-1 ring-[#36354c]/[0.05]",
             )}
           >
-            <Send className="size-5" aria-hidden strokeWidth={2} />
-          </Button>
+            <label htmlFor="edit-policy-hello-composer" className="sr-only">
+              Message as CX
+            </label>
+            <textarea
+              id="edit-policy-hello-composer"
+              rows={1}
+              value={composerText}
+              onChange={(e) => setComposerText(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder="Type a message…"
+              className={cn(
+                "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-[#fafafa]/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
+                "outline-none ring-0 placeholder:text-[#8b87a3]",
+                "focus-visible:placeholder:text-[#a39eb8]",
+              )}
+            />
+            <Button
+              type="button"
+              size="icon"
+              onClick={handleSendComposer}
+              disabled={!composerText.trim()}
+              aria-label="Send message"
+              className={cn(
+                "mb-0.5 size-11 shrink-0 rounded-full bg-[#7c47e1] text-white shadow-md transition-[box-shadow,transform]",
+                "hover:bg-[#6b3ccd] hover:shadow-lg active:scale-[0.98]",
+                "disabled:pointer-events-none disabled:opacity-40",
+              )}
+            >
+              <Send className="size-5" aria-hidden strokeWidth={2} />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -1124,7 +1247,7 @@ export function EditPolicyHelloView({
     </div>
   )
 
-  if (pickablePolicies.length === 0) {
+  if (pickablePolicies.length === 0 && !isUnknownReasonCase) {
     return (
       <div
         className={cn("flex min-h-0 flex-1 items-center justify-center bg-[#fafafa] p-6", className)}
@@ -1161,12 +1284,54 @@ export function EditPolicyHelloView({
         customer={customer}
         activePolicies={pickablePolicies}
         inactivePolicies={inactivePolicies}
-        onActivePolicyViewDetails={(p) => {
-          setSelectedPolicy(p)
-          setWorkflowActive(false)
-          setActiveWorkflowEditKind(null)
-          policyDetailPane.close()
-          schedulePolicyBarChatSequence(p)
+        onActivePolicyRibbonAction={(policy, action) => {
+          ribbonAckCleanupRef.current?.()
+          setSelectedPolicy(policy)
+          ribbonAckCleanupRef.current = scheduleHelloProfileRibbonAckSequence({
+            setTyping: setReplyTyping,
+            appendAck: () => {
+              pushAssistant({ kind: "text", text: helloProfileRibbonPolicyAckMessage(policy, action) })
+            },
+            thenOpen: () => {
+              setExtraRibbonPane(null)
+              if (action === "view_details" || action === "share_policy_document") {
+                setWorkflowActive(false)
+                setActiveWorkflowEditKind(null)
+                policyDetailPane.open(policy)
+                return
+              }
+              if (action === "edit_policy") {
+                policyDetailPane.close()
+                setActiveWorkflowEditKind(HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND)
+                setWorkflowActive(true)
+                return
+              }
+              if (action === "raise_claim") {
+                policyDetailPane.close()
+                setWorkflowActive(false)
+                setActiveWorkflowEditKind(null)
+                setExtraRibbonPane({
+                  kind: "raise_claim_stub",
+                  policyLabel: helloProfileRibbonPolicyDisplayName(policy),
+                })
+              }
+            },
+          })
+        }}
+        onNonPolicyRibbonAction={(action) => {
+          ribbonAckCleanupRef.current?.()
+          ribbonAckCleanupRef.current = scheduleHelloProfileRibbonAckSequence({
+            setTyping: setReplyTyping,
+            appendAck: () => {
+              pushAssistant({ kind: "text", text: helloProfileNonPolicyRibbonAckMessage(action) })
+            },
+            thenOpen: () => {
+              setWorkflowActive(false)
+              setActiveWorkflowEditKind(null)
+              policyDetailPane.close()
+              setExtraRibbonPane({ kind: "non_policy", action })
+            },
+          })
         }}
       />
 
@@ -1262,6 +1427,61 @@ export function EditPolicyHelloView({
                   />
                 ) : null}
               </div>
+            </div>
+          ) : selfServeStepsActive && selfServeStepsEditKind ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                workflowPaneShellClass,
+              )}
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5">
+                <SelfServeStepsPanel
+                  editKind={selfServeStepsEditKind}
+                  onCancel={() => {
+                    setSelfServeStepsActive(false)
+                    setSelfServeStepsEditKind(null)
+                  }}
+                  onDone={() => {
+                    setSelfServeStepsActive(false)
+                    setSelfServeStepsEditKind(null)
+                    // Add success message to chat
+                    window.setTimeout(() => {
+                      setReplyTyping(true)
+                      window.setTimeout(() => {
+                        setReplyTyping(false)
+                        pushAssistant({ 
+                          kind: "text", 
+                          text: "Steps shared with customer successfully. They can now proceed with the edit policy process using the guidance provided." 
+                        })
+                      }, 800) // Typing delay
+                    }, 300) // Brief pause before typing starts
+                  }}
+                />
+              </div>
+            </div>
+          ) : extraRibbonPane ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                workflowPaneShellClass,
+              )}
+            >
+              <HelloRibbonBlankSplitPane
+                title={
+                  extraRibbonPane.kind === "raise_claim_stub"
+                    ? "Raise a claim"
+                    : helloProfileNonPolicyRibbonActionLabel(extraRibbonPane.action)
+                }
+                subtitle={
+                  extraRibbonPane.kind === "raise_claim_stub" ? extraRibbonPane.policyLabel : null
+                }
+                onCancel={() => {
+                  ribbonAckCleanupRef.current?.()
+                  ribbonAckCleanupRef.current = null
+                  setExtraRibbonPane(null)
+                }}
+              />
             </div>
           ) : (
             <div className="relative z-10 hidden min-h-0 min-w-0 lg:block" aria-hidden />

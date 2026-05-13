@@ -263,49 +263,51 @@ export function HelloCxBubbleCard({
   showIdentity?: boolean
 }) {
   return (
-    <div
-      className={cn(
-        "ml-auto inline-flex max-w-full min-w-0 flex-row-reverse items-start gap-3 align-top",
-        "max-w-[min(100%,26rem)]",
-      )}
-    >
-      <div className="flex w-5 shrink-0 justify-center pt-0.5" aria-hidden>
-        {showIdentity ? (
-          <div
-            className={cn(
-              "flex size-5 shrink-0 items-center justify-center overflow-hidden rounded",
-              "bg-gradient-to-br from-[#7c47e1] to-[#5a32c9]",
-              "shadow-[0px_2px_8px_rgba(92,50,201,0.25)] ring-1 ring-white/20",
-            )}
-          >
-            <User className="size-3 text-white" strokeWidth={2} aria-hidden />
-          </div>
-        ) : (
-          <div className="size-5 shrink-0" />
-        )}
-      </div>
-      <Card
+    <div className="flex w-full min-w-0 max-w-full justify-end">
+      <div
         className={cn(
-          "min-w-0 w-fit border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]",
-          helloChatBubbleMinWidthClass,
-          showIdentity
-            ? "rounded-tr-[2px] rounded-tl-2xl rounded-b-2xl"
-            : "rounded-2xl",
+          "inline-flex max-w-full min-w-0 flex-row-reverse items-start gap-3 align-top",
+          "max-w-[min(100%,26rem)]",
         )}
       >
-        <CardContent className="p-3">
+        <div className="flex w-5 shrink-0 justify-center pt-0.5" aria-hidden>
           {showIdentity ? (
-            <div className="flex min-w-0 flex-col gap-2">
-              <p className="font-euclid text-[12px] font-normal leading-[18px] text-white/80">
-                {helloCxResponderName}
-              </p>
-              <div className="min-w-0">{children}</div>
+            <div
+              className={cn(
+                "flex size-5 shrink-0 items-center justify-center overflow-hidden rounded",
+                "bg-gradient-to-br from-[#7c47e1] to-[#5a32c9]",
+                "shadow-[0px_2px_8px_rgba(92,50,201,0.25)] ring-1 ring-white/20",
+              )}
+            >
+              <User className="size-3 text-white" strokeWidth={2} aria-hidden />
             </div>
           ) : (
-            <div className="min-w-0">{children}</div>
+            <div className="size-5 shrink-0" />
           )}
-        </CardContent>
-      </Card>
+        </div>
+        <Card
+          className={cn(
+            "min-w-0 w-fit border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]",
+            helloChatBubbleMinWidthClass,
+            showIdentity
+              ? "rounded-tr-[2px] rounded-tl-2xl rounded-b-2xl"
+              : "rounded-2xl",
+          )}
+        >
+          <CardContent className="p-3">
+            {showIdentity ? (
+              <div className="flex min-w-0 flex-col gap-2">
+                <p className="font-euclid text-[12px] font-normal leading-[18px] text-white/80">
+                  {helloCxResponderName}
+                </p>
+                <div className="min-w-0">{children}</div>
+              </div>
+            ) : (
+              <div className="min-w-0">{children}</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -437,7 +439,7 @@ export function WorkflowPaneShimmerOverlay({
   return (
     <div
       className={cn(
-        exiting ? "pointer-events-none" : "pointer-events-auto",
+        "pointer-events-none",
         "absolute inset-0 z-[5] overflow-hidden rounded-xl bg-[#f9f8fc]",
         "transition-opacity motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
         exiting ? "opacity-0" : "opacity-100",
