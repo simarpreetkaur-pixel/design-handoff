@@ -158,8 +158,8 @@ export function tryResolveMotorPolicyFromText(userText: string, motorPolicies: P
   if (hits.length > 1) {
     const byActiva = hits.filter((p) => /\bactiva\b/i.test(p.vehicle ?? ""))
     if (byActiva.length === 1) return byActiva[0]
-    const byEcosport = hits.filter((p) => /\becosport\b/i.test(p.vehicle ?? ""))
-    if (byEcosport.length === 1) return byEcosport[0]
+    const byNexon = hits.filter((p) => /\bnexon\b/i.test(p.vehicle ?? ""))
+    if (byNexon.length === 1) return byNexon[0]
     return null
   }
 

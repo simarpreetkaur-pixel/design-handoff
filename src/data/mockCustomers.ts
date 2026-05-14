@@ -13,7 +13,7 @@ export const rajeshKumar: Customer = {
   kycStatus: "verified",
   callContext: {
     reason: "Claim Status",
-    vehicle: "Ford Ecosport Titanium",
+    vehicle: "Tata Nexon",
   },
 }
 
@@ -22,7 +22,7 @@ export const rajeshKumarJTBDs: JTBD[] = [
     id: "jtbd-claim-1",
     type: "claim",
     title: "Claim",
-    vehicle: "Ecosport Titanium 2025",
+    vehicle: "Tata Nexon",
     isActive: true,
     status: [
       {
@@ -71,7 +71,7 @@ export const rajeshKumarJTBDs: JTBD[] = [
       {
         step: "Renewal window open",
         state: "current",
-        date: "12 Feb'26",
+        date: "13 May'26",
         info: "Customer is eligible for No claim bonus",
       },
       {
@@ -98,7 +98,7 @@ export const rajeshKumarActivePolicies: Policy[] = [
     name: "ACKO Health Plan",
     type: "Health Insurance",
     policyNumber: "ACK-HL-2024-88421",
-    members: 4,
+    members: 2,
     expiryDate: "29 Nov'26",
     policyHolder: "Rajesh Kumar",
     planDisplayName: "Acko_Platinum",
@@ -107,9 +107,7 @@ export const rajeshKumarActivePolicies: Policy[] = [
     tenureLabel: "1 Year",
     coveredMembers: [
       { name: "Rajesh Kumar", relation: "Self" },
-      { name: "Satish Kumar", relation: "Father" },
-      { name: "Meera Bai", relation: "Mother" },
-      { name: "Raju Kumar", relation: "Son" },
+      { name: "Neha Kapoor", relation: "Spouse" },
     ],
   },
   {
@@ -118,7 +116,7 @@ export const rajeshKumarActivePolicies: Policy[] = [
     type: "Motor Insurance",
     policyNumber: "DBCR10468610009/02",
     expiryDate: "22 Mar'27",
-    vehicle: "Ford Ecosport Titanium 2025",
+    vehicle: "Tata Nexon",
     policyHolder: "Rajesh Kumar",
     planDisplayName: "Comprehensive",
     policyPeriodLabel: "22 Mar 2026 - 21 Mar 2027",
@@ -129,11 +127,11 @@ export const rajeshKumarActivePolicies: Policy[] = [
     name: "Third party plan",
     type: "Motor Insurance",
     policyNumber: "ACCR10468614939/02",
-    expiryDate: "15 Aug'27",
+    expiryDate: "28 May'26",
     vehicle: "Honda Activa",
     policyHolder: "Rajesh Kumar",
     planDisplayName: "Third Party",
-    policyPeriodLabel: "15 Aug 2026 - 14 Aug 2027",
+    policyPeriodLabel: "28 May 2025 - 27 May 2026",
     tenureLabel: "1 Year",
   },
 ]
@@ -305,6 +303,20 @@ export const anitaSharmaActivePolicies: Policy[] = [
   },
 ]
 
+/** Inactive policies for Raj Kapoor (Rajesh Kumar) */
+export const rajKapoorInactivePolicies: InactivePolicy[] = [
+  {
+    id: "inactive-raj-ecosport-1",
+    policyNumber: "DCCR10462314331/00", 
+    planKey: "car_comprehensive",
+    productTitle: "Ecosport Titanium 2025",
+    productName: "Comprehensive Car Insurance",
+    policyHolder: "Rajesh Kumar",
+    periodLabel: "22 Mar 2024 – 21 Mar 2025",
+    tripKind: "motor",
+  },
+]
+
 export const rajKapoorActivePolicies: Policy[] = [
   {
     id: "policy-raj-gmc-1",
@@ -313,27 +325,39 @@ export const rajKapoorActivePolicies: Policy[] = [
     policyNumber: "GMC-ACK-RAJ-77401",
     members: 2,
     expiryDate: "15 Dec'27",
-    policyHolder: "Raj Kapoor",
+    policyHolder: "Rajesh Kumar",
     planDisplayName: "ACKO Group Medical Cover",
     totalCoverage: "₹5,00,000",
     policyPeriodLabel: "15 Dec 2025 – 14 Dec 2026",
     tenureLabel: "1 Year",
     coveredMembers: [
-      { name: "Raj Kapoor", relation: "Self" },
+      { name: "Rajesh Kumar", relation: "Self" },
       { name: "Neha Kapoor", relation: "Spouse" },
     ],
   },
   {
     id: "policy-raj-motor-1",
-    name: "Comprehensive Plan",
+    name: "Tata Nexon",
     type: "Motor Insurance",
-    policyNumber: "DL 05 XY 9012",
-    expiryDate: "28 Sep'27",
-    vehicle: "Tata Nexon 2025",
+    policyNumber: "DCCR10462314331/00",
+    expiryDate: "27 Jun'26",
+    vehicle: "Tata Nexon",
     productCode: "car_comprehensive",
-    policyHolder: "Raj Kapoor",
+    policyHolder: "Rajesh Kumar",
     planDisplayName: "Comprehensive",
-    policyPeriodLabel: "29 Sep'24 – 28 Sep'27",
+    policyPeriodLabel: "28 Jun'25 – 27 Jun'26",
+  },
+  {
+    id: "policy-raj-activa-1",
+    name: "Honda Activa 2026",
+    type: "Motor Insurance",
+    policyNumber: "ACCR10468614939/02",
+    expiryDate: "28 May'26",
+    vehicle: "Honda Activa 2026",
+    policyHolder: "Rajesh Kumar",
+    planDisplayName: "Third Party",
+    policyPeriodLabel: "28 May 2025 - 27 May 2026",
+    tenureLabel: "1 Year",
   },
 ]
 
@@ -342,7 +366,7 @@ export const rajKapoorRaiseClaimNexonJtbd: JTBD = {
   id: "jtbd-raj-nexon-raise-claim-demo",
   type: "claim",
   title: "Raise a Claim",
-  vehicle: "Tata Nexon 2025",
+  vehicle: "Tata Nexon",
   isActive: true,
   status: [],
   aiSummary: {
@@ -352,7 +376,7 @@ export const rajKapoorRaiseClaimNexonJtbd: JTBD = {
   agentActions: buildStandardRaiseClaimAgentActions("raj-nexon-raise"),
   quickActions: ["Send communication", "Open Advisor UI", "Schedule CH Appointment"],
   askInChatPrefill:
-    "What should I verify on Tata Nexon policy DL 05 XY 9012 before raising this claim on behalf of the customer?",
+    "What should I verify on Tata Nexon policy DCCR10462314331/00 before raising this claim on behalf of the customer?",
 }
 
 /** Drawer #4 — Road Side Assistance; single handoff action to RSA queue. */
@@ -360,7 +384,7 @@ export const rajKapoorRoadSideAssistanceJtbd: JTBD = {
   id: "jtbd-raj-nexon-rsa",
   type: "claim",
   title: "Road Side Assistance",
-  vehicle: "Tata Nexon 2025",
+  vehicle: "Tata Nexon",
   isActive: true,
   status: [],
   agentActions: [
@@ -382,7 +406,7 @@ export const rajKapoorClaimStatusNexonJtbd: JTBD = {
   id: "jtbd-raj-nexon-claim-status",
   type: "claim",
   title: "Claim status",
-  vehicle: "Tata Nexon 2025",
+  vehicle: "Tata Nexon",
   isActive: true,
   openingQuickSummary:
     "Survey slot missed (12 Feb); claim active — repair estimate on hold until survey/Ops moves.",
@@ -850,10 +874,10 @@ const anitaSharmaClaimPaymentKycJTBDs: JTBD[] = [
 /** Simulate live call — Raj Kapoor: Nexon claim intake + GMC on profile */
 export const rajKapoor: Customer = {
   id: "raj-kapoor",
-  name: "Raj Kapoor",
+  name: "Rajesh Kumar",
   language: "Hindi",
   phone: "+91 99887 77665",
-  email: "raj.kapoor@outlook.com",
+  email: "rajesh.kumar@outlook.com",
   appStatus: "installed",
   tenureWithAcko: "2 years with ACKO",
   kycStatus: "verified",
@@ -884,7 +908,7 @@ const priyaSharmaJTBDs: JTBD[] = [
     id: "jtbd-priya-claim-1",
     type: "claim",
     title: "Repair guidance",
-    vehicle: "Tata Nexon 2025",
+    vehicle: "Tata Nexon",
     isActive: true,
     status: [
       {
@@ -1158,7 +1182,7 @@ export const mockCustomers: Record<
     customer: rajKapoor,
     jtbds: [],
     activePolicies: rajKapoorActivePolicies,
-    inactivePolicies: emptyInactivePolicies,
+    inactivePolicies: rajKapoorInactivePolicies,
   },
   "priya-sharma": {
     customer: priyaSharma,

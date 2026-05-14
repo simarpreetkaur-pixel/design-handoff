@@ -41,7 +41,6 @@ export interface RelatedSopRow {
   id: string
   /** Dotted-underline link label */
   label: string
-  /** Must match a `FlowActionValue` key in `ActionDetailPage` for full-page detail + back. */
   detailActionKey: string
   /** Prefill when the agent taps “Ask in the chat” on this row. */
   askInChatPrefill: string

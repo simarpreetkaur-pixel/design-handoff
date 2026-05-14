@@ -11,7 +11,6 @@ import {
 import { Send, User, Sparkles } from "lucide-react"
 
 import type { EndorsementEditKind, JTBDType, Policy } from "@/types/crm"
-import type { FlowActionValue } from "@/components/crm/ActionDetailPage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { parseChatWorkflowCreationIntent } from "@/lib/chatWorkflowCreationIntent"
@@ -51,7 +50,6 @@ interface BotStepLine {
   title: string
   detail?: string
   /** In-CRM CTA (e.g. opens same flow as Agent’s Next Actions in the left panel) */
-  crmCta?: { label: string; crmAction: FlowActionValue }
 }
 
 /** Shown in bot replies; ties copy to the selected ongoing JTBD + policy on file */
@@ -117,7 +115,6 @@ export type ChatMockCase =
   | "sunil_endorsement_unknown_reason"
   /** Sunil — Escalation / refund past TAT (drawer #6); Hello scripted journey. */
   | "sunil_escalation_refund_payment"
-  | "unknown_jtbd_iteration"
 
 interface AIChatPanelProps {
   isActive?: boolean
@@ -128,8 +125,6 @@ interface AIChatPanelProps {
   chatMockCase?: ChatMockCase
   /** Selected ongoing JTBD + policy hint from the left panel */
   caseContext?: AIChatCaseContext | null
-  /** Open an in-CRM action (left panel) — e.g. Send Alert from a timeline step */
-  onCrmFlowAction?: (action: FlowActionValue) => void
   /** Sunil endorsement demo: user chose Swift vs GMC in chat — parent reveals JTBD */
   onEndorsementPolicySelected?: (policyKey: "swift" | "gmc") => void
   /**
@@ -157,8 +152,6 @@ interface AIChatPanelProps {
   chatComposerFocusNonce?: number
   /** Opens claim handler scheduling from a bot CTA. */
   onOpenClaimHandlerAppointment?: () => void
-  /** Unknown JTBD demo: unlock split layout (profile + JTBD left, chat right). */
-  onUnknownJtbdSplitUnlock?: () => void
   /** Extra classes on the composer footer (e.g. safe inset when a fixed FAB overlaps the input). */
   composerFooterClassName?: string
   /** Unknown JTBD state 0: render beside the composer (e.g. Ozontel) so the bar reads as one chat control strip. */
@@ -680,12 +673,6 @@ function buildBotReply(
     }
   }
 
-  if (chatMockCase === "unknown_jtbd_iteration") {
-    return {
-      contextLabel: "Tip",
-      text: "Use the chips above to classify the call. You can still type here for quick pointers.",
-    }
-  }
 
   if (chatMockCase === "kyc_issuance") {
     const asksDetailed =
@@ -949,11 +936,9 @@ function buildBotReply(
 function BotStepTimeline({
   steps,
   messageId,
-  onCrmFlowAction,
 }: {
   steps: BotStepLine[]
   messageId: string
-  onCrmFlowAction?: (action: FlowActionValue) => void
 }) {
   return (
     <ol className="m-0 list-none p-0" aria-label="Steps">
@@ -969,19 +954,6 @@ function BotStepTimeline({
               <p className="font-euclid text-[13px] font-semibold leading-5 text-[#36354c]">{step.title}</p>
               {step.detail ? (
                 <p className="mt-0.5 font-euclid text-[12px] leading-[18px] text-[#5b5675]">{step.detail}</p>
-              ) : null}
-              {step.crmCta && onCrmFlowAction ? (
-                <div className="mt-1.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onCrmFlowAction(step.crmCta!.crmAction)}
-                    className="h-auto min-h-0 rounded-lg px-2.5 py-1 font-euclid text-[12px] font-semibold text-[#7c47e1] hover:bg-[#f5f3fc] hover:text-[#44277b]"
-                  >
-                    {step.crmCta.label}
-                  </Button>
-                </div>
               ) : null}
             </div>
           </li>
@@ -999,7 +971,6 @@ export function AIChatPanel({
   activeJtbdType = "claim",
   chatMockCase = "default",
   caseContext = null,
-  onCrmFlowAction,
   onEndorsementPolicySelected,
   contextualWelcomeText,
   workflowChatContext,
@@ -1009,7 +980,6 @@ export function AIChatPanel({
   onRaiseClaimFlowLoadingChange: _onRaiseClaimFlowLoadingChange,
   chatComposerFocusNonce = 0,
   onOpenClaimHandlerAppointment,
-  onUnknownJtbdSplitUnlock,
   composerFooterClassName,
   fullBleedComposerAccessory,
   hideHeader = false,
@@ -1021,7 +991,7 @@ export function AIChatPanel({
       : WELCOME_BOT_TEXT
 
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    chatMockCase === "unknown_jtbd_iteration" ? [buildUnknownJtbdIterationOpen()] : buildInitialMessages(welcomeText),
+    buildInitialMessages(welcomeText),
   )
   const [input, setInput] = useState("")
   const [spentSunilWorkflowMessageIds, setSpentSunilWorkflowMessageIds] = useState<Set<string>>(
@@ -1252,9 +1222,6 @@ export function AIChatPanel({
                             onPick={(key, label) => {
                               if (spentIntentDiscoveryIds.has(message.id)) return
                               setSpentIntentDiscoveryIds((prev) => new Set(prev).add(message.id))
-                              if (key !== "edit_policy" && key !== "raise_claim") {
-                                onUnknownJtbdSplitUnlock?.()
-                              }
                               const userPick: ChatMessage = {
                                 id: `u-intent-${Date.now()}`,
                                 role: "user",
@@ -1390,7 +1357,7 @@ export function AIChatPanel({
                                     },
                                   ])
                                 }
-                              }, chatMockCase === "unknown_jtbd_iteration" ? 1150 : 420)
+                              }, 420)
                             }}
                           />
                         </>
@@ -1495,15 +1462,7 @@ export function AIChatPanel({
                                 text: label,
                               }
                               setMessages((prev) => [...prev, userPick])
-                              if (
-                                chatMockCase === "unknown_jtbd_iteration" &&
-                                rw.phase === "workflow_pick" &&
-                                (key === "create_workflow" || key === "steps_only")
-                              ) {
-                                onUnknownJtbdSplitUnlock?.()
-                              }
-                              const raiseClaimWizardDelay =
-                                chatMockCase === "unknown_jtbd_iteration" ? 1150 : 400
+                              const raiseClaimWizardDelay = 400
                               window.setTimeout(() => {
                                 if (rw.phase === "policy_pick") {
                                   const policy = rw.policies.find((p) => p.id === key)
@@ -1602,15 +1561,7 @@ export function AIChatPanel({
                                 text: label,
                               }
                               setMessages((prev) => [...prev, userPick])
-                              if (
-                                chatMockCase === "unknown_jtbd_iteration" &&
-                                ew.phase === "mode_pick" &&
-                                (key === "create_workflow" || key === "steps_only")
-                              ) {
-                                onUnknownJtbdSplitUnlock?.()
-                              }
-                              const endorsementWizardDelay =
-                                chatMockCase === "unknown_jtbd_iteration" ? 1150 : 400
+                              const endorsementWizardDelay = 400
                               window.setTimeout(() => {
                                 if (ew.phase === "policy_pick") {
                                   const policy = ew.policies.find((p) => p.id === key)
@@ -1729,7 +1680,6 @@ export function AIChatPanel({
                           <BotStepTimeline
                             steps={message.steps}
                             messageId={message.id}
-                            onCrmFlowAction={onCrmFlowAction}
                           />
                         </>
                       ) : (

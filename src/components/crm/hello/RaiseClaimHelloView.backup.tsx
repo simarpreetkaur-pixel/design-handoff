@@ -25,8 +25,6 @@ import {
 } from "@/lib/endorsementChatWizard"
 import { cn, customerFirstNameOrFull } from "@/lib/utils"
 import type { Customer, EndorsementEditKind, InactivePolicy, Policy } from "@/types/crm"
-import { handleChatMessageWithAgentic } from "@/lib/chatAgenticIntegration"
-import type { AgenticIntent } from "@/lib/agenticIntentParser"
 import {
   HelloAiBubbleCard,
   HelloClaimRaisedSuccessBody,
@@ -49,7 +47,6 @@ import {
   helloWorkflowPaneShellClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
 import { CustomerProfileSidebar } from "@/components/crm/hello/CustomerProfileSidebar"
-import { RightSidebar } from "@/components/crm/hello/RightSidebar"
 import {
   HelloCustomerProfileBar,
   helloProfileNonPolicyRibbonAckMessage,
@@ -406,19 +403,9 @@ export function RaiseClaimHelloView({
 
   /** Policy chosen from profile-bar radios for Raise Claim workflow (defaults to journey prop). */
   const [activeWorkflowPolicy, setActiveWorkflowPolicy] = useState<Policy | null>(null)
-  /** Track if we're viewing a completed workflow (read-only mode) */
-  const [viewingCompletedWorkflow, setViewingCompletedWorkflow] = useState(false)
 
   const ribbonAckCleanupRef = useRef<(() => void) | null>(null)
   const [nonPolicyRibbonPane, setNonPolicyRibbonPane] = useState<HelloProfileNonPolicyRibbonActionId | null>(null)
-
-  /** Right sidebar state - always present but collapsed by default */
-  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(true)
-  const [rightSidebarActiveSection, setRightSidebarActiveSection] = useState<"manual-actions" | "ai" | null>(null)
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(() => Math.round(window.innerWidth * 0.3))
-
-  /** Agentic workflow state */
-  const [agenticIntent, setAgenticIntent] = useState<AgenticIntent | null>(null)
 
   useEffect(() => () => {
     ribbonAckCleanupRef.current?.()
@@ -435,8 +422,12 @@ export function RaiseClaimHelloView({
     prevEditPolicyWorkflowRef.current = editPolicyWorkflow
   }, [editPolicyWorkflow])
 
-  // Disable the old split logic - all workflow content now goes in right sidebar
-  const rightPaneSplit = false
+  const rightPaneSplit =
+    workflowActive ||
+    editPolicyWorkflow !== null ||
+    policyDetailPane.isOpen ||
+    nonPolicyRibbonPane !== null ||
+    selfServeStepsActive
 
   const claimWorkflowPolicy = activeWorkflowPolicy ?? raiseClaimPolicy
 
@@ -549,35 +540,6 @@ export function RaiseClaimHelloView({
     setMessages((prev) => [...prev, { id, role: "assistant", body }])
   }
 
-  const handleRightSidebarToggle = () => {
-    setRightSidebarCollapsed(!rightSidebarCollapsed)
-    // If expanding, default to the AI section if a workflow is active
-    if (rightSidebarCollapsed && (workflowActive || editPolicyWorkflow || selfServeStepsActive)) {
-      setRightSidebarActiveSection("ai")
-    }
-  }
-
-  const handleRightSidebarSectionChange = (section: "manual-actions" | "ai" | null) => {
-    setRightSidebarActiveSection(section)
-  }
-
-  const handleAgenticWorkflowTrigger = (intent: AgenticIntent, chatResponse: string) => {
-    // Add the AI response to chat
-    pushAssistant({ kind: "text", text: chatResponse })
-    
-    // Set the agentic intent to trigger the workflow
-    setAgenticIntent(intent)
-    
-    // Ensure right sidebar is open and on AI section
-    setRightSidebarCollapsed(false)
-    setRightSidebarActiveSection("ai")
-  }
-
-  const handleAgenticIntentProcessed = () => {
-    // Clear the intent after it's been processed
-    setAgenticIntent(null)
-  }
-
   const handleHelloPolicyBarAction = (
     actionKey: HelloPolicyBarActionKey,
     policy: Policy,
@@ -664,14 +626,6 @@ export function RaiseClaimHelloView({
       window.clearTimeout(toRemove)
     }
   }, [workflowActive, editPolicyWorkflow])
-
-  // Expand right sidebar and set AI section when workflows are active
-  useEffect(() => {
-    if (workflowActive || editPolicyWorkflow || selfServeStepsActive) {
-      setRightSidebarCollapsed(false)
-      setRightSidebarActiveSection("ai")
-    }
-  }, [workflowActive, editPolicyWorkflow, selfServeStepsActive])
 
   useEffect(() => {
     const el = listRef.current
@@ -929,26 +883,13 @@ export function RaiseClaimHelloView({
     }, HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS)
   }
 
-  const handleViewCompletedWorkflow = () => {
-    if (claimWorkflowPolicy) {
-      setActiveWorkflowPolicy(claimWorkflowPolicy)
-      setWorkflowActive(true)
-      setViewingCompletedWorkflow(true)
-      setRightSidebarCollapsed(false)
-      setRightSidebarActiveSection("ai")
-    }
-  }
-
   const handleFnolCompleteFromWorkflow = () => {
     const renewalNudge =
       renewalNudgeAfterClaim === undefined ? helloDefaultRenewalNudgeAfterClaim : renewalNudgeAfterClaim
 
     window.setTimeout(() => {
       setWorkflowActive(false)
-      setViewingCompletedWorkflow(false)
       policyDetailPane.close()
-      setRightSidebarCollapsed(true)
-      setRightSidebarActiveSection(null)
       setReplyTyping(true)
       window.setTimeout(() => {
         setReplyTyping(false)
@@ -974,21 +915,8 @@ export function RaiseClaimHelloView({
   const handleSendComposer = () => {
     const trimmed = composerText.trim()
     if (!trimmed) return
-    
-    // Add user message to chat
     setMessages((prev) => [...prev, { id: `hello-user-${Date.now()}`, role: "user", text: trimmed }])
     setComposerText("")
-
-    // Check if message should trigger agentic workflow
-    const wasHandledByAgentic = handleChatMessageWithAgentic(
-      trimmed,
-      handleAgenticWorkflowTrigger
-    )
-
-    // If agentic system handled it, don't process with normal chat flow
-    if (wasHandledByAgentic) {
-      return
-    }
 
     window.setTimeout(() => {
       setReplyTyping(true)
@@ -1062,7 +990,6 @@ export function RaiseClaimHelloView({
           <HelloClaimRaisedSuccessBody
             headline={helloClaimRaisedSuccessHeadline}
             quotedLine={helloClaimRaisedSuccessQuotedLine}
-            onViewWorkflow={handleViewCompletedWorkflow}
           />
         )
       case "edit_policy_workflow_success":
@@ -1149,7 +1076,7 @@ export function RaiseClaimHelloView({
               </p>
             </HelloAiBubbleCard>
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className={helloWorkflowOfferPickShellClass}>
             <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={helloPolicyBarWorkflowOfferPickOptions()}
@@ -1171,7 +1098,7 @@ export function RaiseClaimHelloView({
               <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
             </HelloAiBubbleCard>
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className={helloWorkflowOfferPickShellClass}>
             <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={helloRaiseClaimChoices.map((c) => ({
@@ -1203,7 +1130,7 @@ export function RaiseClaimHelloView({
               </>
             </HelloAiBubbleCard>
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className={helloWorkflowOfferPickShellClass}>
             <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={activePolicies.map((p) => ({
@@ -1231,7 +1158,7 @@ export function RaiseClaimHelloView({
               </p>
             </HelloAiBubbleCard>
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className={helloWorkflowOfferPickShellClass}>
             <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={endorsementEditRadioOptions().map((o) => ({
@@ -1258,7 +1185,7 @@ export function RaiseClaimHelloView({
               </p>
             </HelloAiBubbleCard>
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className={helloWorkflowOfferPickShellClass}>
             <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
               <WorkflowOfferPick
                 options={helloEditPolicyModeChoices(customerFirstNameOrFull(customer.name)).map((c) => ({
@@ -1288,7 +1215,7 @@ export function RaiseClaimHelloView({
     <>
       <div
         ref={listRef}
-        className="min-h-0 flex flex-1 flex-col items-start gap-3 overflow-y-auto overscroll-y-contain px-0 py-3 [scrollbar-gutter:stable] sm:py-4"
+        className="min-h-0 flex flex-1 flex-col items-start gap-3 overflow-y-auto overflow-x-hidden overscroll-y-contain px-0 py-3 [scrollbar-gutter:stable] sm:py-4"
         aria-live="polite"
         aria-relevant="additions text"
       >
@@ -1326,7 +1253,7 @@ export function RaiseClaimHelloView({
                       })()
                     : null}
                   {choicesVisible ? (
-                    <div className="min-w-0 max-w-full">
+                    <div className={helloWorkflowOfferPickShellClass}>
                       <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
                         <WorkflowOfferPick
                           options={helloRaiseClaimChoices.map((c) => ({
@@ -1440,11 +1367,11 @@ export function RaiseClaimHelloView({
   const aiCompanionColumn = (
     <div
       className={cn(
-        "relative z-10 flex min-h-0 flex-col",
+        "relative z-10 flex min-h-0 flex-col overflow-hidden",
         HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
         rightPaneSplit
-          ? "min-h-0 w-full"
-          : "min-h-[min(52vh,440px)] w-full lg:min-h-0",
+          ? "min-h-0 w-full min-w-0"
+          : "min-h-[min(52vh,440px)] w-full min-w-0 lg:min-h-0",
         !rightPaneSplit && "flex-1",
       )}
       onMouseEnter={onCompanionMouseEnter}
@@ -1488,11 +1415,10 @@ export function RaiseClaimHelloView({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0">
-
-      <div
+        <div
         ref={splitGridRef}
         className={cn(
-          "relative flex min-h-0 w-full flex-1 flex-col gap-4 px-[40px] pt-5 pb-5 lg:pb-6",
+          "relative flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden px-[40px] pt-5 pb-5 lg:pb-6",
           "lg:grid lg:grid-rows-1 lg:items-stretch",
           rightPaneSplit ? "lg:gap-5" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,0fr)] lg:gap-0",
           !splitResizeActive && helloSplitShellTransitionClass,
@@ -1507,63 +1433,273 @@ export function RaiseClaimHelloView({
       >
         <HelloChatColumnBackground />
         {aiCompanionColumn}
-        {/* Main chat content area - no more split workflow content */}
-        <div className="relative z-10 min-h-0 min-w-0 overflow-hidden contents lg:block">
-          {/* All workflow content now appears in the right sidebar */}
+        <div
+          className={cn(
+            "relative z-10 min-h-0 min-w-0 overflow-hidden",
+            rightPaneSplit ? "flex min-h-0 flex-1 flex-col lg:h-full" : "contents lg:block",
+          )}
+        >
+          {policyDetailForPane ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              {policyDetailSubview !== "endorsements" ? (
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e7e7f0] bg-white px-4 py-3 lg:px-5">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
+                      Policy details
+                    </p>
+                    <p
+                      className="mt-0.5 truncate font-euclid text-[14px] font-semibold leading-5 text-[#040222]"
+                      title={policyDetailTitleForAria ?? undefined}
+                    >
+                      {policyDetailHead?.product}
+                      {policyDetailHead?.number ? (
+                        <span className="font-normal text-[#5b5675]"> · {policyDetailHead.number}</span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => policyDetailPane.close()}
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+                    aria-label={`Close policy details for ${policyDetailTitleForAria ?? "policy"}`}
+                  >
+                    <X className="size-5" aria-hidden />
+                  </button>
+                </div>
+              ) : null}
+              <div
+                ref={workflowPaneScrollRef}
+                className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
+              >
+                {policyDetailLoading ? (
+                  <HelloPolicyDetailPanelSkeleton embedded />
+                ) : policyDetailSubview === "endorsements" ? (
+                  <EndorsementAdvisorPanel
+                    key={`hello-raise-claim-endorse-${policyDetailForPane.id}`}
+                    variant="helloPane"
+                    policy={policyDetailForPane}
+                    onBack={() => setPolicyDetailSubview("detail")}
+                    headerTrailing={
+                      <button
+                        type="button"
+                        onClick={() => policyDetailPane.close()}
+                        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
+                        aria-label="Close Edit Policy"
+                      >
+                        <X className="size-5" aria-hidden />
+                      </button>
+                    }
+                  />
+                ) : (
+                  <PolicyDetailPanel
+                    variant="embedded"
+                    policy={policyDetailForPane}
+                    onPolicyActionClick={(action, pol) => {
+                      if (action === "endorsements") {
+                        setPolicyDetailSubview("endorsements")
+                        return
+                      }
+                      onHelloToast?.(`${action}: ${pol.policyNumber}`)
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          ) : editPolicyWorkflow ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                  ref={workflowPaneScrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
+                >
+                  <EditPolicyWorkflowPanel
+                    key={`hello-edit-policy-${editPolicyWorkflow.policy.id}-${editPolicyWorkflow.editKind}`}
+                    customer={customer}
+                    policy={editPolicyWorkflow.policy}
+                    editKind={editPolicyWorkflow.editKind}
+                    scrollContainerRef={workflowPaneScrollRef}
+                    onRcEmailSent={handleRcEmailSentFromWorkflow}
+                    onClose={() => setEditPolicyWorkflow(null)}
+                    onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
+                  />
+                </div>
+                {workflowShimmerPhase !== "hidden" ? (
+                  <WorkflowPaneShimmerOverlay
+                    exiting={workflowShimmerPhase === "hide"}
+                    fadeMs={HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : nonPolicyRibbonPane !== null ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <HelloRibbonBlankSplitPane
+                title={helloProfileNonPolicyRibbonActionLabel(nonPolicyRibbonPane)}
+                onCancel={() => {
+                  ribbonAckCleanupRef.current?.()
+                  ribbonAckCleanupRef.current = null
+                  setNonPolicyRibbonPane(null)
+                }}
+              />
+            </div>
+          ) : workflowActive ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                  ref={workflowPaneScrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
+                >
+                  <RaiseClaimWorkflowPanel
+                    key="hello-workflow"
+                    customer={customer}
+                    policy={claimWorkflowPolicy}
+                    scrollContainerRef={workflowPaneScrollRef}
+                    onRcEmailSent={handleRcEmailSentFromWorkflow}
+                    onFnolComplete={handleFnolCompleteFromWorkflow}
+                    onClose={() => {
+                      setWorkflowActive(false)
+                      setActiveWorkflowPolicy(null)
+                    }}
+                  />
+                </div>
+                {workflowShimmerPhase !== "hidden" ? (
+                  <WorkflowPaneShimmerOverlay
+                    exiting={workflowShimmerPhase === "hide"}
+                    fadeMs={HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : selfServeStepsActive && selfServeStepsType ? (
+            <div
+              className={cn(
+                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                helloWorkflowPaneShellClass,
+              )}
+            >
+              {rightPaneSplit ? (
+                <HelloWorkflowSplitHandle
+                  visible={showSplitGrip}
+                  onMouseDown={handleSplitMouseDown}
+                  onMouseEnter={onSplitGripEnter}
+                  onMouseLeave={onSplitGripLeave}
+                />
+              ) : null}
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                  ref={workflowPaneScrollRef}
+                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
+                >
+                  {selfServeStepsType === "raise_claim" ? (
+                    <RaiseClaimSelfServeStepsPanel
+                      onCancel={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                      }}
+                      onDone={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                        // Add success message to chat
+                        window.setTimeout(() => {
+                          setReplyTyping(true)
+                          window.setTimeout(() => {
+                            setReplyTyping(false)
+                            pushAssistant({ 
+                              kind: "text", 
+                              text: "Steps shared with customer successfully. They can now proceed with raising their claim using the guidance provided." 
+                            })
+                          }, 800) // Typing delay
+                        }, 300) // Brief pause before typing starts
+                      }}
+                    />
+                  ) : selfServeStepsEditKind ? (
+                    <EditPolicySelfServeStepsPanel
+                      editKind={selfServeStepsEditKind}
+                      onCancel={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                      }}
+                      onDone={() => {
+                        setSelfServeStepsActive(false)
+                        setSelfServeStepsType(null)
+                        setSelfServeStepsEditKind(null)
+                        // Add success message to chat
+                        window.setTimeout(() => {
+                          setReplyTyping(true)
+                          window.setTimeout(() => {
+                            setReplyTyping(false)
+                            pushAssistant({ 
+                              kind: "text", 
+                              text: "Steps shared with customer successfully. They can now proceed with the edit policy process using the guidance provided." 
+                            })
+                          }, 800) // Typing delay
+                        }, 300) // Brief pause before typing starts
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="relative z-10 hidden min-h-0 min-w-0 lg:block" aria-hidden />
+          )}
         </div>
       </div>
-      </div>
-
-      {/* Right Sidebar - Always present at same level as other panes */}
-      <RightSidebar
-        isCollapsed={rightSidebarCollapsed}
-        isOpen={!rightSidebarCollapsed}
-        onToggle={handleRightSidebarToggle}
-        activeSection={rightSidebarActiveSection}
-        onSectionChange={handleRightSidebarSectionChange}
-        width={rightSidebarWidth}
-        onWidthChange={setRightSidebarWidth}
-        workflowActive={workflowActive}
-        editPolicyWorkflow={editPolicyWorkflow}
-        customer={customer}
-        displayPhone={displayPhone}
-        claimWorkflowPolicy={claimWorkflowPolicy}
-        isCompletedWorkflow={viewingCompletedWorkflow}
-        selfServeStepsActive={selfServeStepsActive}
-        selfServeStepsType={selfServeStepsType}
-        policyDetailForPane={policyDetailForPane}
-        customerPolicies={activePolicies}
-        onWorkflowClose={() => {
-          setWorkflowActive(false)
-          setActiveWorkflowPolicy(null)
-          setViewingCompletedWorkflow(false)
-        }}
-        onEditPolicyWorkflowClose={() => setEditPolicyWorkflow(null)}
-        onSelfServeStepsClose={() => setSelfServeStepsActive(false)}
-        onPolicyDetailClose={() => policyDetailPane.close()}
-        onRcEmailSent={handleRcEmailSentFromWorkflow}
-        onFnolComplete={handleFnolCompleteFromWorkflow}
-        onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
-        onCTAPressed={(action, policy) => {
-          handlePolicyAction({
-            policy,
-            action,
-            editKind: null,
-          })
-        }}
-        onRCPageEmailSent={() => {
-          // Callback when "Email" sent from RC Detail UI
-        }}
-        policyDetailSubview={policyDetailSubview}
-        onPolicyDetailViewChange={(view) => {
-          if (view === "endorsements") {
-            setNonPolicyRibbonPane(null)
-          }
-          setPolicyDetailSubview(view)
-        }}
-        agenticIntent={agenticIntent}
-        onAgenticIntentProcessed={handleAgenticIntentProcessed}
-      />
     </div>
-  )
-}
+  );
+};

@@ -16,7 +16,7 @@ export type ChatWorkflowIntent = {
 
 const VEHICLE_TOKEN_HINTS: { re: RegExp; label: string }[] = [
   { re: /\bactiva\b/i, label: "Honda Activa" },
-  { re: /\becosport\b/i, label: "Ford Ecosport Titanium 2025" },
+  { re: /\bnexon\b/i, label: "Tata Nexon" },
   { re: /\bnexon\b/i, label: "Tata Nexon 2025" },
   { re: /\bswift\b/i, label: "Maruti Suzuki Swift" },
   { re: /\bdzire\b/i, label: "Maruti Suzuki Swift Dzire" },

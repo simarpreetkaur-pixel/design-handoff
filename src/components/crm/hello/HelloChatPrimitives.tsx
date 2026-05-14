@@ -183,9 +183,11 @@ export function HelloTellCustomerLabel() {
 export function HelloClaimRaisedSuccessBody({
   headline,
   quotedLine,
+  onViewWorkflow,
 }: {
   headline: string
   quotedLine: string
+  onViewWorkflow?: () => void
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -208,6 +210,29 @@ export function HelloClaimRaisedSuccessBody({
           <span className="text-[#8b87a3]">&rdquo;</span>
         </p>
       </div>
+      {onViewWorkflow && (
+        <div className="flex justify-start mt-2">
+          <button
+            onClick={onViewWorkflow}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#7c47e1] bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            View
+          </button>
+        </div>
+      )}
     </div>
   )
 }

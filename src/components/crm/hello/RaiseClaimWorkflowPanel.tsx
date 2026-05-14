@@ -38,6 +38,8 @@ export type RaiseClaimWorkflowPanelProps = {
    * the workflow title and dismiss control (e.g. Live listening split header).
    */
   showPanelHeader?: boolean
+  /** When true, shows completed workflow steps in read-only mode (no editing allowed) */
+  isCompleted?: boolean
 }
 
 type WorkflowPhase = "step1_rc" | "step2_fnol"
@@ -75,10 +77,13 @@ export function RaiseClaimWorkflowPanel({
   onClose,
   onFnolComplete,
   showPanelHeader = true,
+  isCompleted = false,
 }: RaiseClaimWorkflowPanelProps) {
-  const [phase, setPhase] = useState<WorkflowPhase>("step1_rc")
+  const [phase, setPhase] = useState<WorkflowPhase>(isCompleted ? "step2_fnol" : "step1_rc")
 
-  const [openStep, setOpenStep] = useState<string>(() => phaseToOpenStep("step1_rc"))
+  const [openStep, setOpenStep] = useState<string>(() => 
+    isCompleted ? STEP_REQUEST_RC : phaseToOpenStep("step1_rc")
+  )
 
   const onRequestDispatched = useCallback(() => {
     onRcEmailSent?.()
@@ -100,9 +105,10 @@ export function RaiseClaimWorkflowPanel({
     setOpenStep(phaseToOpenStep(phase))
   }, [phase])
 
-  const step1Done = rc.documentsApproved
+  const step1Done = isCompleted || rc.documentsApproved
   /** Step 2 is always visible so CX sees what comes next; interaction waits until documents are approved. */
-  const step2Locked = !step1Done
+  const step2Done = isCompleted
+  const step2Locked = !step1Done && !isCompleted
   /** Collapsed header for step 1 while Raise claim is active. */
   const compactPriorSteps = phase === "step2_fnol"
 
@@ -154,7 +160,7 @@ export function RaiseClaimWorkflowPanel({
         }}
         className={cn(
           "flex min-h-0 flex-col",
-          compactPriorSteps ? "gap-1" : "gap-2",
+          compactPriorSteps ? "gap-3" : "gap-2",
         )}
         aria-label="Raise claim workflow steps"
       >
@@ -191,21 +197,41 @@ export function RaiseClaimWorkflowPanel({
             </span>
           </AccordionTrigger>
           <AccordionContent className="space-y-0">
-            <RequestRcCopyForm
-              compact
-              defaultToEmail={customer.email}
-              defaultToPhone={customer.phone}
-              footerTone="muted"
-              disabled={rc.formDisabled}
-              onSubmit={rc.dispatchRequest}
-            />
-            <RequestRcWorkflowFollowup
-              phase={rc.followupPhase}
-              documentDeliveryIndex={rc.documentDeliveryIndex}
-              receivedAtMs={rc.receivedAtMs}
-              onApprove={rc.approveDocuments}
-              onReRequestDocuments={rc.reRequestDocuments}
-            />
+            {step1Done && isCompleted ? (
+              <div className="rounded-lg bg-[#f0fdf4] border border-[#d1fae5] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0fa457]">
+                    <Check className="size-3.5 text-white" strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h4 className="font-euclid text-sm font-medium text-[#059669] mb-1">
+                      RC Copy Sent Successfully
+                    </h4>
+                    <p className="font-euclid text-xs text-[#065f46] leading-relaxed">
+                      Registration Certificate (RC) copy has been sent to the customer's email and documents have been approved.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <RequestRcCopyForm
+                  compact
+                  defaultToEmail={customer.email}
+                  defaultToPhone={customer.phone}
+                  footerTone="muted"
+                  disabled={rc.formDisabled}
+                  onSubmit={rc.dispatchRequest}
+                />
+                <RequestRcWorkflowFollowup
+                  phase={rc.followupPhase}
+                  documentDeliveryIndex={rc.documentDeliveryIndex}
+                  receivedAtMs={rc.receivedAtMs}
+                  onApprove={rc.approveDocuments}
+                  onReRequestDocuments={rc.reRequestDocuments}
+                />
+              </>
+            )}
           </AccordionContent>
         </AccordionItem>
 
@@ -214,7 +240,7 @@ export function RaiseClaimWorkflowPanel({
           ref={itemRaiseClaimRef}
           value={STEP_RAISE_CLAIM}
           className="scroll-mt-3"
-          disabled={step2Locked}
+          disabled={step2Locked || step2Done}
         >
           <AccordionTrigger
             className={cn("py-3", step2Locked && "cursor-not-allowed opacity-90 hover:bg-transparent")}
@@ -222,19 +248,25 @@ export function RaiseClaimWorkflowPanel({
             <span
               className={cn(
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-euclid text-[13px] font-semibold",
-                step2Locked
-                  ? "border border-[#e7e7f0] bg-[#fafafa] text-[#9c9aaf]"
-                  : "bg-[#7c47e1] text-white",
+                step2Done
+                  ? "bg-[#0fa457] text-white"
+                  : step2Locked
+                    ? "border border-[#e7e7f0] bg-[#fafafa] text-[#9c9aaf]"
+                    : "bg-[#7c47e1] text-white",
               )}
               aria-hidden
             >
-              2
+              {step2Done ? <Check className="size-4" strokeWidth={2.5} /> : "2"}
             </span>
             <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
               <span className="font-euclid text-[14px] font-semibold leading-6 text-[#040222]">
                 {helloWorkflowStepRaiseClaim}
               </span>
-              {step2Locked ? (
+              {step2Done ? (
+                <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#0fa457]">
+                  Claim raised successfully
+                </span>
+              ) : step2Locked ? (
                 <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
                   {helloWorkflowStepRaiseClaimLockedHint}
                 </span>
@@ -242,13 +274,15 @@ export function RaiseClaimWorkflowPanel({
             </span>
           </AccordionTrigger>
           <AccordionContent className="min-h-0 pt-1">
-            <div className="min-h-0 w-full overflow-hidden rounded-lg bg-transparent">
-              <RaiseFnolPanel
-                policy={policy}
-                variant="embedded"
-                onClaimSubmitted={onFnolComplete}
-              />
-            </div>
+            {!step2Done && (
+              <div className="min-h-0 w-full overflow-hidden rounded-lg bg-transparent">
+                <RaiseFnolPanel
+                  policy={policy}
+                  variant="embedded"
+                  onClaimSubmitted={onFnolComplete}
+                />
+              </div>
+            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>

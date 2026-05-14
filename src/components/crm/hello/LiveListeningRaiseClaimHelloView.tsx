@@ -9,7 +9,6 @@ import {
 } from "@/lib/elevenLabsLiveListeningTts"
 import type { Customer, EndorsementEditKind, InactivePolicy, Policy } from "@/types/crm"
 import { AIChatPanel, type AIChatCaseContext } from "@/components/crm/AIChatPanel"
-import type { FlowActionValue } from "@/components/crm/ActionDetailPage"
 import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
 import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
@@ -868,7 +867,6 @@ export function LiveListeningRaiseClaimHelloView({
                 "You’re on a **live call** with the customer. Ask for timelines (e.g. KYC), SOP hints, or say **raise a claim** / **edit policy** to open the **center** workspace."
               }
               workflowChatContext={workflowChatContext}
-              onCrmFlowAction={handleCrmFlowFromChat}
               onChatRaiseClaimWorkflowCreated={() => setActiveCenterPane("raise_claim")}
               onChatEndorsementWorkflowCreated={() => setActiveCenterPane("edit_policy")}
             />
