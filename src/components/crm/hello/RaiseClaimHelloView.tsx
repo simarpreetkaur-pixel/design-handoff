@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { Send, X } from "lucide-react"
+import { Send, X, Edit3, AlertCircle, Shield, CreditCard, MessageCircle, FileText, XCircle, Phone } from "lucide-react"
 
 import {
   RAISE_CLAIM_CUSTOMER_STEPS,
@@ -301,6 +301,7 @@ export type HelloAssistantBody =
   | { kind: "agent_behalf_network_garage" }
   | { kind: "self_serve_tip" }
   | { kind: "raise_claim_offer"; offerId: string }
+  | { kind: "raise_claim_policy_select"; offerId: string }
   | { kind: "edit_policy_policy_pick"; offerId: string }
   | { kind: "edit_policy_edit_pick"; offerId: string }
   | { kind: "edit_policy_mode_offer"; offerId: string; introText: string }
@@ -317,7 +318,7 @@ export type HelloChatMessage =
 
 export type RaiseClaimHelloViewProps = {
   customer: Customer
-  raiseClaimPolicy: Policy
+  raiseClaimPolicy?: Policy
   /** Hello profile bar — policy accordion (Figma 8540:1799). */
   activePolicies: Policy[]
   inactivePolicies: InactivePolicy[]
@@ -331,13 +332,47 @@ export type RaiseClaimHelloViewProps = {
    */
   renewalNudgeAfterClaim?: { vehicleLabel: string; daysLeft: number } | null
   className?: string
+  /** Determines the workflow type - "raise_claim" for claim raising, "claim_status" for checking status */
+  initialWorkflowType?: "raise_claim" | "claim_status"
 }
 
-function RaiseClaimOpeningParagraph({ vehicleLabel }: { vehicleLabel: string }) {
+function WorkflowOpeningParagraph({ 
+  vehicleLabel, 
+  workflowType,
+  hasSpecificPolicy
+}: { 
+  vehicleLabel: string
+  workflowType?: "raise_claim" | "claim_status"
+  hasSpecificPolicy?: boolean
+}) {
+  const workflowText = workflowType === "claim_status" ? "Check Claim Status" : "Raise a Claim"
+  
+  // If no specific policy context (like when searched), show generic message
+  if (!hasSpecificPolicy && workflowType === "raise_claim") {
+    return (
+      <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+        <span>Please select which policy you'd like to </span>
+        <span className="font-bold">raise a claim</span>
+        <span> for.</span>
+      </p>
+    )
+  }
+  
+  if (!hasSpecificPolicy && workflowType === "claim_status") {
+    return (
+      <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+        <span>Please select which policy you'd like to </span>
+        <span className="font-bold">check claim status</span>
+        <span> for.</span>
+      </p>
+    )
+  }
+  
+  // Original message for specific policy context (initial call)
   return (
     <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
       <span>Customer is calling for </span>
-      <span className="font-bold">Raise a Claim</span>
+      <span className="font-bold">{workflowText}</span>
       <span> on their </span>
       <span className="font-bold">{vehicleLabel}</span>
       <span>, select the appropriate option.</span>
@@ -357,6 +392,7 @@ export function RaiseClaimHelloView({
   onHelloToast,
   renewalNudgeAfterClaim,
   className,
+  initialWorkflowType,
 }: RaiseClaimHelloViewProps) {
   const typingLabelId = useId()
   const replyTypingLabelId = useId()
@@ -375,7 +411,7 @@ export function RaiseClaimHelloView({
   const [helloSplitLeftPct, setHelloSplitLeftPct] = useState(HELLO_SPLIT_LEFT_DEFAULT_PCT)
   const [policyDetailSubview, setPolicyDetailSubview] = useState<"detail" | "endorsements">("detail")
 
-  const openerVehicleLabel = helloRaiseClaimVehicleLabel(raiseClaimPolicy)
+  const openerVehicleLabel = raiseClaimPolicy ? helloRaiseClaimVehicleLabel(raiseClaimPolicy) : "your vehicle"
 
   const [openingTyping, setOpeningTyping] = useState(true)
   const [openingVisible, setOpeningVisible] = useState(false)
@@ -385,6 +421,32 @@ export function RaiseClaimHelloView({
   const [messages, setMessages] = useState<HelloChatMessage[]>([])
   const [composerText, setComposerText] = useState("")
   const [workflowActive, setWorkflowActive] = useState(false)
+  
+  // Autocomplete suggestions state
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  
+  // Manual action trigger for specific autocomplete suggestions
+  const [manualActionTrigger, setManualActionTrigger] = useState<{ actionId: string; nonce: number } | null>(null)
+  
+  // State for triggering self-serve steps tabs from chat choices
+  const [selfServeTabTrigger, setSelfServeTabTrigger] = useState<{ stepType: string; title: string; nonce: number } | null>(null)
+  
+  // Helper function to create self-serve steps tabs
+  const createSelfServeStepsTab = useCallback((stepType: string, title: string) => {
+    setSelfServeTabTrigger({ 
+      stepType, 
+      title, 
+      nonce: Date.now() 
+    })
+  }, [])
+
+  // Helper function to trigger manual actions in the right sidebar
+  const triggerManualAction = useCallback((actionId: string) => {
+    setManualActionTrigger({ actionId, nonce: Date.now() })
+  }, [])
+  
   const [selfServeStepsActive, setSelfServeStepsActive] = useState(false)
   const [selfServeStepsType, setSelfServeStepsType] = useState<"raise_claim" | "edit_policy" | null>(null)
   const [selfServeStepsEditKind, setSelfServeStepsEditKind] = useState<EndorsementEditKind | null>(null)
@@ -409,6 +471,7 @@ export function RaiseClaimHelloView({
   /** Track if we're viewing a completed workflow (read-only mode) */
   const [viewingCompletedWorkflow, setViewingCompletedWorkflow] = useState(false)
 
+
   const ribbonAckCleanupRef = useRef<(() => void) | null>(null)
   const [nonPolicyRibbonPane, setNonPolicyRibbonPane] = useState<HelloProfileNonPolicyRibbonActionId | null>(null)
 
@@ -417,8 +480,32 @@ export function RaiseClaimHelloView({
   const [rightSidebarActiveSection, setRightSidebarActiveSection] = useState<"manual-actions" | "ai" | null>(null)
   const [rightSidebarWidth, setRightSidebarWidth] = useState(() => Math.round(window.innerWidth * 0.3))
 
+  /** Mode switching state */
+  const [isManualMode, setIsManualMode] = useState(false)
+  const [showSkeletonLoader, setShowSkeletonLoader] = useState(false)
+
   /** Agentic workflow state */
   const [agenticIntent, setAgenticIntent] = useState<AgenticIntent | null>(null)
+
+  // Available suggestions for autocomplete
+  const availableSuggestions = [
+    { id: "edit_policy", label: "Edit policy", description: "Make changes to policy details", icon: Edit3 },
+    { id: "raise_claim", label: "Raise a claim", description: "Start a new claim process", icon: Shield },
+    { id: "send_policy_document", label: "Send policy document", description: "Share policy documents with customer", icon: FileText },
+    { id: "cancel_policy", label: "Cancel policy", description: "Cancel or terminate policy", icon: XCircle },
+    { id: "payment_history", label: "Payment history", description: "View payment records", icon: CreditCard },
+    { id: "communication_history", label: "Communication history", description: "View past interactions", icon: MessageCircle },
+    { id: "transfer_call", label: "Transfer call", description: "Transfer call to another agent", icon: Phone },
+    { id: "active_issues", label: "Active issues", description: "View ongoing policy issues", icon: AlertCircle },
+  ]
+
+  // Filter suggestions based on input text
+  const filteredSuggestions = composerText.trim().length === 0 
+    ? availableSuggestions 
+    : availableSuggestions.filter(suggestion =>
+        suggestion.label.toLowerCase().includes(composerText.toLowerCase()) ||
+        suggestion.description.toLowerCase().includes(composerText.toLowerCase())
+      )
 
   useEffect(() => () => {
     ribbonAckCleanupRef.current?.()
@@ -561,6 +648,27 @@ export function RaiseClaimHelloView({
     setRightSidebarActiveSection(section)
   }
 
+  const handleModeToggle = () => {
+    // Show skeleton loader
+    setShowSkeletonLoader(true)
+    setRightSidebarCollapsed(false) // Ensure sidebar is open
+    
+    // After 2 seconds, switch the mode and hide skeleton loader
+    setTimeout(() => {
+      setIsManualMode(!isManualMode)
+      setShowSkeletonLoader(false)
+      
+      // Set appropriate section based on mode
+      if (!isManualMode) {
+        // Switching to manual mode
+        setRightSidebarActiveSection("manual-actions")
+      } else {
+        // Switching to AI mode
+        setRightSidebarActiveSection("ai")
+      }
+    }, 2000)
+  }
+
   const handleAgenticWorkflowTrigger = (intent: AgenticIntent, chatResponse: string) => {
     // Add the AI response to chat
     pushAssistant({ kind: "text", text: chatResponse })
@@ -576,6 +684,27 @@ export function RaiseClaimHelloView({
   const handleAgenticIntentProcessed = () => {
     // Clear the intent after it's been processed
     setAgenticIntent(null)
+  }
+
+  const handlePolicyAction = ({ 
+    policy, 
+    action, 
+    editKind 
+  }: { 
+    policy: Policy; 
+    action: string; 
+    editKind: EndorsementEditKind | null;
+  }) => {
+    // Generate a unique offer ID for this manual action
+    const offerId = `manual-${action}-${Date.now()}`
+    
+    // Create user echo label
+    const policyLabel = policy.vehicle || policy.name || policy.planDisplayName || "Policy"
+    const actionLabel = action === "raise_claim" ? "Raise Claim" : "Edit Policy"
+    const userEchoLabel = `${actionLabel} for ${policyLabel}`
+    
+    // Call the existing handler
+    handleHelloPolicyBarAction(action as any, policy, offerId, userEchoLabel)
   }
 
   const handleHelloPolicyBarAction = (
@@ -971,9 +1100,105 @@ export function RaiseClaimHelloView({
     }, HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS)
   }
 
+  const handleSuggestionSelect = (suggestion: typeof availableSuggestions[0]) => {
+    setShowSuggestions(false)
+    setSelectedSuggestionIndex(-1)
+    
+    // Handle specific suggestions that should open panels directly
+    if (suggestion.id === "payment_history" || suggestion.id === "communication_history" || suggestion.id === "active_issues") {
+      // Add user message to chat
+      setMessages((prev) => [...prev, { id: `hello-user-suggestion-${Date.now()}`, role: "user", text: suggestion.label }])
+      
+      let aiMessage = ""
+      let actionId = ""
+      
+      if (suggestion.id === "payment_history") {
+        aiMessage = "As requested, opening Payment history for you."
+        actionId = "payment-history"
+      } else if (suggestion.id === "communication_history") {
+        aiMessage = "As requested, opening Communication history for you."
+        actionId = "communication-history"
+      } else if (suggestion.id === "active_issues") {
+        aiMessage = "As requested, opening Active issues and verification logs for you."
+        actionId = "kyc-verification"
+      }
+      
+      // AI acknowledges and then opens the panel
+      setTimeout(() => {
+        setReplyTyping(true)
+        setTimeout(() => {
+          setReplyTyping(false)
+          pushAssistant({
+            kind: "text",
+            text: aiMessage
+          })
+          
+          // After 1 second, open the panel
+          setTimeout(() => {
+            setRightSidebarCollapsed(false)
+            setRightSidebarActiveSection("manual-actions")
+            // Trigger the manual action
+            triggerManualAction(actionId)
+          }, 1000)
+          
+        }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+      }, HELLO_BOT_REPLY_AFTER_USER_MS)
+      
+      // Clear the input for these direct actions
+      setComposerText("")
+      
+    } else {
+      // For other suggestions (edit policy, raise claim, etc.), use the normal chat flow
+      setComposerText(suggestion.label)
+      setTimeout(() => {
+        handleSendComposer()
+        // Input will be cleared by handleSendComposer
+      }, 100)
+    }
+  }
+
+  const handleComposerChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    setComposerText(value)
+    
+    // Show suggestions if user is typing and there are matches
+    if (value.trim().length > 0) {
+      const matches = availableSuggestions.filter(suggestion =>
+        suggestion.label.toLowerCase().includes(value.toLowerCase()) ||
+        suggestion.description.toLowerCase().includes(value.toLowerCase())
+      )
+      setShowSuggestions(matches.length > 0)
+      setSelectedSuggestionIndex(-1)
+    } else {
+      setShowSuggestions(false)
+      setSelectedSuggestionIndex(-1)
+    }
+  }
+
+  const handleComposerFocus = () => {
+    // Show all suggestions when focused if input is empty, or filtered suggestions if there's text
+    if (composerText.trim().length === 0) {
+      setShowSuggestions(true)
+    } else if (filteredSuggestions.length > 0) {
+      setShowSuggestions(true)
+    }
+  }
+
+  const handleComposerBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    // Delay hiding suggestions to allow clicking on them
+    setTimeout(() => {
+      setShowSuggestions(false)
+      setSelectedSuggestionIndex(-1)
+    }, 150)
+  }
+
   const handleSendComposer = () => {
     const trimmed = composerText.trim()
     if (!trimmed) return
+    
+    // Hide suggestions
+    setShowSuggestions(false)
+    setSelectedSuggestionIndex(-1)
     
     // Add user message to chat
     setMessages((prev) => [...prev, { id: `hello-user-${Date.now()}`, role: "user", text: trimmed }])
@@ -1021,7 +1246,14 @@ export function RaiseClaimHelloView({
         }
         if (helloComposerTriggersRaiseClaimOffer(trimmed)) {
           const offerId = `composer-offer-${Date.now()}`
-          pushAssistant({ kind: "raise_claim_offer", offerId })
+          
+          // Check if this is a generic search without specific policy context
+          // This happens when user searches "raise a claim" without a specific policy
+          if (!raiseClaimPolicy || trimmed.toLowerCase().trim() === "raise a claim") {
+            pushAssistant({ kind: "raise_claim_policy_select", offerId })
+          } else {
+            pushAssistant({ kind: "raise_claim_offer", offerId })
+          }
           return
         }
         pushAssistant({ kind: "text", text: helloFreeTextAckStub })
@@ -1030,9 +1262,42 @@ export function RaiseClaimHelloView({
   }
 
   const handleComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle suggestions navigation
+    if (showSuggestions && filteredSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => 
+          prev < filteredSuggestions.length - 1 ? prev + 1 : 0
+        )
+        return
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => 
+          prev > 0 ? prev - 1 : filteredSuggestions.length - 1
+        )
+        return
+      }
+      if (e.key === "Tab" && selectedSuggestionIndex >= 0) {
+        e.preventDefault()
+        handleSuggestionSelect(filteredSuggestions[selectedSuggestionIndex])
+        return
+      }
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setShowSuggestions(false)
+        setSelectedSuggestionIndex(-1)
+        return
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSendComposer()
+      if (showSuggestions && selectedSuggestionIndex >= 0) {
+        handleSuggestionSelect(filteredSuggestions[selectedSuggestionIndex])
+      } else {
+        handleSendComposer()
+      }
     }
   }
 
@@ -1086,6 +1351,8 @@ export function RaiseClaimHelloView({
         )
       }
       case "raise_claim_offer":
+        return null
+      case "raise_claim_policy_select":
         return null
       case "edit_policy_policy_pick":
         return null
@@ -1168,7 +1435,11 @@ export function RaiseClaimHelloView({
         <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
           <div className="min-w-0 max-w-full">
             <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
-              <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
+              <WorkflowOpeningParagraph 
+                vehicleLabel={openerVehicleLabel} 
+                workflowType={initialWorkflowType}
+                hasSpecificPolicy={!!raiseClaimPolicy}
+              />
             </HelloAiBubbleCard>
           </div>
           <div className="min-w-0 max-w-full">
@@ -1182,6 +1453,43 @@ export function RaiseClaimHelloView({
                 onPick={(key, label) =>
                   handleOpeningPick(key as HelloRaiseClaimChoiceId, label, body.offerId)
                 }
+              />
+            </HelloAiBubbleCard>
+          </div>
+        </div>
+      )
+    }
+    if (body.kind === "raise_claim_policy_select") {
+      return (
+        <div key={message.id} className="flex min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                <span>Which policy would you like to </span>
+                <span className="font-bold">raise a claim</span>
+                <span> for?</span>
+              </p>
+            </HelloAiBubbleCard>
+          </div>
+          <div className="min-w-0 max-w-full">
+            <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+              <WorkflowOfferPick
+                options={activePolicies.map((policy) => ({
+                  key: policy.id,
+                  label: `${policy.type} - ${policy.vehicle || policy.name || 'Policy'} (${policy.policyNumber})`,
+                }))}
+                disabled={spentOfferIds.has(body.offerId)}
+                onPick={(key, label) => {
+                  // Find the selected policy and set it as the raise claim policy
+                  const selectedPolicy = activePolicies.find(p => p.id === key)
+                  if (selectedPolicy) {
+                    setActiveWorkflowPolicy(selectedPolicy)
+                    setWorkflowActive(true)
+                    setRightSidebarCollapsed(false)
+                    setRightSidebarActiveSection("ai")
+                    setSpentOfferIds(prev => new Set(prev).add(body.offerId))
+                  }
+                }}
               />
             </HelloAiBubbleCard>
           </div>
@@ -1311,7 +1619,11 @@ export function RaiseClaimHelloView({
               {openingVisible ? (
                 <>
                   <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
-                    <RaiseClaimOpeningParagraph vehicleLabel={openerVehicleLabel} />
+                    <WorkflowOpeningParagraph 
+                      vehicleLabel={openerVehicleLabel} 
+                      workflowType={initialWorkflowType}
+                      hasSpecificPolicy={!!raiseClaimPolicy}
+                    />
                   </HelloAiBubbleCard>
                   {choicesRevealTyping
                     ? (() => {
@@ -1386,6 +1698,46 @@ export function RaiseClaimHelloView({
 
   const companionComposer = (
     <div className="relative z-20 shrink-0 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      {/* Suggestions dropdown */}
+      {showSuggestions && filteredSuggestions.length > 0 && (
+        <div className="mx-auto w-full max-w-2xl min-w-0 mb-2">
+          <div className="bg-white border border-[#e7e7f0] rounded-2xl shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+            {filteredSuggestions.map((suggestion, index) => {
+              const Icon = suggestion.icon
+              return (
+                <button
+                  key={suggestion.id}
+                  onClick={() => handleSuggestionSelect(suggestion)}
+                  className={cn(
+                    "w-full text-left px-4 py-3 hover:bg-[#f8f7fc] border-b border-[#e7e7f0] last:border-b-0 transition-colors",
+                    selectedSuggestionIndex === index && "bg-[#f8f7fc]"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-[#f8f7fc] rounded-lg flex items-center justify-center">
+                      <Icon className="w-4 h-4 text-[#7c47e1]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-euclid text-sm font-medium text-[#040222]">
+                        {suggestion.label}
+                      </div>
+                      <div className="font-euclid text-xs text-[#5b5675] mt-1">
+                        {suggestion.description}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+            <div className="px-4 py-2 bg-[#fafafa] border-t border-[#e7e7f0]">
+              <p className="font-euclid text-xs text-[#9c9aaf]">
+                Use ↑↓ to navigate, Tab or Enter to select, Esc to close
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Single floating bar: elevated pill with inline input + send — not a separate tiny FAB */}
       <div className="mx-auto flex w-full max-w-2xl min-w-0 justify-center">
         <div
@@ -1399,11 +1751,14 @@ export function RaiseClaimHelloView({
             Message as CX — {helloCxResponderName}
           </label>
           <textarea
+            ref={composerRef}
             id="raise-claim-hello-composer"
             rows={1}
             value={composerText}
-            onChange={(e) => setComposerText(e.target.value)}
+            onChange={handleComposerChange}
             onKeyDown={handleComposerKeyDown}
+            onFocus={handleComposerFocus}
+            onBlur={handleComposerBlur}
             placeholder="Type a message…"
             className={cn(
               "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-white/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
@@ -1472,12 +1827,12 @@ export function RaiseClaimHelloView({
 
   return (
     <div
-      data-omni-ai-surface="hello-raise-claim"
+      data-omni-ai-surface={initialWorkflowType === "claim_status" ? "hello-claim-status" : "hello-raise-claim"}
       className={cn(
         "relative flex h-full min-h-0 w-full overflow-hidden bg-[#fafafa]",
         className,
       )}
-      aria-label="Raise a claim — Hello view"
+      aria-label={initialWorkflowType === "claim_status" ? "Check claim status — Hello view" : "Raise a claim — Hello view"}
     >
       {/* Customer Profile Sidebar */}
       <CustomerProfileSidebar
@@ -1486,84 +1841,139 @@ export function RaiseClaimHelloView({
         inactivePolicies={inactivePolicies}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-0">
-
-      <div
-        ref={splitGridRef}
-        className={cn(
-          "relative flex min-h-0 w-full flex-1 flex-col gap-4 px-[40px] pt-5 pb-5 lg:pb-6",
-          "lg:grid lg:grid-rows-1 lg:items-stretch",
-          rightPaneSplit ? "lg:gap-5" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,0fr)] lg:gap-0",
-          !splitResizeActive && helloSplitShellTransitionClass,
-        )}
-        style={
-          rightPaneSplit
-            ? {
-                gridTemplateColumns: `minmax(0,${helloSplitLeftPct}%) minmax(0,${100 - helloSplitLeftPct}%)`,
-              }
-            : undefined
-        }
-      >
-        <HelloChatColumnBackground />
-        {aiCompanionColumn}
-        {/* Main chat content area - no more split workflow content */}
-        <div className="relative z-10 min-h-0 min-w-0 overflow-hidden contents lg:block">
-          {/* All workflow content now appears in the right sidebar */}
+      {/* Show skeleton loader during mode transition */}
+      {showSkeletonLoader ? (
+        <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
+          <div className="space-y-4 w-full max-w-2xl px-8">
+            <div className="animate-pulse">
+              {/* Main content skeleton */}
+              <div className="bg-white rounded-xl p-6 mb-6 shadow-sm">
+                <div className="h-6 bg-gray-200 rounded w-2/3 mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-3"></div>
+                <div className="h-4 bg-gray-200 rounded w-4/5 mb-3"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/5 mb-6"></div>
+                
+                {/* Chat message skeletons */}
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <div className="h-10 bg-gray-200 rounded-2xl w-48"></div>
+                  </div>
+                  <div className="flex justify-start">
+                    <div className="h-16 bg-gray-200 rounded-2xl w-64"></div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="h-8 bg-gray-200 rounded-2xl w-32"></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right sidebar skeleton */}
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="h-20 bg-gray-200 rounded-lg"></div>
+                  <div className="h-20 bg-gray-200 rounded-lg"></div>
+                  <div className="h-20 bg-gray-200 rounded-lg"></div>
+                  <div className="h-20 bg-gray-200 rounded-lg"></div>
+                </div>
+                <div className="h-5 bg-gray-200 rounded w-28 mb-4"></div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="h-16 bg-gray-200 rounded-lg"></div>
+                  <div className="h-16 bg-gray-200 rounded-lg"></div>
+                  <div className="h-16 bg-gray-200 rounded-lg"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      </div>
+      ) : (
+        <>
+          {/* Main Content Area - Only show in AI Mode */}
+          {!isManualMode && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <div
+                ref={splitGridRef}
+                className={cn(
+                  "relative flex min-h-0 w-full flex-1 flex-col gap-4 px-[40px] pt-5 pb-5 lg:pb-6",
+                  "lg:grid lg:grid-rows-1 lg:items-stretch",
+                  rightPaneSplit ? "lg:gap-5" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,0fr)] lg:gap-0",
+                  !splitResizeActive && helloSplitShellTransitionClass,
+                )}
+                style={
+                  rightPaneSplit
+                    ? {
+                        gridTemplateColumns: `minmax(0,${helloSplitLeftPct}%) minmax(0,${100 - helloSplitLeftPct}%)`,
+                      }
+                    : undefined
+                }
+              >
+                <HelloChatColumnBackground />
+                {aiCompanionColumn}
+                {/* Main chat content area - no more split workflow content */}
+                <div className="relative z-10 min-h-0 min-w-0 overflow-hidden contents lg:block">
+                  {/* All workflow content now appears in the right sidebar */}
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* Right Sidebar - Always present at same level as other panes */}
-      <RightSidebar
-        isCollapsed={rightSidebarCollapsed}
-        isOpen={!rightSidebarCollapsed}
-        onToggle={handleRightSidebarToggle}
-        activeSection={rightSidebarActiveSection}
-        onSectionChange={handleRightSidebarSectionChange}
-        width={rightSidebarWidth}
-        onWidthChange={setRightSidebarWidth}
-        workflowActive={workflowActive}
-        editPolicyWorkflow={editPolicyWorkflow}
-        customer={customer}
-        displayPhone={displayPhone}
-        claimWorkflowPolicy={claimWorkflowPolicy}
-        isCompletedWorkflow={viewingCompletedWorkflow}
-        selfServeStepsActive={selfServeStepsActive}
-        selfServeStepsType={selfServeStepsType}
-        policyDetailForPane={policyDetailForPane}
-        customerPolicies={activePolicies}
-        onWorkflowClose={() => {
-          setWorkflowActive(false)
-          setActiveWorkflowPolicy(null)
-          setViewingCompletedWorkflow(false)
-        }}
-        onEditPolicyWorkflowClose={() => setEditPolicyWorkflow(null)}
-        onSelfServeStepsClose={() => setSelfServeStepsActive(false)}
-        onPolicyDetailClose={() => policyDetailPane.close()}
-        onRcEmailSent={handleRcEmailSentFromWorkflow}
-        onFnolComplete={handleFnolCompleteFromWorkflow}
-        onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
-        onCTAPressed={(action, policy) => {
-          handlePolicyAction({
-            policy,
-            action,
-            editKind: null,
-          })
-        }}
-        onRCPageEmailSent={() => {
-          // Callback when "Email" sent from RC Detail UI
-        }}
-        policyDetailSubview={policyDetailSubview}
-        onPolicyDetailViewChange={(view) => {
-          if (view === "endorsements") {
-            setNonPolicyRibbonPane(null)
-          }
-          setPolicyDetailSubview(view)
-        }}
-        agenticIntent={agenticIntent}
-        onAgenticIntentProcessed={handleAgenticIntentProcessed}
-      />
+          {/* Right Sidebar - Always present at same level as other panes */}
+          <RightSidebar
+            isCollapsed={rightSidebarCollapsed}
+            isOpen={!rightSidebarCollapsed}
+            onToggle={handleRightSidebarToggle}
+            activeSection={rightSidebarActiveSection}
+            onSectionChange={handleRightSidebarSectionChange}
+            width={rightSidebarWidth}
+            onWidthChange={setRightSidebarWidth}
+            // Mode switching props
+            isManualMode={isManualMode}
+            onModeToggle={handleModeToggle}
+            workflowActive={workflowActive}
+            editPolicyWorkflow={editPolicyWorkflow}
+            customer={customer}
+            displayPhone={displayPhone}
+            claimWorkflowPolicy={claimWorkflowPolicy}
+            isCompletedWorkflow={viewingCompletedWorkflow}
+            selfServeStepsActive={selfServeStepsActive}
+            selfServeStepsType={selfServeStepsType}
+            policyDetailForPane={policyDetailForPane}
+            customerPolicies={activePolicies}
+            onWorkflowClose={() => {
+              setWorkflowActive(false)
+              setActiveWorkflowPolicy(null)
+              setViewingCompletedWorkflow(false)
+            }}
+            onEditPolicyWorkflowClose={() => setEditPolicyWorkflow(null)}
+            onSelfServeStepsClose={() => setSelfServeStepsActive(false)}
+            onPolicyDetailClose={() => policyDetailPane.close()}
+            onRcEmailSent={handleRcEmailSentFromWorkflow}
+            onFnolComplete={handleFnolCompleteFromWorkflow}
+            onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
+            onCTAPressed={(action, policy) => {
+              handlePolicyAction({
+                policy,
+                action,
+                editKind: null,
+              })
+            }}
+            onRCPageEmailSent={() => {
+              // Callback when "Email" sent from RC Detail UI
+            }}
+            policyDetailSubview={policyDetailSubview}
+            onPolicyDetailViewChange={(view) => {
+              if (view === "endorsements") {
+                setNonPolicyRibbonPane(null)
+              }
+              setPolicyDetailSubview(view)
+            }}
+            agenticIntent={agenticIntent}
+            onAgenticIntentProcessed={handleAgenticIntentProcessed}
+            triggerManualAction={manualActionTrigger}
+            triggerSelfServeTab={selfServeTabTrigger}
+          />
+        </>
+      )}
     </div>
   )
 }

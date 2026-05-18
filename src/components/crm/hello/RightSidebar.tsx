@@ -12,6 +12,7 @@ import { CommunicationHistoryPanel } from "@/components/crm/hello/CommunicationH
 import { PaymentHistoryPanel } from "@/components/crm/hello/PaymentHistoryPanel"
 import { KycVerificationLogs } from "@/components/crm/hello/KycVerificationLogs"
 import { AgenticSendCommunication } from "@/components/crm/hello/AgenticSendCommunication"
+import { PolicySelectionPanel } from "@/components/crm/hello/PolicySelectionPanel"
 import type { AgenticIntent } from "@/lib/agenticIntentParser"
 
 /**
@@ -31,7 +32,7 @@ import type { AgenticIntent } from "@/lib/agenticIntentParser"
 interface AIActionTab {
   id: string
   title: string
-  type: "agentic_send_communication" | "raise_claim_workflow" | "edit_policy_workflow" | "policy_detail" | "self_serve_steps"
+  type: "agentic_send_communication" | "raise_claim_workflow" | "edit_policy_workflow" | "policy_detail" | "self_serve_steps" | "communication_history" | "payment_history"
   data?: any // Specific data for each tab type
   isActive: boolean
 }
@@ -43,6 +44,9 @@ interface RightSidebarProps {
   activeSection?: "manual-actions" | "ai" | null
   onSectionChange?: (section: "manual-actions" | "ai" | null) => void
   className?: string
+  // Mode switching props
+  isManualMode?: boolean
+  onModeToggle?: () => void
   // Width adjustment props
   width?: number
   onWidthChange?: (width: number) => void
@@ -73,15 +77,32 @@ interface RightSidebarProps {
   // Agentic workflow props
   agenticIntent?: AgenticIntent | null
   onAgenticIntentProcessed?: () => void
+  // Manual action trigger from parent (for autocomplete suggestions)
+  triggerManualAction?: { actionId: string; nonce: number } | null
+  // Trigger creating self-serve steps tab from parent (similar to triggerManualAction)
+  triggerSelfServeTab?: { stepType: string; title: string; nonce: number } | null
 }
 
-const manualActionsItems = [
+const policyRelatedActionsItems = [
+  { id: "raise-claim", label: "Raise a claim", description: "Start claim process for a policy" },
+  { id: "edit-policy", label: "Edit policy", description: "Modify policy details" },
+  { id: "send-policy-document", label: "Send policy document", description: "Share policy documents with customer" },
+  { id: "cancel-policy", label: "Cancel policy", description: "Cancel or terminate policy" },
+]
+
+const quickActionsItems = [
+  { id: "road-side-assistance", label: "Road side assistance", description: "Request roadside assistance" },
   { id: "send-communication", label: "Send communication", description: "Send message to customer" },
-  { id: "kyc-verification", label: "KYC verification logs", description: "View verification history" },
+  { id: "transfer-call", label: "Transfer call", description: "Transfer call to another agent" },
+  { id: "create-child-ticket", label: "Create child ticket", description: "Create a child support ticket" },
   { id: "communication-history", label: "Communication history", description: "View past interactions" },
   { id: "payment-history", label: "Payment history", description: "View payment records" },
+]
+
+const powerToolsItems = [
   { id: "firefly", label: "Firefly", description: "AI-powered automation" },
-  { id: "garage-locator", label: "Garage Locator", description: "Find nearby garages" },
+  { id: "freshdesk", label: "Freshdesk", description: "Customer support system" },
+  { id: "spectra", label: "Spectra", description: "Data analytics platform" },
 ]
 
 const documentTypes = [
@@ -109,6 +130,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
 
 interface SendCommunicationProps {
   customer?: Customer
@@ -397,6 +419,9 @@ export function RightSidebar({
   activeSection,
   onSectionChange,
   className,
+  // Mode switching props
+  isManualMode = false,
+  onModeToggle,
   width: propWidth,
   onWidthChange,
   workflowActive = false,
@@ -422,6 +447,8 @@ export function RightSidebar({
   customerPolicies = [],
   agenticIntent = null,
   onAgenticIntentProcessed,
+  triggerManualAction = null,
+  triggerSelfServeTab = null,
 }: RightSidebarProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -432,6 +459,8 @@ export function RightSidebar({
   )
   const [showTabText, setShowTabText] = useState(true)
   const [showSendCommunication, setShowSendCommunication] = useState(false)
+  const [showRaiseClaimPolicySelection, setShowRaiseClaimPolicySelection] = useState(false)
+  const [showEditPolicySelection, setShowEditPolicySelection] = useState(false)
   const [showCommunicationHistory, setShowCommunicationHistory] = useState(false)
   const [showPaymentHistory, setShowPaymentHistory] = useState(false)
   const [showKycVerificationLogs, setShowKycVerificationLogs] = useState(false)
@@ -443,6 +472,16 @@ export function RightSidebar({
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const { toasts, addToast, removeToast } = useToasts()
   
+  // 4-dot menu dropdown state
+  const [showPowerToolsDropdown, setShowPowerToolsDropdown] = useState(false)
+  
+  // Handle manual action trigger from parent (for autocomplete suggestions)
+  useEffect(() => {
+    if (triggerManualAction) {
+      handleManualActionClick(triggerManualAction.actionId)
+    }
+  }, [triggerManualAction])
+  
   const collapsedWidth = 52
   
   // Calculate viewport-based widths dynamically
@@ -451,7 +490,8 @@ export function RightSidebar({
   const maxWidth = Math.round(viewportWidth * 0.5)
   
   const currentWidth = isCollapsed ? collapsedWidth : (propWidth || defaultExpandedWidth)
-  const width = `${currentWidth}px`
+  // In manual mode, calculate width to fill remaining space after customer profile (298px)
+  const width = isManualMode && !isCollapsed ? `calc(100vw - 298px)` : `${currentWidth}px`
   
   // Dynamic text breakpoint calculation
   // When gap between buttons would be 8px (gap-2), switch to icon-only mode
@@ -619,6 +659,22 @@ export function RightSidebar({
     return aiActionTabs.find(tab => tab.isActive) || null
   }
 
+  // Handle self-serve tab trigger from parent
+  useEffect(() => {
+    if (triggerSelfServeTab) {
+      // Switch to AI section
+      if (onSectionChange) {
+        onSectionChange("ai")
+      }
+      
+      // Create the tab
+      const tabId = createAIActionTab('self_serve_steps', triggerSelfServeTab.title, { 
+        stepType: triggerSelfServeTab.stepType 
+      })
+      setActiveTabId(tabId)
+    }
+  }, [triggerSelfServeTab, onSectionChange, createAIActionTab, setActiveTabId])
+
   // Handle agentic intent processing
   useEffect(() => {
     if (agenticIntent) {
@@ -658,8 +714,8 @@ export function RightSidebar({
       
       if (!existingTab) {
         const tabTitle = isCompletedWorkflow 
-          ? `Completed: ${claimWorkflowPolicy.vehicle || 'Claim'}`
-          : `Raise Claim: ${claimWorkflowPolicy.vehicle || 'Policy'}`
+          ? "Claim Raised Successfully"
+          : "Raise a claim"
         createAIActionTab('raise_claim_workflow', tabTitle, { 
           policyId: claimWorkflowPolicy.id,
           isCompleted: isCompletedWorkflow 
@@ -676,7 +732,7 @@ export function RightSidebar({
       )
       
       if (!existingTab) {
-        const tabTitle = `Edit: ${editPolicyWorkflow.policy.vehicle || editPolicyWorkflow.policy.name || 'Policy'}`
+        const tabTitle = "Edit policy flow"
         createAIActionTab('edit_policy_workflow', tabTitle, { 
           policyId: editPolicyWorkflow.policy.id,
           editKind: editPolicyWorkflow.editKind 
@@ -693,7 +749,7 @@ export function RightSidebar({
       )
       
       if (!existingTab) {
-        const tabTitle = `Details: ${policyDetailForPane.vehicle || policyDetailForPane.name || 'Policy'}`
+        const tabTitle = "Policy details"
         createAIActionTab('policy_detail', tabTitle, { 
           policyId: policyDetailForPane.id 
         })
@@ -715,15 +771,29 @@ export function RightSidebar({
   const handleManualActionClick = (actionId: string) => {
     if (actionId === "send-communication") {
       setShowSendCommunication(true)
+    } else if (actionId === "raise-claim") {
+      setShowRaiseClaimPolicySelection(true)
+    } else if (actionId === "edit-policy") {
+      setShowEditPolicySelection(true)
     } else if (actionId === "communication-history") {
-      setShowCommunicationHistory(true)
+      // Switch to AI actions section and create communication history tab
+      if (onSectionChange) {
+        onSectionChange("ai")
+      }
+      const tabId = createAIActionTab('communication_history', 'Communication History')
+      setActiveTabId(tabId)
       // Automatically expand width for better readability of communication history
       if (onWidthChange) {
         const expandedWidthForHistory = Math.round(viewportWidth * 0.42) // 42% of viewport
         onWidthChange(expandedWidthForHistory)
       }
     } else if (actionId === "payment-history") {
-      setShowPaymentHistory(true)
+      // Switch to AI actions section and create payment history tab
+      if (onSectionChange) {
+        onSectionChange("ai")
+      }
+      const tabId = createAIActionTab('payment_history', 'Payment History')
+      setActiveTabId(tabId)
       // Automatically expand width for better readability of payment history
       if (onWidthChange) {
         const expandedWidthForHistory = Math.round(viewportWidth * 0.40) // 40% of viewport
@@ -739,9 +809,32 @@ export function RightSidebar({
     } else if (actionId === "firefly") {
       // Handle Firefly action
       console.log("Firefly tool activated")
-    } else if (actionId === "garage-locator") {
-      // Handle Garage Locator action
-      console.log("Garage Locator tool activated")
+    } else if (actionId === "freshdesk") {
+      // Handle Freshdesk action
+      console.log("Freshdesk tool activated")
+    } else if (actionId === "spectra") {
+      // Handle Spectra action
+      console.log("Spectra tool activated")
+    } else if (actionId === "send-policy-document") {
+      // Handle Send Policy Document action
+      console.log("Send policy document activated")
+      // You can add specific logic here, like opening a document selection modal
+    } else if (actionId === "cancel-policy") {
+      // Handle Cancel Policy action
+      console.log("Cancel policy activated")
+      // You can add specific logic here, like opening a policy cancellation workflow
+    } else if (actionId === "road-side-assistance") {
+      // Handle Road Side Assistance action
+      console.log("Road side assistance activated")
+      // You can add specific logic here, like opening RSA workflow
+    } else if (actionId === "transfer-call") {
+      // Handle Transfer Call action
+      console.log("Transfer call activated")
+      // You can add specific logic here, like opening call transfer options
+    } else if (actionId === "create-child-ticket") {
+      // Handle Create Child Ticket action
+      console.log("Create child ticket activated")
+      // You can add specific logic here, like opening ticket creation form
     }
     // Handle other manual actions here
   }
@@ -759,6 +852,29 @@ export function RightSidebar({
     addToast(message, "success")
     setShowSendCommunication(false)
   }
+
+  const handleRaiseClaimPolicySelectionBack = () => {
+    setShowRaiseClaimPolicySelection(false)
+  }
+
+  const handleEditPolicySelectionBack = () => {
+    setShowEditPolicySelection(false)
+  }
+
+  const handleRaiseClaimPolicySelect = (policy: Policy) => {
+    setShowRaiseClaimPolicySelection(false)
+    // Switch to AI Actions and trigger raise claim workflow
+    onSectionChange?.("ai")
+    onCTAPressed?.("raise_claim", policy)
+  }
+
+  const handleEditPolicySelect = (policy: Policy) => {
+    setShowEditPolicySelection(false)
+    // Switch to AI Actions and trigger edit policy workflow
+    onSectionChange?.("ai")
+    onCTAPressed?.("edit_policy", policy)
+  }
+
 
   const handleAgenticCommunicationSent = (message: string) => {
     addToast(message, "success")
@@ -797,14 +913,14 @@ export function RightSidebar({
   return (
     <div
       className={cn(
-        "h-full bg-white border-l border-[#e7e7f0] shrink-0 relative group",
+        "h-full bg-white shrink-0 relative group border-l border-[#e7e7f0]",
         !isDragging && "transition-all duration-300 ease-in-out",
         className,
       )}
       style={{ width }}
     >
       {/* Enhanced resize handle with better visual feedback */}
-      {!isCollapsed && (
+      {!isCollapsed && !isManualMode && (
         <>
           {/* Visual indicator line */}
           <div
@@ -862,71 +978,106 @@ export function RightSidebar({
       ) : (
         // Expanded State - Full sidebar content
         <div className="flex flex-col h-full">
-          {/* Adaptive Navigation Tabs - Text+Icon or Icon-only based on width */}
-          <div className="flex items-center justify-between p-4 border-b border-[#e7e7f0]">
-            <div className={cn("flex", showTabText ? "gap-3" : "gap-2")}>
-              <button
-                type="button"
-                onClick={() => onSectionChange?.("manual-actions")}
-                className={cn(
-                  "flex items-center rounded-lg transition-all duration-200",
-                  showTabText 
-                    ? "gap-2 px-2 py-1.5" 
-                    : "justify-center w-10 h-10",
-                  activeSection === "manual-actions"
-                    ? "bg-[#7c47e1] text-white"
-                    : "bg-[#f8f7fc] text-[#5b5675] hover:bg-[#f0f0f6]"
+          {/* Header with 4-dot menu and toggle */}
+          <div className="flex items-center justify-end p-4 border-b border-[#e7e7f0]">
+            <div className="flex items-center gap-4">
+              {/* 4-dot menu */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPowerToolsDropdown(!showPowerToolsDropdown)}
+                  className="flex items-center justify-center w-10 h-10 hover:bg-[#f0f0f6] rounded transition-colors"
+                  aria-label="Power Tools Menu"
+                >
+                  <img 
+                    src="/icons/4-dot-menu.png" 
+                    alt="Power Tools Menu" 
+                    className="w-5 h-5"
+                  />
+                </button>
+                
+                {/* Power Tools Dropdown */}
+                {showPowerToolsDropdown && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowPowerToolsDropdown(false)}
+                    />
+                    <div className="absolute top-12 right-0 z-50 w-[271px] bg-white rounded-[12px] border border-[#e7e7f0] shadow-[0px_4px_4px_-2px_rgba(54,53,76,0.06)]">
+                      <div className="pt-[15px] pl-[13px] pr-[13px] pb-[15px]">
+                        {/* Power Tools Section */}
+                        <div className="mb-[13px]">
+                          <h4 className="font-euclid text-[12px] font-medium leading-[18px] text-black mb-[13px]">
+                            POWER TOOLS
+                          </h4>
+                          <div className="flex items-center justify-between">
+                            {powerToolsItems.map((tool) => (
+                              <button
+                                key={tool.id}
+                                onClick={() => {
+                                  handleManualActionClick(tool.id)
+                                  setShowPowerToolsDropdown(false)
+                                }}
+                                className="flex flex-col items-center justify-center gap-[12px] w-[45px] hover:opacity-80 transition-opacity"
+                              >
+                                <div className="w-[45px] h-[46px] bg-[#eaeaea] rounded-[8px]" />
+                                <div className="font-euclid text-[14px] font-medium leading-[20px] text-black whitespace-nowrap">
+                                  {tool.label}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Divider */}
+                        <div className="h-0 border-t border-[#e7e7f0] w-full mb-[17px]"></div>
+                        
+                        {/* Mode Toggle Section */}
+                        <div className="flex items-center justify-between">
+                          <span className="font-euclid text-[12px] font-medium leading-[18px] text-black">
+                            Switch to manual mode
+                          </span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isManualMode}
+                              onChange={() => {
+                                onModeToggle?.()
+                                setShowPowerToolsDropdown(false)
+                              }}
+                              className="sr-only peer"
+                            />
+                            <div className="w-[40px] h-[24px] bg-[#e7e7f0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-[#7c47e1]"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
-                aria-label="Manual Actions"
-              >
-                <Zap className={cn(showTabText ? "w-[22.5px] h-[22.5px]" : "w-5 h-5", "shrink-0")} />
-                {showTabText && (
-                  <span className="font-euclid text-xs font-medium leading-5 whitespace-nowrap">
-                    Manual actions
-                  </span>
-                )}
-              </button>
+              </div>
               
+              {/* Collapse button */}
               <button
                 type="button"
-                onClick={() => onSectionChange?.("ai")}
-                className={cn(
-                  "flex items-center rounded-lg transition-all duration-200",
-                  showTabText 
-                    ? "gap-2 px-2 py-1.5" 
-                    : "justify-center w-10 h-10",
-                  activeSection === "ai"
-                    ? "bg-[#7c47e1] text-white"
-                    : "bg-[#f8f7fc] text-[#5b5675] hover:bg-[#f0f0f6]"
-                )}
-                aria-label="AI Tools"
+                onClick={onToggle}
+                className="flex items-center justify-center w-7 h-7 hover:bg-[#f0f0f6] rounded transition-colors"
+                aria-label="Collapse sidebar"
               >
-                <Sparkles className={cn(showTabText ? "w-[23.75px] h-[23.75px]" : "w-5 h-5", "shrink-0")} />
-                {showTabText && (
-                  <span className="font-euclid text-xs font-medium leading-5 whitespace-nowrap">
-                    AI actions
-                  </span>
-                )}
+                <img 
+                  src="/icons/sidebar-toggle.png" 
+                  alt="Toggle sidebar" 
+                  className="w-6 h-6 rotate-180"
+                />
               </button>
             </div>
-            
-            <button
-              type="button"
-              onClick={onToggle}
-              className="flex items-center justify-center w-7 h-7 hover:bg-[#f0f0f6] rounded transition-colors"
-              aria-label="Collapse sidebar"
-            >
-              <img 
-                src="/icons/sidebar-toggle.png" 
-                alt="Toggle sidebar" 
-                className="w-6 h-6 rotate-180"
-              />
-            </button>
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {activeSection === "manual-actions" && (
+          <div className={cn(
+            "flex-1 overflow-y-auto",
+            isManualMode ? "p-8" : "p-4"
+          )}>
+            {isManualMode ? (
               <div className="space-y-3">
                 {showSendCommunication ? (
                   <SendCommunication
@@ -934,6 +1085,22 @@ export function RightSidebar({
                     customerPolicies={customerPolicies}
                     onBack={handleSendCommunicationBack}
                     onSent={handleCommunicationSent}
+                  />
+                ) : showRaiseClaimPolicySelection ? (
+                  <PolicySelectionPanel
+                    title="Raise a Claim"
+                    description="Select a policy to start the claim process"
+                    policies={(customerPolicies || []).filter(p => p.type === "Motor Insurance")}
+                    onBack={handleRaiseClaimPolicySelectionBack}
+                    onPolicySelect={handleRaiseClaimPolicySelect}
+                  />
+                ) : showEditPolicySelection ? (
+                  <PolicySelectionPanel
+                    title="Edit Policy"
+                    description="Select a policy to modify its details"
+                    policies={customerPolicies || []}
+                    onBack={handleEditPolicySelectionBack}
+                    onPolicySelect={handleEditPolicySelect}
                   />
                 ) : showCommunicationHistory ? (
                   <CommunicationHistoryPanel
@@ -954,15 +1121,47 @@ export function RightSidebar({
                   />
                 ) : (
                   <>
-                    <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675]">
-                      MANUAL ACTIONS
+                    {/* Policy Related Actions Section */}
+                    <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
+                      POLICY RELATED ACTIONS
                     </h4>
-                    <div className="space-y-2">
-                      {manualActionsItems.map((item) => (
+                    <div className={cn(
+                      "mb-6",
+                      isManualMode 
+                        ? "grid grid-cols-2 gap-4" // 2 columns when full width
+                        : "space-y-2" // stacked when narrow
+                    )}>
+                      {policyRelatedActionsItems.map((item) => (
                         <button
                           key={item.id}
                           onClick={() => handleManualActionClick(item.id)}
-                          className="w-full text-left p-3 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+                          className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+                        >
+                          <div className="font-euclid text-sm font-medium text-[#36354c]">
+                            {item.label}
+                          </div>
+                          <div className="font-euclid text-xs text-[#5b5675] mt-1">
+                            {item.description}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Quick Actions Section */}
+                    <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
+                      QUICK ACTIONS
+                    </h4>
+                    <div className={cn(
+                      "mb-6",
+                      isManualMode 
+                        ? "grid grid-cols-3 gap-4" // 3 columns for quick actions when full width
+                        : "space-y-2" // stacked when narrow
+                    )}>
+                      {quickActionsItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleManualActionClick(item.id)}
+                          className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
                         >
                           <div className="font-euclid text-sm font-medium text-[#36354c]">
                             {item.label}
@@ -976,43 +1175,106 @@ export function RightSidebar({
                   </>
                 )}
               </div>
-            )}
+            ) : (
+              // AI Mode - show both manual actions and AI actions based on activeSection
+              <div>
+                {activeSection === "manual-actions" && (
+                  <div className="space-y-3">
+                    {showSendCommunication ? (
+                      <SendCommunication
+                        customer={customer}
+                        customerPolicies={customerPolicies}
+                        onBack={handleSendCommunicationBack}
+                        onSent={handleCommunicationSent}
+                      />
+                    ) : showRaiseClaimPolicySelection ? (
+                      <PolicySelectionPanel
+                        title="Raise a Claim"
+                        description="Select a policy to start the claim process"
+                        policies={(customerPolicies || []).filter(p => p.type === "Motor Insurance")}
+                        onBack={handleRaiseClaimPolicySelectionBack}
+                        onPolicySelect={handleRaiseClaimPolicySelect}
+                      />
+                    ) : showEditPolicySelection ? (
+                      <PolicySelectionPanel
+                        title="Edit Policy"
+                        description="Select a policy to modify its details"
+                        policies={customerPolicies || []}
+                        onBack={handleEditPolicySelectionBack}
+                        onPolicySelect={handleEditPolicySelect}
+                      />
+                    ) : showCommunicationHistory ? (
+                      <CommunicationHistoryPanel
+                        customer={customer}
+                        customerPolicies={customerPolicies}
+                        onBack={handleCommunicationHistoryBack}
+                      />
+                    ) : showPaymentHistory ? (
+                      <PaymentHistoryPanel
+                        customer={customer}
+                        customerPolicies={customerPolicies}
+                        onBack={handlePaymentHistoryBack}
+                      />
+                    ) : showKycVerificationLogs ? (
+                      <KycVerificationLogs
+                        customerName={customer?.name}
+                        onBack={handleKycVerificationLogsBack}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                          </div>
+                          <p className="font-euclid text-sm text-[#5b5675] mb-2">
+                            Manual actions in AI mode
+                          </p>
+                          <p className="font-euclid text-xs text-[#9c9aaf]">
+                            Use the chat interface to trigger manual workflows with AI guidance
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-            {activeSection === "ai" && (
+                {activeSection === "ai" && (
               <div className="h-full flex flex-col">
                 {/* Tabs Navigation */}
                 {aiActionTabs.length > 0 && (
                   <div className="mb-3">
-                    <div className="flex flex-wrap gap-1 p-2 bg-[#fafafa] rounded-lg">
+                    <div className="flex flex-wrap gap-[14px] px-[16px]">
                       {aiActionTabs.map((tab) => (
                         <div
                           key={tab.id}
                           className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer",
+                            "flex items-center px-[8px] py-[12px] rounded-[8px] transition-colors cursor-pointer bg-[#f8f7fc]",
                             tab.isActive 
-                              ? "bg-[#7c47e1] text-white" 
-                              : "bg-white text-[#5b5675] hover:bg-[#f0f0f6]"
+                              ? "border border-[#b191ed] border-solid" 
+                              : ""
                           )}
                         >
                           <span 
                             onClick={() => switchToTab(tab.id)}
-                            className="truncate max-w-[100px]"
-                            title={tab.title} // Show full title on hover
+                            className="font-euclid text-[14px] leading-[20px] text-[#36354c] whitespace-nowrap"
+                            title={tab.title}
                           >
                             {tab.title}
                           </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              closeTab(tab.id)
-                            }}
-                            className={cn(
-                              "flex items-center justify-center w-4 h-4 rounded-full hover:bg-opacity-20 transition-colors",
-                              tab.isActive ? "hover:bg-white" : "hover:bg-[#5b5675]"
-                            )}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          {tab.isActive && (
+                            <>
+                              <div className="w-[8px]" />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  closeTab(tab.id)
+                                }}
+                                className="flex items-center justify-center w-[20px] h-[20px] hover:bg-opacity-20 transition-colors"
+                              >
+                                <X className="w-[11.67px] h-[11.67px] text-[#36354c]" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1116,21 +1378,87 @@ export function RightSidebar({
                         break
                         
                       case 'self_serve_steps':
-                        if (selfServeStepsActive) {
-                          return (
-                            <div className="p-4">
-                              <div className="bg-[#f8f7fc] rounded-lg p-4">
-                                <h5 className="font-euclid text-sm font-semibold text-[#36354c] mb-3">
-                                  Customer Steps — {selfServeStepsType === "raise_claim" ? "Raise Claim" : "Edit Policy"}
-                                </h5>
-                                <div className="space-y-2">
-                                  <div className="text-xs text-[#5b5675]">Guide the customer through these steps</div>
-                                </div>
+                        const stepType = activeTab.data?.stepType || "raise_claim"
+                        return (
+                          <div className="p-4">
+                            <div className="bg-[#f8f7fc] rounded-lg p-4">
+                              <h5 className="font-euclid text-sm font-semibold text-[#36354c] mb-3">
+                                Customer Steps — {stepType === "raise_claim" ? "Raise Claim" : stepType === "edit_policy" ? "Edit Policy" : stepType}
+                              </h5>
+                              <div className="space-y-3">
+                                <div className="text-xs text-[#5b5675] mb-4">Guide the customer through these steps</div>
+                                {stepType === "raise_claim" && (
+                                  <div className="space-y-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-6 h-6 bg-[#7c47e1] text-white rounded-full flex items-center justify-center text-xs font-semibold">1</div>
+                                      <div className="flex-1">
+                                        <h6 className="font-medium text-sm text-[#36354c] mb-1">Take Photos</h6>
+                                        <p className="text-xs text-[#5b5675]">Guide customer to take clear photos of the damaged vehicle from multiple angles</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-6 h-6 bg-[#7c47e1] text-white rounded-full flex items-center justify-center text-xs font-semibold">2</div>
+                                      <div className="flex-1">
+                                        <h6 className="font-medium text-sm text-[#36354c] mb-1">Upload Documents</h6>
+                                        <p className="text-xs text-[#5b5675]">Help customer upload RC, driving license, and FIR if applicable</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-6 h-6 bg-[#7c47e1] text-white rounded-full flex items-center justify-center text-xs font-semibold">3</div>
+                                      <div className="flex-1">
+                                        <h6 className="font-medium text-sm text-[#36354c] mb-1">Submit Claim</h6>
+                                        <p className="text-xs text-[#5b5675]">Review all information and submit the claim for processing</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {stepType === "edit_policy" && (
+                                  <div className="space-y-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-6 h-6 bg-[#7c47e1] text-white rounded-full flex items-center justify-center text-xs font-semibold">1</div>
+                                      <div className="flex-1">
+                                        <h6 className="font-medium text-sm text-[#36354c] mb-1">Select Details to Edit</h6>
+                                        <p className="text-xs text-[#5b5675]">Choose which policy details need to be updated</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-6 h-6 bg-[#7c47e1] text-white rounded-full flex items-center justify-center text-xs font-semibold">2</div>
+                                      <div className="flex-1">
+                                        <h6 className="font-medium text-sm text-[#36354c] mb-1">Provide New Information</h6>
+                                        <p className="text-xs text-[#5b5675]">Enter the updated information and provide supporting documents if required</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-6 h-6 bg-[#7c47e1] text-white rounded-full flex items-center justify-center text-xs font-semibold">3</div>
+                                      <div className="flex-1">
+                                        <h6 className="font-medium text-sm text-[#36354c] mb-1">Review Changes</h6>
+                                        <p className="text-xs text-[#5b5675]">Confirm all changes before submitting the policy update</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          )
-                        }
-                        break
+                          </div>
+                        )
+                        
+                      case 'communication_history':
+                        return (
+                          <CommunicationHistoryPanel
+                            customer={customer}
+                            customerPolicies={customerPolicies}
+                            onBack={() => closeTab(activeTab.id)}
+                          />
+                        )
+                        
+                      case 'payment_history':
+                        return (
+                          <PaymentHistoryPanel
+                            customer={customer}
+                            customerPolicies={customerPolicies}
+                            onBack={() => closeTab(activeTab.id)}
+                          />
+                        )
                     }
                     
                     return (
@@ -1150,16 +1478,18 @@ export function RightSidebar({
               </div>
             )}
 
-            {!activeSection && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                {!activeSection && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                      </div>
+                      <p className="font-euclid text-sm text-[#5b5675]">
+                        Select a tool to get started
+                      </p>
+                    </div>
                   </div>
-                  <p className="font-euclid text-sm text-[#5b5675]">
-                    Select a tool to get started
-                  </p>
-                </div>
+                )}
               </div>
             )}
           </div>

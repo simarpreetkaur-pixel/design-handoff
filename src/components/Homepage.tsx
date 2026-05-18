@@ -1,16 +1,14 @@
 import { useState, useRef, useEffect } from "react"
-import { Search, Phone, AlertCircle, Menu } from "lucide-react"
+import { Search, AlertCircle, Menu } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import { CallSessionToast, type CallSessionToastVariant } from "@/components/CallSessionToast"
 import { Button } from "@/components/ui/button"
 import { IncomingCallModal } from "@/components/IncomingCallModal"
 import { OzontelDialer } from "@/components/OzontelDialer"
-import { SimulateCallPickerDialog } from "@/components/SimulateCallPickerDialog"
 import { UseCasesDrawer, type UseCaseSelection } from "@/components/UseCasesDrawer"
 import { useCall } from "@/context/CallContext"
 import { mockCustomers } from "@/data/mockCustomers"
-import type { SimulateLiveScenarioId } from "@/data/simulateCallScenarios"
 import { performCustomerSearch } from "@/utils/customerSearch"
 import { SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK } from "@/data/sunilEditPolicyUseCases"
 
@@ -19,7 +17,6 @@ export function Homepage() {
   const location = useLocation()
   const callState = useCall()
   const [searchQuery, setSearchQuery] = useState("")
-  const [simulatePickerOpen, setSimulatePickerOpen] = useState(false)
   const [ozontelVisible, setOzontelVisible] = useState(false)
   const [sessionToast, setSessionToast] = useState<CallSessionToastVariant | null>(null)
   const [searchError, setSearchError] = useState("")
@@ -87,15 +84,6 @@ export function Homepage() {
     }
   }
 
-  const handleSimulateLiveCall = () => {
-    setSimulatePickerOpen(true)
-  }
-
-  const handleSelectSimulateScenario = (customerId: SimulateLiveScenarioId) => {
-    setPendingUseCase(null)
-    setUseCaseIncomingOpen(false)
-    callState.startRing(customerId)
-  }
 
   const handleOpenOzontel = () => {
     // Show appropriate dialer based on current call state
@@ -346,22 +334,6 @@ export function Homepage() {
         title="Open Ozontel Dialer"
       />
 
-      {/* Simulate Live Call Button - Bottom Right */}
-      <Button
-        onClick={handleSimulateLiveCall}
-        className="fixed bottom-6 right-6 flex h-12 items-center gap-2 rounded-full bg-[#7c47e1] px-6 py-3 shadow-lg hover:bg-[#7c47e1]/90 hover:shadow-xl focus:ring-2 focus:ring-[#7c47e1]/20"
-        title="Simulate Live Call"
-      >
-        <Phone className="h-5 w-5 text-white" />
-        <span className="text-sm font-semibold text-white">Simulate Live Call</span>
-      </Button>
-
-      {/* Incoming Call Modal - only show when state is ringing */}
-      <SimulateCallPickerDialog
-        open={simulatePickerOpen}
-        onOpenChange={setSimulatePickerOpen}
-        onSelectScenario={handleSelectSimulateScenario}
-      />
 
       <IncomingCallModal
         open={callState.state === "ringing"}

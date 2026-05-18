@@ -14,6 +14,9 @@ import {
 import { RequestRcCopyForm } from "@/components/crm/RequestRcCopyForm"
 import { RequestRcWorkflowFollowup } from "@/components/crm/RequestRcWorkflowFollowup"
 import { useRequestRcWorkflowStep } from "@/components/crm/useRequestRcWorkflowStep"
+import { RequestDocumentForm } from "@/components/crm/RequestDocumentForm"
+import { RequestDocumentWorkflowFollowup } from "@/components/crm/RequestDocumentWorkflowFollowup"
+import { useRequestDocumentWorkflowStep } from "@/components/crm/useRequestDocumentWorkflowStep"
 import {
   Accordion,
   AccordionContent,
@@ -39,9 +42,10 @@ export type EditPolicyWorkflowPanelProps = {
   showPanelHeader?: boolean
 }
 
-type WorkflowPhase = "step1_rc" | "step2_edit"
+type WorkflowPhase = "step1_rc" | "step2_documents" | "step3_edit"
 
 const STEP_REQUEST_RC = "request-rc"
+const STEP_REQUEST_DOCUMENTS = "request-documents"
 const STEP_EDIT_POLICY = "edit-policy"
 
 const WORKFLOW_STEP_SCROLL_INTO_VIEW_MS = 220
@@ -60,7 +64,9 @@ function phaseToOpenStep(phase: WorkflowPhase): string {
   switch (phase) {
     case "step1_rc":
       return STEP_REQUEST_RC
-    case "step2_edit":
+    case "step2_documents":
+      return STEP_REQUEST_DOCUMENTS
+    case "step3_edit":
       return STEP_EDIT_POLICY
   }
 }
@@ -87,7 +93,11 @@ export function EditPolicyWorkflowPanel({
   }, [onRcEmailSent])
 
   const onDocumentsApproved = useCallback(() => {
-    setPhase("step2_edit")
+    setPhase("step2_documents")
+  }, [])
+
+  const onAdditionalDocumentsApproved = useCallback(() => {
+    setPhase("step3_edit")
   }, [])
 
   const rc = useRequestRcWorkflowStep({
@@ -95,7 +105,13 @@ export function EditPolicyWorkflowPanel({
     onDocumentsApproved,
   })
 
+  const documents = useRequestDocumentWorkflowStep({
+    onRequestDispatched: () => {}, // Optional callback for when additional documents are requested
+    onDocumentsApproved: onAdditionalDocumentsApproved,
+  })
+
   const itemRequestRcRef = useRef<HTMLDivElement>(null)
+  const itemRequestDocumentsRef = useRef<HTMLDivElement>(null)
   const itemEditPolicyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -115,14 +131,17 @@ export function EditPolicyWorkflowPanel({
     onEditPolicyWorkflowComplete?.()
   }
 
-  const step1Done = rc.documentsApproved
+  const step1Done = rc.followupPhase === "approved"
+  const step2Done = documents.followupPhase === "approved"
   const step2Locked = !step1Done
-  const compactPriorSteps = phase === "step2_edit"
+  const step3Locked = !step2Done
+  const compactPriorSteps = phase === "step3_edit"
 
   useEffect(() => {
     const container = scrollContainerRef?.current
     const refs: Record<string, RefObject<HTMLDivElement | null>> = {
       [STEP_REQUEST_RC]: itemRequestRcRef,
+      [STEP_REQUEST_DOCUMENTS]: itemRequestDocumentsRef,
       [STEP_EDIT_POLICY]: itemEditPolicyRef,
     }
     const target = refs[openStep]?.current
@@ -220,25 +239,91 @@ export function EditPolicyWorkflowPanel({
           </AccordionContent>
         </AccordionItem>
 
+        {/* Step 2: Request Documents */}
         <AccordionItem
-          ref={itemEditPolicyRef}
-          value={STEP_EDIT_POLICY}
+          ref={itemRequestDocumentsRef}
+          value={STEP_REQUEST_DOCUMENTS}
           className="scroll-mt-3"
           disabled={step2Locked}
         >
           <AccordionTrigger
-            className={cn("py-3", step2Locked && "cursor-not-allowed opacity-90 hover:bg-transparent")}
+            className={cn(
+              openStep === STEP_REQUEST_DOCUMENTS ? "py-3" : "py-2 min-h-0",
+              compactPriorSteps && openStep !== STEP_REQUEST_DOCUMENTS && "py-1.5",
+              step2Locked && "cursor-not-allowed opacity-90 hover:bg-transparent"
+            )}
           >
             <span
               className={cn(
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-euclid text-[13px] font-semibold",
-                step2Locked
+                step2Done
+                  ? "bg-[#0fa457] text-white"
+                  : phase === "step2_documents"
+                    ? "bg-[#7c47e1] text-white"
+                    : step2Locked
+                      ? "border border-[#e7e7f0] bg-[#fafafa] text-[#9c9aaf]"
+                      : "border border-[#e7e7f0] bg-white text-[#5b5675]",
+              )}
+              aria-hidden
+            >
+              {step2Done ? <Check className="size-4" strokeWidth={2.5} /> : "2"}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+              <span className="font-euclid text-[14px] font-semibold leading-6 text-[#040222]">
+                Request Documents
+              </span>
+              {step2Done && openStep === STEP_REQUEST_DOCUMENTS ? (
+                <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
+                  Documents approved
+                </span>
+              ) : step3Locked ? (
+                <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#9c9aaf]">
+                  Complete document requests first
+                </span>
+              ) : null}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-0">
+            <RequestDocumentForm
+              compact
+              defaultToEmail={customer.email}
+              defaultToPhone={customer.phone}
+              footerTone="muted"
+              disabled={documents.formDisabled}
+              onSubmit={documents.dispatchRequest}
+            />
+            <RequestDocumentWorkflowFollowup
+              phase={documents.followupPhase}
+              documentDeliveryIndex={documents.documentDeliveryIndex}
+              receivedAtMs={documents.receivedAtMs}
+              onApprove={documents.approveDocuments}
+              onReRequestDocuments={documents.reRequestDocuments}
+              documentLabel="documents"
+              customerName={customer.name}
+            />
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Step 3: Edit Policy */}
+        <AccordionItem
+          ref={itemEditPolicyRef}
+          value={STEP_EDIT_POLICY}
+          className="scroll-mt-3"
+          disabled={step3Locked}
+        >
+          <AccordionTrigger
+            className={cn("py-3", step3Locked && "cursor-not-allowed opacity-90 hover:bg-transparent")}
+          >
+            <span
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-euclid text-[13px] font-semibold",
+                step3Locked
                   ? "border border-[#e7e7f0] bg-[#fafafa] text-[#9c9aaf]"
                   : "bg-[#7c47e1] text-white",
               )}
               aria-hidden
             >
-              2
+              3
             </span>
             <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
               <span className="font-euclid text-[14px] font-semibold leading-6 text-[#040222]">

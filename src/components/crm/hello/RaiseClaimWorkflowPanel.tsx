@@ -5,9 +5,9 @@ import { cn, scrollElementWithinContainer } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import type { Customer, Policy } from "@/types/crm"
 import { RaiseFnolPanel } from "@/components/crm/RaiseFnolPanel"
-import { RequestRcCopyForm } from "@/components/crm/RequestRcCopyForm"
-import { RequestRcWorkflowFollowup } from "@/components/crm/RequestRcWorkflowFollowup"
-import { useRequestRcWorkflowStep } from "@/components/crm/useRequestRcWorkflowStep"
+import { RequestDocumentForm } from "@/components/crm/RequestDocumentForm"
+import { RequestDocumentWorkflowFollowup } from "@/components/crm/RequestDocumentWorkflowFollowup"
+import { useRequestDocumentWorkflowStep } from "@/components/crm/useRequestDocumentWorkflowStep"
 import {
   Accordion,
   AccordionContent,
@@ -18,8 +18,6 @@ import {
   helloWorkflowPaneTitle,
   helloWorkflowStepRaiseClaim,
   helloWorkflowStepRaiseClaimLockedHint,
-  helloWorkflowStepRequestRc,
-  helloWorkflowStepRequestRcCollapsedSummary,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
 
 export type RaiseClaimWorkflowPanelProps = {
@@ -42,9 +40,9 @@ export type RaiseClaimWorkflowPanelProps = {
   isCompleted?: boolean
 }
 
-type WorkflowPhase = "step1_rc" | "step2_fnol"
+type WorkflowPhase = "step1_documents" | "step2_fnol"
 
-const STEP_REQUEST_RC = "request-rc"
+const STEP_REQUEST_DOCUMENTS = "request-documents"
 const STEP_RAISE_CLAIM = "raise-claim"
 
 /** Let accordion height settle before scrolling active step into view. */
@@ -52,8 +50,8 @@ const WORKFLOW_STEP_SCROLL_INTO_VIEW_MS = 220
 
 function phaseToOpenStep(phase: WorkflowPhase): string {
   switch (phase) {
-    case "step1_rc":
-      return STEP_REQUEST_RC
+    case "step1_documents":
+      return STEP_REQUEST_DOCUMENTS
     case "step2_fnol":
       return STEP_RAISE_CLAIM
   }
@@ -79,33 +77,33 @@ export function RaiseClaimWorkflowPanel({
   showPanelHeader = true,
   isCompleted = false,
 }: RaiseClaimWorkflowPanelProps) {
-  const [phase, setPhase] = useState<WorkflowPhase>(isCompleted ? "step2_fnol" : "step1_rc")
+  const [phase, setPhase] = useState<WorkflowPhase>(isCompleted ? "step2_fnol" : "step1_documents")
 
   const [openStep, setOpenStep] = useState<string>(() => 
-    isCompleted ? STEP_REQUEST_RC : phaseToOpenStep("step1_rc")
+    isCompleted ? STEP_REQUEST_DOCUMENTS : phaseToOpenStep("step1_documents")
   )
 
-  const onRequestDispatched = useCallback(() => {
-    onRcEmailSent?.()
+  const onDocumentsRequestDispatched = useCallback(() => {
+    onRcEmailSent?.() // Still call this for backwards compatibility
   }, [onRcEmailSent])
 
   const onDocumentsApproved = useCallback(() => {
     setPhase("step2_fnol")
   }, [])
 
-  const rc = useRequestRcWorkflowStep({
-    onRequestDispatched,
+  const documents = useRequestDocumentWorkflowStep({
+    onRequestDispatched: onDocumentsRequestDispatched,
     onDocumentsApproved,
   })
 
-  const itemRequestRcRef = useRef<HTMLDivElement>(null)
+  const itemRequestDocumentsRef = useRef<HTMLDivElement>(null)
   const itemRaiseClaimRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setOpenStep(phaseToOpenStep(phase))
   }, [phase])
 
-  const step1Done = isCompleted || rc.documentsApproved
+  const step1Done = isCompleted || documents.followupPhase === "approved"
   /** Step 2 is always visible so CX sees what comes next; interaction waits until documents are approved. */
   const step2Done = isCompleted
   const step2Locked = !step1Done && !isCompleted
@@ -116,7 +114,7 @@ export function RaiseClaimWorkflowPanel({
   useEffect(() => {
     const container = scrollContainerRef?.current
     const refs: Record<string, RefObject<HTMLDivElement | null>> = {
-      [STEP_REQUEST_RC]: itemRequestRcRef,
+      [STEP_REQUEST_DOCUMENTS]: itemRequestDocumentsRef,
       [STEP_RAISE_CLAIM]: itemRaiseClaimRef,
     }
     const target = refs[openStep]?.current
@@ -164,12 +162,16 @@ export function RaiseClaimWorkflowPanel({
         )}
         aria-label="Raise claim workflow steps"
       >
-        {/* Step 1 — bordered card (default AccordionItem chrome) */}
-        <AccordionItem ref={itemRequestRcRef} value={STEP_REQUEST_RC} className="scroll-mt-3">
+        {/* Step 1: Request Documents */}
+        <AccordionItem
+          ref={itemRequestDocumentsRef}
+          value={STEP_REQUEST_DOCUMENTS}
+          className="scroll-mt-3"
+        >
           <AccordionTrigger
             className={cn(
-              openStep === STEP_REQUEST_RC ? "py-3" : "py-2 min-h-0",
-              compactPriorSteps && openStep !== STEP_REQUEST_RC && "py-1.5",
+              openStep === STEP_REQUEST_DOCUMENTS ? "py-3" : "py-2 min-h-0",
+              compactPriorSteps && openStep !== STEP_REQUEST_DOCUMENTS && "py-1.5"
             )}
           >
             <span
@@ -177,7 +179,7 @@ export function RaiseClaimWorkflowPanel({
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-euclid text-[13px] font-semibold",
                 step1Done
                   ? "bg-[#0fa457] text-white"
-                  : phase === "step1_rc"
+                  : phase === "step1_documents"
                     ? "bg-[#7c47e1] text-white"
                     : "border border-[#e7e7f0] bg-white text-[#5b5675]",
               )}
@@ -187,51 +189,33 @@ export function RaiseClaimWorkflowPanel({
             </span>
             <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
               <span className="font-euclid text-[14px] font-semibold leading-6 text-[#040222]">
-                {helloWorkflowStepRequestRc}
+                Request Documents
               </span>
-              {step1Done && openStep === STEP_REQUEST_RC ? (
+              {step1Done && openStep === STEP_REQUEST_DOCUMENTS ? (
                 <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
-                  {helloWorkflowStepRequestRcCollapsedSummary}
+                  Documents approved
                 </span>
               ) : null}
             </span>
           </AccordionTrigger>
           <AccordionContent className="space-y-0">
-            {step1Done && isCompleted ? (
-              <div className="rounded-lg bg-[#f0fdf4] border border-[#d1fae5] p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0fa457]">
-                    <Check className="size-3.5 text-white" strokeWidth={2.5} />
-                  </div>
-                  <div>
-                    <h4 className="font-euclid text-sm font-medium text-[#059669] mb-1">
-                      RC Copy Sent Successfully
-                    </h4>
-                    <p className="font-euclid text-xs text-[#065f46] leading-relaxed">
-                      Registration Certificate (RC) copy has been sent to the customer's email and documents have been approved.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <RequestRcCopyForm
-                  compact
-                  defaultToEmail={customer.email}
-                  defaultToPhone={customer.phone}
-                  footerTone="muted"
-                  disabled={rc.formDisabled}
-                  onSubmit={rc.dispatchRequest}
-                />
-                <RequestRcWorkflowFollowup
-                  phase={rc.followupPhase}
-                  documentDeliveryIndex={rc.documentDeliveryIndex}
-                  receivedAtMs={rc.receivedAtMs}
-                  onApprove={rc.approveDocuments}
-                  onReRequestDocuments={rc.reRequestDocuments}
-                />
-              </>
-            )}
+            <RequestDocumentForm
+              compact
+              defaultToEmail={customer.email}
+              defaultToPhone={customer.phone}
+              footerTone="muted"
+              disabled={documents.formDisabled}
+              onSubmit={documents.dispatchRequest}
+            />
+            <RequestDocumentWorkflowFollowup
+              phase={documents.followupPhase}
+              documentDeliveryIndex={documents.documentDeliveryIndex}
+              receivedAtMs={documents.receivedAtMs}
+              onApprove={documents.approveDocuments}
+              onReRequestDocuments={documents.reRequestDocuments}
+              documentLabel="documents"
+              customerName={customer.name}
+            />
           </AccordionContent>
         </AccordionItem>
 
@@ -268,7 +252,7 @@ export function RaiseClaimWorkflowPanel({
                 </span>
               ) : step2Locked ? (
                 <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
-                  {helloWorkflowStepRaiseClaimLockedHint}
+                  Complete document requests first
                 </span>
               ) : null}
             </span>
