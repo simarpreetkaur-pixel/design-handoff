@@ -7,6 +7,7 @@ import { mockCustomers } from "@/data/mockCustomers"
 import { getIncomingCallModalViewModel } from "@/data/simulateCallScenarios"
 import { mergeUseCaseIncomingPreview } from "@/data/useCaseIncomingPreview"
 import { canonicalIncomingOngoingIssue } from "@/lib/canonicalOngoingLabels"
+import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,8 @@ type IncomingCallModalProps = {
   previewCustomerId?: string | null
   /** Demo journey state — adjusts modal copy (Raj Kapoor raise claim vs claim status). */
   previewCrmDemo?: CrmDemoState | null
+  /** Stack above use-cases drawer (z-90) when launched from the drawer. */
+  elevated?: boolean
 }
 
 function CallingDots() {
@@ -148,6 +151,7 @@ export function IncomingCallModal({
   onTimeout,
   previewCustomerId,
   previewCrmDemo,
+  elevated = false,
 }: IncomingCallModalProps) {
   const { data: callData } = useCall()
   const [secondsLeft, setSecondsLeft] = useState(60)
@@ -194,11 +198,17 @@ export function IncomingCallModal({
       }
     }
   }, [open, onTimeout])
+  const stackClass = elevated ? "!z-[100]" : undefined
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="!m-0 !max-h-[min(90dvh,56rem)] w-[min(100%-1.5rem,506px)] !max-w-[506px] !translate-x-[-50%] !translate-y-[-50%] !gap-0 !border-0 !bg-transparent !p-0 !shadow-none"
+        overlayClassName={stackClass}
+        className={cn(
+          "!m-0 !max-h-[min(90dvh,56rem)] w-[min(100%-1.5rem,506px)] !max-w-[506px] !translate-x-[-50%] !translate-y-[-50%] !gap-0 !border-0 !bg-transparent !p-0 !shadow-none",
+          stackClass,
+        )}
         aria-describedby={undefined}
       >
         <div

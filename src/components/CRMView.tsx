@@ -21,7 +21,6 @@ import type { CrmDemoState } from "@/types/navigation"
 import { EditPolicyHelloView } from "@/components/crm/hello/EditPolicyHelloView"
 import { RaiseClaimHelloView } from "@/components/crm/hello/RaiseClaimHelloView"
 import { RoadsideAssistanceHelloView } from "@/components/crm/hello/RoadsideAssistanceHelloView"
-import { ClaimStatusHelloView } from "@/components/crm/hello/ClaimStatusHelloView"
 import { EscalationCaseHelloView } from "@/components/crm/hello/EscalationCaseHelloView"
 import { LiveListeningRaiseClaimHelloView } from "@/components/crm/hello/LiveListeningRaiseClaimHelloView"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
@@ -910,14 +909,14 @@ export function CRMView() {
       </div>
       ) : isRajKapoorClaimStatusFlow ? (
       <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden ">
-        <ClaimStatusHelloView
+        <RaiseClaimHelloView
           customer={profileCustomer}
-          jtbd={rajKapoorClaimStatusNexonJtbd}
-          motorPolicy={raiseClaimHelloPolicy}
+          raiseClaimPolicy={raiseClaimHelloPolicy}
+          claimStatusJtbd={rajKapoorClaimStatusNexonJtbd}
+          initialWorkflowType="claim_status"
           activePolicies={activePolicies}
           inactivePolicies={inactivePolicies}
           displayPhone={displayLookupPhone}
-          onAppointmentScheduled={handleConfirmClaimHandlerAppointment}
           onHelloToast={(message) => setCrmToast(message)}
           className="h-full min-h-0 overflow-hidden"
         />

@@ -167,17 +167,46 @@ export function Homepage() {
   }
 
   const handleSelectUseCase = (selection: UseCaseSelection) => {
-    if (selection.customerId === "unknown-caller") {
+    if (selection.customerId !== "unknown-caller") {
+      const bundle = mockCustomers[selection.customerId]
+      if (!bundle) return
+    }
+    // Close drawer first; open incoming modal on the next tick so the drawer
+    // backdrop unmount does not dismiss the dialog as an outside click.
+    setUseCasesOpen(false)
+    queueMicrotask(() => {
       setPendingUseCase(selection)
       setUseCaseIncomingOpen(true)
-      setUseCasesOpen(false)
+    })
+  }
+
+  const isUseCaseIncomingPreview = useCaseIncomingOpen && !!pendingUseCase
+  const isRingingIncoming = callState.state === "ringing"
+  const incomingCallModalOpen = isRingingIncoming || isUseCaseIncomingPreview
+
+  const handleIncomingCallModalOpenChange = (open: boolean) => {
+    if (open) return
+    if (isUseCaseIncomingPreview) {
+      handleUseCaseIncomingOpenChange(false)
       return
     }
-    const bundle = mockCustomers[selection.customerId]
-    if (!bundle) return
-    setPendingUseCase(selection)
-    setUseCaseIncomingOpen(true)
-    setUseCasesOpen(false)
+    handleIncomingModalOpenChange(false)
+  }
+
+  const handleIncomingCallModalAnswer = () => {
+    if (isUseCaseIncomingPreview) {
+      handleAnswerUseCaseIncoming()
+      return
+    }
+    handleAnswerCallFromModal()
+  }
+
+  const handleIncomingCallModalTimeout = () => {
+    if (isUseCaseIncomingPreview) {
+      handleUseCaseIncomingTimeout()
+      return
+    }
+    handleCallTimeout()
   }
 
   const handleAnswerUseCaseIncoming = () => {
@@ -336,19 +365,17 @@ export function Homepage() {
 
 
       <IncomingCallModal
-        open={callState.state === "ringing"}
-        onOpenChange={handleIncomingModalOpenChange}
-        onAnswerCall={handleAnswerCallFromModal}
-        onTimeout={handleCallTimeout}
-      />
-
-      <IncomingCallModal
-        open={useCaseIncomingOpen && !!pendingUseCase && callState.state !== "ringing"}
-        onOpenChange={handleUseCaseIncomingOpenChange}
-        onAnswerCall={handleAnswerUseCaseIncoming}
-        onTimeout={handleUseCaseIncomingTimeout}
-        previewCustomerId={pendingUseCase?.customerId ?? null}
-        previewCrmDemo={pendingUseCase?.crmDemo ?? null}
+        open={incomingCallModalOpen}
+        onOpenChange={handleIncomingCallModalOpenChange}
+        onAnswerCall={handleIncomingCallModalAnswer}
+        onTimeout={handleIncomingCallModalTimeout}
+        previewCustomerId={
+          isUseCaseIncomingPreview ? (pendingUseCase?.customerId ?? null) : null
+        }
+        previewCrmDemo={
+          isUseCaseIncomingPreview ? (pendingUseCase?.crmDemo ?? null) : null
+        }
+        elevated={isUseCaseIncomingPreview}
       />
       
       {/* Ozontel Dialer - only show when not on active call */}

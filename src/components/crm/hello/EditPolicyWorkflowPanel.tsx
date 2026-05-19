@@ -14,7 +14,7 @@ import {
 import { RequestRcCopyForm } from "@/components/crm/RequestRcCopyForm"
 import { RequestRcWorkflowFollowup } from "@/components/crm/RequestRcWorkflowFollowup"
 import { useRequestRcWorkflowStep } from "@/components/crm/useRequestRcWorkflowStep"
-import { RequestDocumentForm } from "@/components/crm/RequestDocumentForm"
+import { RequestDocumentFigmaForm } from "@/components/crm/hello/RequestDocumentFigmaForm"
 import { RequestDocumentWorkflowFollowup } from "@/components/crm/RequestDocumentWorkflowFollowup"
 import { useRequestDocumentWorkflowStep } from "@/components/crm/useRequestDocumentWorkflowStep"
 import {
@@ -283,14 +283,12 @@ export function EditPolicyWorkflowPanel({
               ) : null}
             </span>
           </AccordionTrigger>
-          <AccordionContent className="space-y-0">
-            <RequestDocumentForm
-              compact
-              defaultToEmail={customer.email}
-              defaultToPhone={customer.phone}
-              footerTone="muted"
+          <AccordionContent className="space-y-0 px-1">
+            <RequestDocumentFigmaForm
+              defaultEmail={customer.email}
+              defaultPhone={customer.phone}
               disabled={documents.formDisabled}
-              onSubmit={documents.dispatchRequest}
+              onSubmit={() => documents.dispatchRequest()}
             />
             <RequestDocumentWorkflowFollowup
               phase={documents.followupPhase}

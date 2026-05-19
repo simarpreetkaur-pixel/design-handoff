@@ -24,7 +24,19 @@ import {
   formatEndorsementPolicyRadioLabel,
 } from "@/lib/endorsementChatWizard"
 import { cn, customerFirstNameOrFull } from "@/lib/utils"
-import type { Customer, EndorsementEditKind, InactivePolicy, Policy } from "@/types/crm"
+import type { Customer, EndorsementEditKind, InactivePolicy, JTBD, Policy } from "@/types/crm"
+import {
+  claimStatusPreviousCxSummaryCopy,
+  helloClaimStatusChoices,
+  HELLO_CLAIM_STATUS_CHOICE_PROMPT,
+  HELLO_CLAIM_STATUS_ESCALATE_TOAST,
+  HELLO_CLAIM_STATUS_FLOW_OFFER_ID,
+  helloFopsEscalationSuccessHeadline,
+  type HelloClaimStatusChoiceId,
+} from "@/components/crm/hello/helloClaimStatusCopy"
+import type { ClaimStatusWorkflowView } from "@/components/crm/hello/ClaimStatusWorkflowPanel"
+import { HelloClaimStatusPreviousActivity } from "@/components/crm/hello/HelloClaimStatusPreviousActivity"
+import { HelloViewPreviousActivityButton } from "@/components/crm/hello/HelloViewPreviousActivityButton"
 import { handleChatMessageWithAgentic } from "@/lib/chatAgenticIntegration"
 import type { AgenticIntent } from "@/lib/agenticIntentParser"
 import {
@@ -334,6 +346,8 @@ export type RaiseClaimHelloViewProps = {
   className?: string
   /** Determines the workflow type - "raise_claim" for claim raising, "claim_status" for checking status */
   initialWorkflowType?: "raise_claim" | "claim_status"
+  /** JTBD data for claim status flow (required when initialWorkflowType is claim_status). */
+  claimStatusJtbd?: JTBD
 }
 
 function WorkflowOpeningParagraph({ 
@@ -393,10 +407,18 @@ export function RaiseClaimHelloView({
   renewalNudgeAfterClaim,
   className,
   initialWorkflowType,
+  claimStatusJtbd,
 }: RaiseClaimHelloViewProps) {
+  const isClaimStatusMode =
+    initialWorkflowType === "claim_status" && Boolean(claimStatusJtbd)
+
   const typingLabelId = useId()
   const replyTypingLabelId = useId()
   const choicesRevealTypingLabelId = useId()
+  const csIntroTypingLabelId = useId()
+  const csTypingB12LabelId = useId()
+  const csTypingB23LabelId = useId()
+  const csTypingChoicesLabelId = useId()
   const listRef = useRef<HTMLDivElement>(null)
   const workflowPaneScrollRef = useRef<HTMLDivElement>(null)
   const splitGridRef = useRef<HTMLDivElement>(null)
@@ -413,10 +435,24 @@ export function RaiseClaimHelloView({
 
   const openerVehicleLabel = raiseClaimPolicy ? helloRaiseClaimVehicleLabel(raiseClaimPolicy) : "your vehicle"
 
-  const [openingTyping, setOpeningTyping] = useState(true)
+  const [openingTyping, setOpeningTyping] = useState(!isClaimStatusMode)
   const [openingVisible, setOpeningVisible] = useState(false)
   const [choicesRevealTyping, setChoicesRevealTyping] = useState(false)
   const [choicesVisible, setChoicesVisible] = useState(false)
+
+  const [csIntroTyping, setCsIntroTyping] = useState(isClaimStatusMode)
+  const [csShowB1, setCsShowB1] = useState(false)
+  const [csTypingB12, setCsTypingB12] = useState(false)
+  const [csShowB2, setCsShowB2] = useState(false)
+  const [csTypingB23, setCsTypingB23] = useState(false)
+  const [csShowB3, setCsShowB3] = useState(false)
+  const [csTypingBeforeChoices, setCsTypingBeforeChoices] = useState(false)
+  const [csChoicesVisible, setCsChoicesVisible] = useState(false)
+  const [claimStatusPreviousActivityVisible, setClaimStatusPreviousActivityVisible] =
+    useState(false)
+  const [claimStatusWorkflow, setClaimStatusWorkflow] = useState<{
+    view: ClaimStatusWorkflowView
+  } | null>(null)
   const [spentOfferIds, setSpentOfferIds] = useState<Set<string>>(() => new Set())
   const [messages, setMessages] = useState<HelloChatMessage[]>([])
   const [composerText, setComposerText] = useState("")
@@ -639,7 +675,10 @@ export function RaiseClaimHelloView({
   const handleRightSidebarToggle = () => {
     setRightSidebarCollapsed(!rightSidebarCollapsed)
     // If expanding, default to the AI section if a workflow is active
-    if (rightSidebarCollapsed && (workflowActive || editPolicyWorkflow || selfServeStepsActive)) {
+    if (
+      rightSidebarCollapsed &&
+      (workflowActive || editPolicyWorkflow || selfServeStepsActive || claimStatusWorkflow)
+    ) {
       setRightSidebarActiveSection("ai")
     }
   }
@@ -749,6 +788,8 @@ export function RaiseClaimHelloView({
   }
 
   useEffect(() => {
+    if (isClaimStatusMode) return
+
     const timeouts: number[] = []
     let cancelled = false
     const schedule = (fn: () => void, ms: number) => {
@@ -774,7 +815,55 @@ export function RaiseClaimHelloView({
       cancelled = true
       timeouts.forEach((t) => window.clearTimeout(t))
     }
-  }, [])
+  }, [isClaimStatusMode])
+
+  useEffect(() => {
+    if (!isClaimStatusMode || !claimStatusJtbd) return
+
+    let cancelled = false
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+    const schedule = (fn: () => void, ms: number) => {
+      timeouts.push(
+        setTimeout(() => {
+          if (!cancelled) fn()
+        }, ms),
+      )
+    }
+
+    const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
+    const pauseMs = HELLO_BOT_REPLY_AFTER_USER_MS
+
+    schedule(() => {
+      setCsIntroTyping(false)
+      setCsShowB1(true)
+    }, typingMs)
+
+    const t1 = typingMs + pauseMs
+    schedule(() => setCsTypingB12(true), t1)
+    schedule(() => {
+      setCsTypingB12(false)
+      setCsShowB2(true)
+    }, t1 + typingMs)
+
+    const t2 = t1 + typingMs + pauseMs
+    schedule(() => setCsTypingB23(true), t2)
+    schedule(() => {
+      setCsTypingB23(false)
+      setCsShowB3(true)
+    }, t2 + typingMs)
+
+    const t3 = t2 + typingMs + pauseMs
+    schedule(() => setCsTypingBeforeChoices(true), t3)
+    schedule(() => {
+      setCsTypingBeforeChoices(false)
+      setCsChoicesVisible(true)
+    }, t3 + typingMs)
+
+    return () => {
+      cancelled = true
+      timeouts.forEach((t) => clearTimeout(t))
+    }
+  }, [isClaimStatusMode, claimStatusJtbd])
 
   useEffect(() => {
     if (!workflowActive && !editPolicyWorkflow) {
@@ -796,15 +885,39 @@ export function RaiseClaimHelloView({
 
   // Expand right sidebar and set AI section when workflows are active
   useEffect(() => {
-    if (workflowActive || editPolicyWorkflow || selfServeStepsActive) {
+    if (
+      workflowActive ||
+      editPolicyWorkflow ||
+      selfServeStepsActive ||
+      claimStatusWorkflow
+    ) {
       setRightSidebarCollapsed(false)
       setRightSidebarActiveSection("ai")
     }
-  }, [workflowActive, editPolicyWorkflow, selfServeStepsActive])
+  }, [workflowActive, editPolicyWorkflow, selfServeStepsActive, claimStatusWorkflow])
+
+  const handleRevealClaimStatusPreviousActivity = useCallback(() => {
+    const el = listRef.current
+    if (!el) {
+      setClaimStatusPreviousActivityVisible(true)
+      return
+    }
+    const prevScrollHeight = el.scrollHeight
+    const prevScrollTop = el.scrollTop
+    setClaimStatusPreviousActivityVisible(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.scrollTop = prevScrollTop + (el.scrollHeight - prevScrollHeight)
+      })
+    })
+  }, [])
 
   useEffect(() => {
     const el = listRef.current
     if (!el) return
+    if (claimStatusPreviousActivityVisible) return
+    // Keep the “View previous activity” pill in view — do not pin claim-status intro to the bottom.
+    if (isClaimStatusMode && !claimStatusPreviousActivityVisible) return
     el.scrollTop = el.scrollHeight
   }, [
     openingTyping,
@@ -819,7 +932,84 @@ export function RaiseClaimHelloView({
     replyTyping,
     workflowShimmerPhase,
     nonPolicyRibbonPane,
+    csIntroTyping,
+    csShowB1,
+    csTypingB12,
+    csShowB2,
+    csTypingB23,
+    csShowB3,
+    csTypingBeforeChoices,
+    csChoicesVisible,
+    claimStatusWorkflow,
+    claimStatusPreviousActivityVisible,
+    isClaimStatusMode,
   ])
+
+  const handleClaimStatusPick = useCallback(
+    (key: HelloClaimStatusChoiceId, userEchoLabel: string) => {
+      if (spentOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID) || !claimStatusJtbd) return
+      setSpentOfferIds((prev) => new Set(prev).add(HELLO_CLAIM_STATUS_FLOW_OFFER_ID))
+
+      setMessages((prev) => [
+        ...prev,
+        { id: `claim-status-user-${Date.now()}`, role: "user", text: userEchoLabel },
+      ])
+
+      const policy = raiseClaimPolicy ?? activePolicies[0]
+      if (!policy) return
+
+      if (key === "escalate_f_ops") {
+        setClaimStatusWorkflow({ view: "escalate" })
+        onHelloToast?.(HELLO_CLAIM_STATUS_ESCALATE_TOAST)
+      } else if (key === "view_communication_history") {
+        setClaimStatusWorkflow({ view: "communication_history" })
+      } else if (key === "view_claim_status_timeline" || key === "something_else") {
+        setClaimStatusWorkflow({ view: "timeline" })
+      }
+
+      const assistantText =
+        key === "escalate_f_ops"
+          ? "Opening the F-ops escalation workspace on the right."
+          : key === "view_communication_history"
+            ? "Opening communication history on the right."
+            : key === "view_claim_status_timeline"
+              ? "Opening the claim status timeline on the right."
+              : "Opening the claim status workspace on the right — you can review the timeline there."
+
+      window.setTimeout(() => {
+        setReplyTyping(true)
+        window.setTimeout(() => {
+          setReplyTyping(false)
+          pushAssistant({ kind: "text", text: assistantText })
+        }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+      }, HELLO_BOT_REPLY_AFTER_USER_MS)
+    },
+    [
+      activePolicies,
+      claimStatusJtbd,
+      onHelloToast,
+      pushAssistant,
+      raiseClaimPolicy,
+      spentOfferIds,
+    ],
+  )
+
+  const handleClaimStatusEscalationDone = useCallback(() => {
+    window.setTimeout(() => {
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `escalation-success-${Date.now()}`,
+            role: "assistant",
+            body: { kind: "text", text: helloFopsEscalationSuccessHeadline },
+          },
+        ])
+      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+    }, 300)
+  }, [])
 
   const handleOpeningPick = (
     choiceId: HelloRaiseClaimChoiceId,
@@ -883,9 +1073,10 @@ export function RaiseClaimHelloView({
             window.setTimeout(() => {
               policyDetailPane.close()
               setEditPolicyWorkflow(null)
-              setActiveWorkflowPolicy(null)
               setWorkflowActive(true)
-            }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
+              setRightSidebarCollapsed(false)
+              setRightSidebarActiveSection("ai")
+            }, 1000)
           }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
         }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
       }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
@@ -1148,12 +1339,68 @@ export function RaiseClaimHelloView({
       setComposerText("")
       
     } else {
-      // For other suggestions (edit policy, raise claim, etc.), use the normal chat flow
-      setComposerText(suggestion.label)
-      setTimeout(() => {
-        handleSendComposer()
-        // Input will be cleared by handleSendComposer
-      }, 100)
+      // For other suggestions (edit policy, raise claim, etc.), immediately send the message
+      // Clear the input first
+      setComposerText("")
+      
+      // Add user message to chat immediately
+      setMessages((prev) => [...prev, { id: `hello-user-suggestion-${Date.now()}`, role: "user", text: suggestion.label }])
+
+      // Check if message should trigger agentic workflow
+      const wasHandledByAgentic = handleChatMessageWithAgentic(
+        suggestion.label,
+        handleAgenticWorkflowTrigger
+      )
+
+      // If agentic system handled it, don't process with normal chat flow
+      if (wasHandledByAgentic) {
+        return
+      }
+
+      // Process with normal chat flow
+      window.setTimeout(() => {
+        setReplyTyping(true)
+        window.setTimeout(() => {
+          setReplyTyping(false)
+          if (helloComposerTriggersEditPolicyOffer(suggestion.label)) {
+            if (activePolicies.length === 0) {
+              pushAssistant({
+                kind: "text",
+                text: "No active policy is available to edit right now.",
+              })
+              return
+            }
+            if (activePolicies.length >= 2) {
+              setEditFlowPolicy(null)
+              setEditFlowKind(null)
+              pushAssistant({
+                kind: "edit_policy_policy_pick",
+                offerId: `suggestion-edit-pick-${Date.now()}`,
+              })
+            } else {
+              setEditFlowPolicy(activePolicies[0]!)
+              setEditFlowKind(null)
+              pushAssistant({
+                kind: "edit_policy_edit_pick",
+                offerId: `suggestion-edit-field-${Date.now()}`,
+              })
+            }
+            return
+          }
+          if (helloComposerTriggersRaiseClaimOffer(suggestion.label)) {
+            const offerId = `suggestion-offer-${Date.now()}`
+            
+            // Check if this is a generic search without specific policy context
+            if (!raiseClaimPolicy || suggestion.label.toLowerCase().trim() === "raise a claim") {
+              pushAssistant({ kind: "raise_claim_policy_select", offerId })
+            } else {
+              pushAssistant({ kind: "raise_claim_offer", offerId })
+            }
+            return
+          }
+          pushAssistant({ kind: "text", text: helloFreeTextAckStub })
+        }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+      }, HELLO_BOT_REPLY_AFTER_USER_MS)
     }
   }
 
@@ -1483,11 +1730,27 @@ export function RaiseClaimHelloView({
                   // Find the selected policy and set it as the raise claim policy
                   const selectedPolicy = activePolicies.find(p => p.id === key)
                   if (selectedPolicy) {
+                    // Add user message to show their selection
+                    setMessages((prev) => [
+                      ...prev,
+                      { id: `hello-user-policy-select-${Date.now()}`, role: "user", text: label },
+                    ])
+                    
+                    // Set the selected policy as the active workflow policy
                     setActiveWorkflowPolicy(selectedPolicy)
-                    setWorkflowActive(true)
-                    setRightSidebarCollapsed(false)
-                    setRightSidebarActiveSection("ai")
                     setSpentOfferIds(prev => new Set(prev).add(body.offerId))
+                    
+                    // Now show the choice options (self-serve vs agent behalf)
+                    window.setTimeout(() => {
+                      setReplyTyping(true)
+                      window.setTimeout(() => {
+                        setReplyTyping(false)
+                        pushAssistant({
+                          kind: "raise_claim_offer",
+                          offerId: `policy-select-choices-${Date.now()}`
+                        })
+                      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+                    }, HELLO_BOT_REPLY_AFTER_USER_MS)
                   }
                 }}
               />
@@ -1596,7 +1859,10 @@ export function RaiseClaimHelloView({
     <>
       <div
         ref={listRef}
-        className="min-h-0 flex flex-1 flex-col items-start gap-3 overflow-y-auto overscroll-y-contain px-0 py-3 [scrollbar-gutter:stable] sm:py-4"
+        className={cn(
+          "min-h-0 flex flex-1 flex-col items-start gap-3 overflow-y-auto overscroll-y-contain px-0 py-3 [scrollbar-gutter:stable] sm:py-4",
+          isClaimStatusMode && !claimStatusPreviousActivityVisible && "pt-12 sm:pt-14",
+        )}
         aria-live="polite"
         aria-relevant="additions text"
       >
@@ -1604,11 +1870,87 @@ export function RaiseClaimHelloView({
           <p className="sr-only">{`Lookup phone context: ${displayPhone}`}</p>
         ) : null}
 
+        {claimStatusPreviousActivityVisible ? (
+          <HelloClaimStatusPreviousActivity vehicleLabel={openerVehicleLabel} />
+        ) : null}
+
         {(() => {
           const streak = createHelloChatIdentityStreak()
           return (
-            <>
-              {openingTyping
+              <>
+                {isClaimStatusMode && claimStatusJtbd ? (
+                <>
+                  {csIntroTyping ? (
+                    <TypingIndicator
+                      labelId={csIntroTypingLabelId}
+                      showIdentity={streak.typingIndicatorShowIdentity()}
+                    />
+                  ) : null}
+                  {csShowB1 ? (
+                    <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                      <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                        Customer is calling to ask the Claim Status of their{" "}
+                        <span className="font-semibold text-[#36354c]">{openerVehicleLabel}</span>.
+                      </p>
+                    </HelloAiBubbleCard>
+                  ) : null}
+                  {csTypingB12 ? (
+                    <TypingIndicator
+                      labelId={csTypingB12LabelId}
+                      showIdentity={streak.typingIndicatorShowIdentity()}
+                    />
+                  ) : null}
+                  {csShowB2 ? (
+                    <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                      <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                        {claimStatusPreviousCxSummaryCopy(claimStatusJtbd)}
+                      </p>
+                    </HelloAiBubbleCard>
+                  ) : null}
+                  {csTypingB23 ? (
+                    <TypingIndicator
+                      labelId={csTypingB23LabelId}
+                      showIdentity={streak.typingIndicatorShowIdentity()}
+                    />
+                  ) : null}
+                  {csShowB3 ? (
+                    <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                      <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                        Best possible action is to escalate this issue to F-ops team.
+                      </p>
+                    </HelloAiBubbleCard>
+                  ) : null}
+                  {csTypingBeforeChoices ? (
+                    <TypingIndicator
+                      labelId={csTypingChoicesLabelId}
+                      showIdentity={streak.typingIndicatorShowIdentity()}
+                    />
+                  ) : null}
+                  {csChoicesVisible ? (
+                    <div className={helloWorkflowOfferPickShellClass}>
+                      <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
+                        <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+                          {HELLO_CLAIM_STATUS_CHOICE_PROMPT}
+                        </p>
+                        <div className="mt-3">
+                          <WorkflowOfferPick
+                            options={helloClaimStatusChoices.map((c) => ({
+                              key: c.id,
+                              label: c.label,
+                            }))}
+                            disabled={spentOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID)}
+                            onPick={(key, label) =>
+                              handleClaimStatusPick(key as HelloClaimStatusChoiceId, label)
+                            }
+                          />
+                        </div>
+                      </HelloAiBubbleCard>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {!isClaimStatusMode && openingTyping
                 ? (() => {
                     const showIdentity = streak.typingIndicatorShowIdentity()
                     streak.afterAiTypingShell()
@@ -1616,7 +1958,7 @@ export function RaiseClaimHelloView({
                   })()
                 : null}
 
-              {openingVisible ? (
+              {!isClaimStatusMode && openingVisible ? (
                 <>
                   <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
                     <WorkflowOpeningParagraph 
@@ -1807,6 +2149,14 @@ export function RaiseClaimHelloView({
       onFocusCapture={onCompanionFocusCapture}
       onBlurCapture={onCompanionBlurCapture}
     >
+      {isClaimStatusMode && !claimStatusPreviousActivityVisible ? (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-40 flex justify-center px-4">
+          <HelloViewPreviousActivityButton
+            className="pointer-events-auto"
+            onClick={handleRevealClaimStatusPreviousActivity}
+          />
+        </div>
+      ) : null}
       {companionHeaderAndMessages}
       {companionComposer}
     </div>
@@ -1934,6 +2284,17 @@ export function RaiseClaimHelloView({
             customer={customer}
             displayPhone={displayPhone}
             claimWorkflowPolicy={claimWorkflowPolicy}
+            claimStatusWorkflow={
+              claimStatusWorkflow && claimStatusJtbd && claimWorkflowPolicy
+                ? {
+                    jtbd: claimStatusJtbd,
+                    policy: claimWorkflowPolicy,
+                    view: claimStatusWorkflow.view,
+                  }
+                : null
+            }
+            onClaimStatusWorkflowClose={() => setClaimStatusWorkflow(null)}
+            onClaimStatusEscalationDone={handleClaimStatusEscalationDone}
             isCompletedWorkflow={viewingCompletedWorkflow}
             selfServeStepsActive={selfServeStepsActive}
             selfServeStepsType={selfServeStepsType}

@@ -1,7 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from "react"
-import { Zap, Sparkles, ArrowLeft, Check, Mail, MessageSquare, Smartphone, X } from "lucide-react"
+import { Zap, Sparkles, ArrowLeft, Check, Mail, MessageSquare, Smartphone, X, MoreVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Customer, Policy, EndorsementEditKind, InactivePolicy } from "@/types/crm"
+import type { Customer, Policy, EndorsementEditKind, InactivePolicy, JTBD } from "@/types/crm"
+import {
+  ClaimStatusWorkflowPanel,
+  type ClaimStatusWorkflowView,
+} from "@/components/crm/hello/ClaimStatusWorkflowPanel"
 import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
 import { PolicyDetailPanel } from "@/components/crm/ActivePoliciesPanel"
@@ -12,8 +16,32 @@ import { CommunicationHistoryPanel } from "@/components/crm/hello/CommunicationH
 import { PaymentHistoryPanel } from "@/components/crm/hello/PaymentHistoryPanel"
 import { KycVerificationLogs } from "@/components/crm/hello/KycVerificationLogs"
 import { AgenticSendCommunication } from "@/components/crm/hello/AgenticSendCommunication"
-import { PolicySelectionPanel } from "@/components/crm/hello/PolicySelectionPanel"
+import { RequestDocumentsManualPanel } from "@/components/crm/hello/RequestDocumentsManualPanel"
+import { PolicyGatedManualWorkflow } from "@/components/crm/hello/PolicyGatedManualWorkflow"
+import { SimpleManualTaskPanel } from "@/components/crm/hello/SimpleManualTaskPanel"
+import { getTaskById, getTasksByCategory, type CrmTaskId } from "@/lib/crmTasks"
 import type { AgenticIntent } from "@/lib/agenticIntentParser"
+
+const policyRelatedActionsItems = getTasksByCategory("policy-related").map((t) => ({
+  id: t.id,
+  label: t.label,
+  description: t.description,
+}))
+const quickActionsItems = getTasksByCategory("quick-actions").map((t) => ({
+  id: t.id,
+  label: t.label,
+  description: t.description,
+}))
+const dataInvestigationItems = getTasksByCategory("data-investigation").map((t) => ({
+  id: t.id,
+  label: t.label,
+  description: t.description,
+}))
+const powerToolsItems = getTasksByCategory("power-tools").map((t) => ({
+  id: t.id,
+  label: t.label,
+  description: t.description,
+}))
 
 /**
  * AI Actions Tab System
@@ -32,7 +60,7 @@ import type { AgenticIntent } from "@/lib/agenticIntentParser"
 interface AIActionTab {
   id: string
   title: string
-  type: "agentic_send_communication" | "raise_claim_workflow" | "edit_policy_workflow" | "policy_detail" | "self_serve_steps" | "communication_history" | "payment_history"
+  type: "agentic_send_communication" | "raise_claim_workflow" | "edit_policy_workflow" | "claim_status_workflow" | "policy_detail" | "self_serve_steps" | "communication_history" | "payment_history" | "task_history"
   data?: any // Specific data for each tab type
   isActive: boolean
 }
@@ -56,6 +84,13 @@ interface RightSidebarProps {
   customer?: Customer
   displayPhone?: string
   claimWorkflowPolicy?: Policy | null
+  claimStatusWorkflow?: {
+    jtbd: JTBD
+    policy: Policy
+    view: ClaimStatusWorkflowView
+  } | null
+  onClaimStatusWorkflowClose?: () => void
+  onClaimStatusEscalationDone?: () => void
   isCompletedWorkflow?: boolean
   selfServeStepsActive?: boolean
   selfServeStepsType?: "raise_claim" | "edit_policy" | null
@@ -82,28 +117,6 @@ interface RightSidebarProps {
   // Trigger creating self-serve steps tab from parent (similar to triggerManualAction)
   triggerSelfServeTab?: { stepType: string; title: string; nonce: number } | null
 }
-
-const policyRelatedActionsItems = [
-  { id: "raise-claim", label: "Raise a claim", description: "Start claim process for a policy" },
-  { id: "edit-policy", label: "Edit policy", description: "Modify policy details" },
-  { id: "send-policy-document", label: "Send policy document", description: "Share policy documents with customer" },
-  { id: "cancel-policy", label: "Cancel policy", description: "Cancel or terminate policy" },
-]
-
-const quickActionsItems = [
-  { id: "road-side-assistance", label: "Road side assistance", description: "Request roadside assistance" },
-  { id: "send-communication", label: "Send communication", description: "Send message to customer" },
-  { id: "transfer-call", label: "Transfer call", description: "Transfer call to another agent" },
-  { id: "create-child-ticket", label: "Create child ticket", description: "Create a child support ticket" },
-  { id: "communication-history", label: "Communication history", description: "View past interactions" },
-  { id: "payment-history", label: "Payment history", description: "View payment records" },
-]
-
-const powerToolsItems = [
-  { id: "firefly", label: "Firefly", description: "AI-powered automation" },
-  { id: "freshdesk", label: "Freshdesk", description: "Customer support system" },
-  { id: "spectra", label: "Spectra", description: "Data analytics platform" },
-]
 
 const documentTypes = [
   { value: "policy-document", label: "Policy Document" },
@@ -429,6 +442,9 @@ export function RightSidebar({
   customer,
   displayPhone,
   claimWorkflowPolicy,
+  claimStatusWorkflow = null,
+  onClaimStatusWorkflowClose,
+  onClaimStatusEscalationDone,
   isCompletedWorkflow = false,
   selfServeStepsActive = false,
   selfServeStepsType = null,
@@ -458,9 +474,10 @@ export function RightSidebar({
     typeof window !== 'undefined' ? window.innerWidth : 1280
   )
   const [showTabText, setShowTabText] = useState(true)
-  const [showSendCommunication, setShowSendCommunication] = useState(false)
-  const [showRaiseClaimPolicySelection, setShowRaiseClaimPolicySelection] = useState(false)
-  const [showEditPolicySelection, setShowEditPolicySelection] = useState(false)
+  const [policyGateAction, setPolicyGateAction] = useState<CrmTaskId | null>(null)
+  const [gatedPolicy, setGatedPolicy] = useState<Policy | null>(null)
+  const [showRequestDocumentsManual, setShowRequestDocumentsManual] = useState(false)
+  const [simpleManualTask, setSimpleManualTask] = useState<string | null>(null)
   const [showCommunicationHistory, setShowCommunicationHistory] = useState(false)
   const [showPaymentHistory, setShowPaymentHistory] = useState(false)
   const [showKycVerificationLogs, setShowKycVerificationLogs] = useState(false)
@@ -474,6 +491,9 @@ export function RightSidebar({
   
   // 4-dot menu dropdown state
   const [showPowerToolsDropdown, setShowPowerToolsDropdown] = useState(false)
+  
+  // Tabs 3-dot menu dropdown state
+  const [showTabsDropdown, setShowTabsDropdown] = useState(false)
   
   // Handle manual action trigger from parent (for autocomplete suggestions)
   useEffect(() => {
@@ -720,15 +740,53 @@ export function RightSidebar({
           policyId: claimWorkflowPolicy.id,
           isCompleted: isCompletedWorkflow 
         })
+      } else {
+        // Update existing tab if completion status changed, but don't override if tab is already completed
+        if (existingTab.data?.isCompleted !== isCompletedWorkflow && !existingTab.data?.isCompleted) {
+          setAiActionTabs(prev => prev.map(tab => 
+            tab.id === existingTab.id 
+              ? { 
+                  ...tab, 
+                  title: isCompletedWorkflow ? "Claim Raised Successfully" : "Raise a claim",
+                  data: { ...tab.data, isCompleted: isCompletedWorkflow }
+                }
+              : tab
+          ))
+        }
       }
     }
   }, [workflowActive, claimWorkflowPolicy, isCompletedWorkflow])
 
   useEffect(() => {
+    if (claimStatusWorkflow) {
+      const existingTab = aiActionTabs.find(
+        (tab) =>
+          tab.type === "claim_status_workflow" &&
+          tab.data?.policyId === claimStatusWorkflow.policy.id &&
+          tab.data?.view === claimStatusWorkflow.view,
+      )
+
+      if (!existingTab) {
+        const viewTitle =
+          claimStatusWorkflow.view === "escalate"
+            ? "Escalate to F-ops"
+            : claimStatusWorkflow.view === "communication_history"
+              ? "Communication History"
+              : "Claim status"
+        createAIActionTab("claim_status_workflow", viewTitle, {
+          policyId: claimStatusWorkflow.policy.id,
+          view: claimStatusWorkflow.view,
+        })
+      }
+    }
+  }, [claimStatusWorkflow])
+
+  useEffect(() => {
     if (editPolicyWorkflow) {
       const existingTab = aiActionTabs.find(tab => 
         tab.type === 'edit_policy_workflow' && 
-        tab.data?.policyId === editPolicyWorkflow.policy.id
+        tab.data?.policyId === editPolicyWorkflow.policy.id &&
+        tab.data?.editKind === editPolicyWorkflow.editKind
       )
       
       if (!existingTab) {
@@ -768,26 +826,94 @@ export function RightSidebar({
     }
   }, [selfServeStepsActive, selfServeStepsType])
 
+  const closeAllManualFlows = () => {
+    setPolicyGateAction(null)
+    setGatedPolicy(null)
+    setShowRequestDocumentsManual(false)
+    setSimpleManualTask(null)
+    setShowCommunicationHistory(false)
+    setShowPaymentHistory(false)
+    setShowKycVerificationLogs(false)
+  }
+
+  const closePolicyGate = () => {
+    setPolicyGateAction(null)
+    setGatedPolicy(null)
+  }
+
+  const handlePolicyGatePolicySelect = (policy: Policy) => {
+    if (!isManualMode && policyGateAction === "raise-claim") {
+      closePolicyGate()
+      onSectionChange?.("ai")
+      onCTAPressed?.("raise_claim", policy)
+      return
+    }
+    if (!isManualMode && policyGateAction === "edit-policy") {
+      closePolicyGate()
+      onSectionChange?.("ai")
+      onCTAPressed?.("edit_policy", policy)
+      return
+    }
+    setGatedPolicy(policy)
+  }
+
+  const renderPolicyGateWorkflow = () => {
+    if (!policyGateAction || !customer) return null
+    return (
+      <PolicyGatedManualWorkflow
+        actionId={policyGateAction}
+        policy={gatedPolicy}
+        customer={customer}
+        customerPolicies={customerPolicies || []}
+        displayPhone={displayPhone}
+        onPolicySelect={handlePolicyGatePolicySelect}
+        onBackFromPolicySelect={closePolicyGate}
+        onBackFromWorkflow={closePolicyGate}
+        onToast={(message) => addToast(message, "success")}
+      />
+    )
+  }
+
   const handleManualActionClick = (actionId: string) => {
-    if (actionId === "send-communication") {
-      setShowSendCommunication(true)
-    } else if (actionId === "raise-claim") {
-      setShowRaiseClaimPolicySelection(true)
-    } else if (actionId === "edit-policy") {
-      setShowEditPolicySelection(true)
+    closeAllManualFlows()
+
+    const task = getTaskById(actionId)
+    if (task?.requiresPolicy) {
+      setPolicyGateAction(actionId as CrmTaskId)
+      return
+    }
+
+    if (actionId === "request-documents") {
+      setShowRequestDocumentsManual(true)
+    } else if (actionId === "re-assign-ticket") {
+      setSimpleManualTask("re-assign-ticket")
+    } else if (actionId === "transfer-call") {
+      setSimpleManualTask("transfer-call")
     } else if (actionId === "communication-history") {
-      // Switch to AI actions section and create communication history tab
+      if (isManualMode) {
+        setShowCommunicationHistory(true)
+        if (onWidthChange) {
+          onWidthChange(Math.round(viewportWidth * 0.42))
+        }
+        return
+      }
       if (onSectionChange) {
         onSectionChange("ai")
       }
       const tabId = createAIActionTab('communication_history', 'Communication History')
       setActiveTabId(tabId)
-      // Automatically expand width for better readability of communication history
       if (onWidthChange) {
-        const expandedWidthForHistory = Math.round(viewportWidth * 0.42) // 42% of viewport
+        const expandedWidthForHistory = Math.round(viewportWidth * 0.42)
         onWidthChange(expandedWidthForHistory)
       }
     } else if (actionId === "payment-history") {
+      if (isManualMode) {
+        setShowPaymentHistory(true)
+        if (onWidthChange) {
+          onWidthChange(Math.round(viewportWidth * 0.4))
+        }
+        return
+      }
       // Switch to AI actions section and create payment history tab
       if (onSectionChange) {
         onSectionChange("ai")
@@ -799,38 +925,26 @@ export function RightSidebar({
         const expandedWidthForHistory = Math.round(viewportWidth * 0.40) // 40% of viewport
         onWidthChange(expandedWidthForHistory)
       }
-    } else if (actionId === "kyc-verification") {
-      setShowKycVerificationLogs(true)
-      // Automatically expand width for better readability of KYC verification logs
-      if (onWidthChange) {
-        const expandedWidthForLogs = Math.round(viewportWidth * 0.45) // 45% of viewport
-        onWidthChange(expandedWidthForLogs)
+    } else if (actionId === "kyc-verification" || actionId === "kyc-logs") {
+      if (isManualMode) {
+        setShowKycVerificationLogs(true)
+        if (onWidthChange) {
+          onWidthChange(Math.round(viewportWidth * 0.45))
+        }
+        return
+      }
+      if (actionId === "kyc-logs") {
+        setShowKycVerificationLogs(true)
+        if (onWidthChange) {
+          onWidthChange(Math.round(viewportWidth * 0.45))
+        }
       }
     } else if (actionId === "firefly") {
-      // Handle Firefly action
-      console.log("Firefly tool activated")
+      window.open("https://firefly.acko.com", "_blank", "noopener,noreferrer")
     } else if (actionId === "freshdesk") {
-      // Handle Freshdesk action
-      console.log("Freshdesk tool activated")
+      window.open("https://acko.freshdesk.com", "_blank", "noopener,noreferrer")
     } else if (actionId === "spectra") {
-      // Handle Spectra action
-      console.log("Spectra tool activated")
-    } else if (actionId === "send-policy-document") {
-      // Handle Send Policy Document action
-      console.log("Send policy document activated")
-      // You can add specific logic here, like opening a document selection modal
-    } else if (actionId === "cancel-policy") {
-      // Handle Cancel Policy action
-      console.log("Cancel policy activated")
-      // You can add specific logic here, like opening a policy cancellation workflow
-    } else if (actionId === "road-side-assistance") {
-      // Handle Road Side Assistance action
-      console.log("Road side assistance activated")
-      // You can add specific logic here, like opening RSA workflow
-    } else if (actionId === "transfer-call") {
-      // Handle Transfer Call action
-      console.log("Transfer call activated")
-      // You can add specific logic here, like opening call transfer options
+      window.open("https://spectra.acko.com", "_blank", "noopener,noreferrer")
     } else if (actionId === "create-child-ticket") {
       // Handle Create Child Ticket action
       console.log("Create child ticket activated")
@@ -844,35 +958,42 @@ export function RightSidebar({
     // This is now handled by closing the tab
   }
 
-  const handleSendCommunicationBack = () => {
-    setShowSendCommunication(false)
-  }
-
-  const handleCommunicationSent = (message: string) => {
-    addToast(message, "success")
-    setShowSendCommunication(false)
-  }
-
-  const handleRaiseClaimPolicySelectionBack = () => {
-    setShowRaiseClaimPolicySelection(false)
-  }
-
-  const handleEditPolicySelectionBack = () => {
-    setShowEditPolicySelection(false)
-  }
-
-  const handleRaiseClaimPolicySelect = (policy: Policy) => {
-    setShowRaiseClaimPolicySelection(false)
-    // Switch to AI Actions and trigger raise claim workflow
-    onSectionChange?.("ai")
-    onCTAPressed?.("raise_claim", policy)
-  }
-
-  const handleEditPolicySelect = (policy: Policy) => {
-    setShowEditPolicySelection(false)
-    // Switch to AI Actions and trigger edit policy workflow
-    onSectionChange?.("ai")
-    onCTAPressed?.("edit_policy", policy)
+  const renderSimpleManualTask = () => {
+    switch (simpleManualTask) {
+      case "re-assign-ticket":
+        return (
+          <SimpleManualTaskPanel
+            title="Re-assign ticket"
+            description="Reassign this ticket to another agent or team."
+            fields={[
+              { label: "Assign to", placeholder: "Select agent or queue" },
+              { label: "Reason", placeholder: "Why are you reassigning?", type: "textarea" },
+            ]}
+            submitLabel="Re-assign"
+            onBack={() => setSimpleManualTask(null)}
+            onSubmit={() => {
+              addToast("Ticket reassigned successfully.", "success")
+              setSimpleManualTask(null)
+            }}
+          />
+        )
+      case "transfer-call":
+        return (
+          <SimpleManualTaskPanel
+            title="Transfer call"
+            description="Transfer this call to another agent or department."
+            fields={[{ label: "Transfer to", placeholder: "Team or agent name" }]}
+            submitLabel="Transfer"
+            onBack={() => setSimpleManualTask(null)}
+            onSubmit={() => {
+              addToast("Call transfer initiated.", "success")
+              setSimpleManualTask(null)
+            }}
+          />
+        )
+      default:
+        return null
+    }
   }
 
 
@@ -978,8 +1099,12 @@ export function RightSidebar({
       ) : (
         // Expanded State - Full sidebar content
         <div className="flex flex-col h-full">
-          {/* Header with 4-dot menu and toggle */}
-          <div className="flex items-center justify-end p-4 border-b border-[#e7e7f0]">
+          {/* Header with Workflows title, 4-dot menu and toggle */}
+          <div className="flex items-center justify-between p-4 border-0 border-b border-b-[#ebebeb]">
+            {/* Workflows title */}
+            <h3 className="font-euclid text-sm font-medium text-[#36354c]">
+              Workflows
+            </h3>
             <div className="flex items-center gap-4">
               {/* 4-dot menu */}
               <div className="relative">
@@ -1007,10 +1132,10 @@ export function RightSidebar({
                       <div className="pt-[15px] pl-[13px] pr-[13px] pb-[15px]">
                         {/* Power Tools Section */}
                         <div className="mb-[13px]">
-                          <h4 className="font-euclid text-[12px] font-medium leading-[18px] text-black mb-[13px]">
+                          <h4 className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675] mb-[16px]">
                             POWER TOOLS
                           </h4>
-                          <div className="flex items-center justify-between">
+                          <div className="space-y-2">
                             {powerToolsItems.map((tool) => (
                               <button
                                 key={tool.id}
@@ -1018,11 +1143,20 @@ export function RightSidebar({
                                   handleManualActionClick(tool.id)
                                   setShowPowerToolsDropdown(false)
                                 }}
-                                className="flex flex-col items-center justify-center gap-[12px] w-[45px] hover:opacity-80 transition-opacity"
+                                className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-[#f8f7fc] transition-colors group"
                               >
-                                <div className="w-[45px] h-[46px] bg-[#eaeaea] rounded-[8px]" />
-                                <div className="font-euclid text-[14px] font-medium leading-[20px] text-black whitespace-nowrap">
-                                  {tool.label}
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f0f0f6] transition-colors">
+                                  {tool.id === 'firefly' && <Zap className="h-4 w-4 text-[#5b5675]" />}
+                                  {tool.id === 'freshdesk' && <MessageSquare className="h-4 w-4 text-[#5b5675]" />}
+                                  {tool.id === 'spectra' && <Sparkles className="h-4 w-4 text-[#5b5675]" />}
+                                </div>
+                                <div className="flex-1 text-left">
+                                  <div className="font-euclid text-sm font-medium text-[#040222]">
+                                    {tool.label}
+                                  </div>
+                                  <div className="font-euclid text-xs text-[#5b5675]">
+                                    {tool.description}
+                                  </div>
                                 </div>
                               </button>
                             ))}
@@ -1056,52 +1190,44 @@ export function RightSidebar({
                 )}
               </div>
               
-              {/* Collapse button */}
-              <button
-                type="button"
-                onClick={onToggle}
-                className="flex items-center justify-center w-7 h-7 hover:bg-[#f0f0f6] rounded transition-colors"
-                aria-label="Collapse sidebar"
-              >
-                <img 
-                  src="/icons/sidebar-toggle.png" 
-                  alt="Toggle sidebar" 
-                  className="w-6 h-6 rotate-180"
-                />
-              </button>
+              {/* Collapse button - only show in AI mode */}
+              {!isManualMode && (
+                <button
+                  type="button"
+                  onClick={onToggle}
+                  className="flex items-center justify-center w-7 h-7 hover:bg-[#f0f0f6] rounded transition-colors"
+                  aria-label="Collapse sidebar"
+                >
+                  <img 
+                    src="/icons/sidebar-toggle.png" 
+                    alt="Toggle sidebar" 
+                    className="w-6 h-6 rotate-180"
+                  />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Content Area */}
           <div className={cn(
             "flex-1 overflow-y-auto",
-            isManualMode ? "p-8" : "p-4"
+            isManualMode ? "px-8 pb-8" : "px-4 pb-4"
           )}>
             {isManualMode ? (
               <div className="space-y-3">
-                {showSendCommunication ? (
-                  <SendCommunication
+                {policyGateAction ? (
+                  renderPolicyGateWorkflow()
+                ) : showRequestDocumentsManual ? (
+                  <RequestDocumentsManualPanel
                     customer={customer}
-                    customerPolicies={customerPolicies}
-                    onBack={handleSendCommunicationBack}
-                    onSent={handleCommunicationSent}
+                    onBack={() => setShowRequestDocumentsManual(false)}
+                    onSent={(msg) => {
+                      addToast(msg, "success")
+                      setShowRequestDocumentsManual(false)
+                    }}
                   />
-                ) : showRaiseClaimPolicySelection ? (
-                  <PolicySelectionPanel
-                    title="Raise a Claim"
-                    description="Select a policy to start the claim process"
-                    policies={(customerPolicies || []).filter(p => p.type === "Motor Insurance")}
-                    onBack={handleRaiseClaimPolicySelectionBack}
-                    onPolicySelect={handleRaiseClaimPolicySelect}
-                  />
-                ) : showEditPolicySelection ? (
-                  <PolicySelectionPanel
-                    title="Edit Policy"
-                    description="Select a policy to modify its details"
-                    policies={customerPolicies || []}
-                    onBack={handleEditPolicySelectionBack}
-                    onPolicySelect={handleEditPolicySelect}
-                  />
+                ) : simpleManualTask ? (
+                  renderSimpleManualTask()
                 ) : showCommunicationHistory ? (
                   <CommunicationHistoryPanel
                     customer={customer}
@@ -1122,55 +1248,84 @@ export function RightSidebar({
                 ) : (
                   <>
                     {/* Policy Related Actions Section */}
-                    <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
-                      POLICY RELATED ACTIONS
-                    </h4>
-                    <div className={cn(
-                      "mb-6",
-                      isManualMode 
-                        ? "grid grid-cols-2 gap-4" // 2 columns when full width
-                        : "space-y-2" // stacked when narrow
-                    )}>
-                      {policyRelatedActionsItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleManualActionClick(item.id)}
-                          className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
-                        >
-                          <div className="font-euclid text-sm font-medium text-[#36354c]">
-                            {item.label}
-                          </div>
-                          <div className="font-euclid text-xs text-[#5b5675] mt-1">
-                            {item.description}
-                          </div>
-                        </button>
-                      ))}
+                    <div className="mb-6">
+                      <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
+                        POLICY RELATED ACTIONS
+                      </h4>
+                      <div className={cn(
+                        isManualMode 
+                          ? "grid grid-cols-3 gap-4" // 3 columns when full width
+                          : "space-y-2" // stacked when narrow
+                      )}>
+                        {policyRelatedActionsItems.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleManualActionClick(item.id)}
+                            className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+                          >
+                            <div className="font-euclid text-sm font-medium text-[#36354c]">
+                              {item.label}
+                            </div>
+                            <div className="font-euclid text-xs text-[#5b5675] mt-1">
+                              {item.description}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Quick Actions Section */}
-                    <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
-                      QUICK ACTIONS
-                    </h4>
-                    <div className={cn(
-                      "mb-6",
-                      isManualMode 
-                        ? "grid grid-cols-3 gap-4" // 3 columns for quick actions when full width
-                        : "space-y-2" // stacked when narrow
-                    )}>
-                      {quickActionsItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleManualActionClick(item.id)}
-                          className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
-                        >
-                          <div className="font-euclid text-sm font-medium text-[#36354c]">
-                            {item.label}
-                          </div>
-                          <div className="font-euclid text-xs text-[#5b5675] mt-1">
-                            {item.description}
-                          </div>
-                        </button>
-                      ))}
+                    {/* Other Quick Actions Section */}
+                    <div className="mb-6">
+                      <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
+                        OTHER QUICK ACTIONS
+                      </h4>
+                      <div className={cn(
+                        isManualMode 
+                          ? "grid grid-cols-3 gap-4" // 3 columns for other quick actions when full width
+                          : "space-y-2" // stacked when narrow
+                      )}>
+                        {quickActionsItems.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleManualActionClick(item.id)}
+                            className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+                          >
+                            <div className="font-euclid text-sm font-medium text-[#36354c]">
+                              {item.label}
+                            </div>
+                            <div className="font-euclid text-xs text-[#5b5675] mt-1">
+                              {item.description}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Data Investigation Section */}
+                    <div>
+                      <h4 className="font-euclid text-xs font-semibold uppercase tracking-wide text-[#5b5675] mb-4">
+                        DATA INVESTIGATION
+                      </h4>
+                      <div className={cn(
+                        isManualMode 
+                          ? "grid grid-cols-3 gap-4" // 3 columns for data investigation when full width
+                          : "space-y-2" // stacked when narrow
+                      )}>
+                        {dataInvestigationItems.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleManualActionClick(item.id)}
+                            className="w-full text-left p-4 bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+                          >
+                            <div className="font-euclid text-sm font-medium text-[#36354c]">
+                              {item.label}
+                            </div>
+                            <div className="font-euclid text-xs text-[#5b5675] mt-1">
+                              {item.description}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
@@ -1178,30 +1333,19 @@ export function RightSidebar({
             ) : (
               // AI Mode - show both manual actions and AI actions based on activeSection
               <div>
+
                 {activeSection === "manual-actions" && (
                   <div className="space-y-3">
-                    {showSendCommunication ? (
-                      <SendCommunication
+                    {policyGateAction ? (
+                      renderPolicyGateWorkflow()
+                    ) : showRequestDocumentsManual ? (
+                      <RequestDocumentsManualPanel
                         customer={customer}
-                        customerPolicies={customerPolicies}
-                        onBack={handleSendCommunicationBack}
-                        onSent={handleCommunicationSent}
-                      />
-                    ) : showRaiseClaimPolicySelection ? (
-                      <PolicySelectionPanel
-                        title="Raise a Claim"
-                        description="Select a policy to start the claim process"
-                        policies={(customerPolicies || []).filter(p => p.type === "Motor Insurance")}
-                        onBack={handleRaiseClaimPolicySelectionBack}
-                        onPolicySelect={handleRaiseClaimPolicySelect}
-                      />
-                    ) : showEditPolicySelection ? (
-                      <PolicySelectionPanel
-                        title="Edit Policy"
-                        description="Select a policy to modify its details"
-                        policies={customerPolicies || []}
-                        onBack={handleEditPolicySelectionBack}
-                        onPolicySelect={handleEditPolicySelect}
+                        onBack={() => setShowRequestDocumentsManual(false)}
+                        onSent={(msg) => {
+                          addToast(msg, "success")
+                          setShowRequestDocumentsManual(false)
+                        }}
                       />
                     ) : showCommunicationHistory ? (
                       <CommunicationHistoryPanel
@@ -1239,68 +1383,108 @@ export function RightSidebar({
                 )}
 
                 {activeSection === "ai" && (
-              <div className="h-full flex flex-col">
-                {/* Tabs Navigation */}
-                {aiActionTabs.length > 0 && (
-                  <div className="mb-3">
-                    <div className="flex flex-wrap gap-[14px] px-[16px]">
-                      {aiActionTabs.map((tab) => (
-                        <div
-                          key={tab.id}
-                          className={cn(
-                            "flex items-center px-[8px] py-[12px] rounded-[8px] transition-colors cursor-pointer bg-[#f8f7fc]",
-                            tab.isActive 
-                              ? "border border-[#b191ed] border-solid" 
-                              : ""
-                          )}
-                        >
-                          <span 
-                            onClick={() => switchToTab(tab.id)}
-                            className="font-euclid text-[14px] leading-[20px] text-[#36354c] whitespace-nowrap"
-                            title={tab.title}
+              <div className="h-full flex flex-col relative">
+                {/* AI Section Header - Always show with 3-dot menu */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between pt-3 pb-0 border-0">
+                    {/* Tabs Navigation - Only show when there are active tabs */}
+                    {aiActionTabs.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {aiActionTabs.map((tab) => (
+                          <div
+                            key={tab.id}
+                            className={cn(
+                              "flex items-center gap-2 px-2 py-2 rounded-lg transition-colors cursor-pointer border",
+                              tab.isActive 
+                                ? "bg-[#f8f7fc] border-[#e0e0e8]" 
+                                : "bg-[#f8f7fc] border-transparent text-[#36354c] hover:bg-[#f0f0f6]"
+                            )}
                           >
-                            {tab.title}
-                          </span>
-                          {tab.isActive && (
-                            <>
-                              <div className="w-[8px]" />
+                            <span 
+                              onClick={() => switchToTab(tab.id)}
+                              className={cn(
+                                "font-euclid text-sm font-medium whitespace-nowrap",
+                                tab.isActive ? "text-[#5b5675]" : "text-[#36354c]"
+                              )}
+                              title={tab.title}
+                            >
+                              {tab.title}
+                            </span>
+                            {tab.isActive && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   closeTab(tab.id)
                                 }}
-                                className="flex items-center justify-center w-[20px] h-[20px] hover:bg-opacity-20 transition-colors"
+                                className="flex items-center justify-center w-5 h-5 hover:bg-[#5b5675] hover:bg-opacity-10 rounded transition-colors"
                               >
-                                <X className="w-[11.67px] h-[11.67px] text-[#36354c]" />
+                                <X className="w-3 h-3 text-[#5b5675]" />
                               </button>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div></div>
+                    )}
+                    
+                    {/* 3-dot menu - Always show in AI section */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowTabsDropdown(!showTabsDropdown)}
+                        className="flex items-center justify-center w-6 h-6 hover:bg-[#f0f0f6] rounded transition-colors"
+                        aria-label="Workflow Menu"
+                      >
+                        <MoreVertical className="w-4 h-4 text-[#5b5675]" />
+                      </button>
+                      
+                      {/* Workflow Dropdown */}
+                      {showTabsDropdown && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-40"
+                            onClick={() => setShowTabsDropdown(false)}
+                          />
+                          <div className="absolute top-8 right-0 z-50 w-48 bg-white rounded-lg border border-[#e7e7f0] shadow-[0px_4px_4px_-2px_rgba(54,53,76,0.06)]">
+                            <div className="py-[6px]">
+                              <button
+                                onClick={() => {
+                                  // Create a new tab for task history
+                                  createAIActionTab('task_history', 'Task History')
+                                  setShowTabsDropdown(false)
+                                }}
+                                className="flex items-center gap-3 w-full px-4 py-2 text-left hover:bg-[#f8f7fc] transition-colors"
+                              >
+                                <div className="font-euclid text-sm text-[#040222]">
+                                  View task history
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Tab Content Area */}
                 <div 
                   ref={scrollContainerRef}
-                  className="flex-1 min-h-0 overflow-y-auto"
+                  className="flex-1 min-h-0 overflow-y-auto relative"
                 >
                   {(() => {
                     const activeTab = getActiveTab()
                     
                     if (!activeTab) {
                       return (
-                        <div className="flex items-center justify-center h-full">
+                        <div className="flex items-start justify-center h-full pt-16">
                           <div className="text-center">
                             <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
                               <Sparkles className="w-6 h-6 text-[#5b5675]" />
                             </div>
-                            <p className="font-euclid text-sm text-[#5b5675] mb-2">
+                            <p className="font-euclid text-sm text-[#5b5675]">
                               AI workflows will appear here
-                            </p>
-                            <p className="font-euclid text-xs text-[#5b5675]">
-                              Try typing: "Send policy document to customer"
                             </p>
                           </div>
                         </div>
@@ -1328,53 +1512,235 @@ export function RightSidebar({
                         )
                         
                       case 'raise_claim_workflow':
-                        if (workflowActive && claimWorkflowPolicy && customer) {
+                        // Find the policy from customerPolicies using the stored policyId
+                        const tabPolicyId = activeTab.data?.policyId
+                        const tabPolicy = customerPolicies?.find(p => p.id === tabPolicyId) || claimWorkflowPolicy
+                        const tabIsCompleted = activeTab.data?.isCompleted || isCompletedWorkflow
+                        
+                        if (customer && tabPolicy) {
+                          // If this specific tab is marked as completed, show success state
+                          if (activeTab.data?.isCompleted) {
+                            return (
+                              <div className="flex items-center justify-center h-full">
+                                <div className="text-center">
+                                  <div className="w-12 h-12 bg-[#0fa457] rounded-lg flex items-center justify-center mx-auto mb-3">
+                                    <Check className="w-6 h-6 text-white" />
+                                  </div>
+                                  <p className="font-euclid text-sm font-semibold text-[#040222] mb-2">
+                                    Claim Raised Successfully
+                                  </p>
+                                  <p className="font-euclid text-xs text-[#5b5675] mb-4">
+                                    Your claim for {tabPolicy.name || tabPolicy.vehicle} has been submitted successfully.
+                                  </p>
+                                  <div className="bg-[#f8f7fc] rounded-lg p-3 border border-[#e7e7f0]">
+                                    <p className="font-euclid text-xs font-medium text-[#36354c] mb-1">
+                                      Policy: {tabPolicy.policyNumber}
+                                    </p>
+                                    <p className="font-euclid text-xs text-[#5b5675]">
+                                      {tabPolicy.name || tabPolicy.vehicle}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          }
+                          
                           return (
                             <RaiseClaimWorkflowPanel
-                              key={`sidebar-raise-claim-${claimWorkflowPolicy.id}`}
+                              key={`sidebar-raise-claim-${tabPolicy.id}`}
                               customer={customer}
-                              policy={claimWorkflowPolicy}
+                              policy={tabPolicy}
                               displayPhone={displayPhone}
                               scrollContainerRef={scrollContainerRef}
                               onRcEmailSent={onRcEmailSent}
                               onClose={() => closeTab(activeTab.id)}
-                              onFnolComplete={onFnolComplete}
+                              onFnolComplete={() => {
+                                // Mark this specific tab as completed
+                                setAiActionTabs(prev => prev.map(tab => 
+                                  tab.id === activeTab.id 
+                                    ? { 
+                                        ...tab, 
+                                        title: "Claim Raised Successfully",
+                                        data: { ...tab.data, isCompleted: true }
+                                      }
+                                    : tab
+                                ))
+                                
+                                // Call the original completion handler
+                                onFnolComplete?.()
+                              }}
                               showPanelHeader={false}
-                              isCompleted={isCompletedWorkflow}
+                              isCompleted={tabIsCompleted}
+                            />
+                          )
+                        }
+                        
+                        // Fallback: show a message if policy data is not available
+                        if (customer && !tabPolicy) {
+                          return (
+                            <div className="flex items-center justify-center h-full">
+                              <div className="text-center">
+                                <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
+                                  <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                                </div>
+                                <p className="font-euclid text-sm text-[#5b5675] mb-2">
+                                  Claim workflow content
+                                </p>
+                                <p className="font-euclid text-xs text-[#5b5675]">
+                                  {tabIsCompleted ? "Claim has been raised successfully" : "Loading claim workflow..."}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        }
+                        break
+
+                      case "claim_status_workflow": {
+                        const csPolicyId = activeTab.data?.policyId
+                        const csPolicy =
+                          customerPolicies?.find((p) => p.id === csPolicyId) ||
+                          claimStatusWorkflow?.policy
+                        const csView =
+                          (activeTab.data?.view as ClaimStatusWorkflowView | undefined) ||
+                          claimStatusWorkflow?.view ||
+                          "timeline"
+                        const csJtbd = claimStatusWorkflow?.jtbd
+
+                        if (customer && csPolicy && csJtbd) {
+                          return (
+                            <ClaimStatusWorkflowPanel
+                              key={`sidebar-claim-status-${csPolicy.id}-${csView}`}
+                              jtbd={csJtbd}
+                              policy={csPolicy}
+                              customer={customer}
+                              customerPolicies={customerPolicies}
+                              view={csView}
+                              onClose={() => {
+                                closeTab(activeTab.id)
+                                onClaimStatusWorkflowClose?.()
+                              }}
+                              onEscalationDone={onClaimStatusEscalationDone}
                             />
                           )
                         }
                         break
+                      }
                         
                       case 'edit_policy_workflow':
-                        if (editPolicyWorkflow && customer) {
+                        // Find the policy from customerPolicies using the stored policyId
+                        const editTabPolicyId = activeTab.data?.policyId
+                        const editTabPolicy = customerPolicies?.find(p => p.id === editTabPolicyId) || editPolicyWorkflow?.policy
+                        const editTabEditKind = activeTab.data?.editKind || editPolicyWorkflow?.editKind
+                        
+                        if (customer && editTabPolicy && editTabEditKind) {
+                          // If this specific tab is marked as completed, show success state
+                          if (activeTab.data?.isCompleted) {
+                            return (
+                              <div className="flex items-center justify-center h-full">
+                                <div className="text-center">
+                                  <div className="w-12 h-12 bg-[#0fa457] rounded-lg flex items-center justify-center mx-auto mb-3">
+                                    <Check className="w-6 h-6 text-white" />
+                                  </div>
+                                  <p className="font-euclid text-sm font-semibold text-[#040222] mb-2">
+                                    Policy Edited Successfully
+                                  </p>
+                                  <p className="font-euclid text-xs text-[#5b5675] mb-4">
+                                    Your policy {editTabPolicy.name || editTabPolicy.vehicle} has been updated successfully.
+                                  </p>
+                                  <div className="bg-[#f8f7fc] rounded-lg p-3 border border-[#e7e7f0]">
+                                    <p className="font-euclid text-xs font-medium text-[#36354c] mb-1">
+                                      Policy: {editTabPolicy.policyNumber}
+                                    </p>
+                                    <p className="font-euclid text-xs text-[#5b5675]">
+                                      {editTabPolicy.name || editTabPolicy.vehicle}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          }
+                          
                           return (
                             <EditPolicyWorkflowPanel
-                              key={`sidebar-edit-policy-${editPolicyWorkflow.policy.id}-${editPolicyWorkflow.editKind}`}
+                              key={`sidebar-edit-policy-${editTabPolicy.id}-${editTabEditKind}`}
                               customer={customer}
-                              policy={editPolicyWorkflow.policy}
-                              editKind={editPolicyWorkflow.editKind}
+                              policy={editTabPolicy}
+                              editKind={editTabEditKind}
                               scrollContainerRef={scrollContainerRef}
                               onRcEmailSent={onRcEmailSent}
                               onClose={() => closeTab(activeTab.id)}
-                              onEditPolicyWorkflowComplete={onEditPolicyWorkflowComplete}
+                              onEditPolicyWorkflowComplete={() => {
+                                // Mark this specific tab as completed
+                                setAiActionTabs(prev => prev.map(tab => 
+                                  tab.id === activeTab.id 
+                                    ? { 
+                                        ...tab, 
+                                        title: "Policy Edited Successfully",
+                                        data: { ...tab.data, isCompleted: true }
+                                      }
+                                    : tab
+                                ))
+                                
+                                // Call the original completion handler
+                                onEditPolicyWorkflowComplete?.()
+                              }}
                               showPanelHeader={false}
                             />
+                          )
+                        }
+                        
+                        // Fallback: show a message if policy data is not available
+                        if (customer && !editTabPolicy) {
+                          return (
+                            <div className="flex items-center justify-center h-full">
+                              <div className="text-center">
+                                <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
+                                  <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                                </div>
+                                <p className="font-euclid text-sm text-[#5b5675] mb-2">
+                                  Edit policy workflow content
+                                </p>
+                                <p className="font-euclid text-xs text-[#5b5675]">
+                                  Loading edit policy workflow...
+                                </p>
+                              </div>
+                            </div>
                           )
                         }
                         break
                         
                       case 'policy_detail':
-                        if (policyDetailForPane) {
+                        // Find the policy from customerPolicies using the stored policyId
+                        const detailTabPolicyId = activeTab.data?.policyId
+                        const detailTabPolicy = customerPolicies?.find(p => p.id === detailTabPolicyId) || policyDetailForPane
+                        
+                        if (detailTabPolicy) {
                           return (
                             <PolicyDetailPanel
-                              policy={policyDetailForPane}
+                              policy={detailTabPolicy}
                               variant="embedded"
                               showRelatedActions={false}
                               onPolicyActionClick={onCTAPressed}
                             />
                           )
                         }
+                        
+                        // Fallback: show a message if policy data is not available
+                        return (
+                          <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                              <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
+                                <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                              </div>
+                              <p className="font-euclid text-sm text-[#5b5675] mb-2">
+                                Policy details
+                              </p>
+                              <p className="font-euclid text-xs text-[#5b5675]">
+                                Loading policy details...
+                              </p>
+                            </div>
+                          </div>
+                        )
                         break
                         
                       case 'self_serve_steps':
@@ -1459,6 +1825,52 @@ export function RightSidebar({
                             onBack={() => closeTab(activeTab.id)}
                           />
                         )
+                        
+                      case 'task_history':
+                        // Mock task history data - in real implementation, this would come from props or API
+                        const taskHistoryData = [
+                          {
+                            id: 1,
+                            timestamp: "14 May 2026 at 3:30 PM",
+                            description: "Raise a claim - Ecosport Titanium 2025",
+                            agent: "CX Priya",
+                            duration: "12m 15s"
+                          },
+                          {
+                            id: 2,
+                            timestamp: "14 May 2026 at 3:30 PM",
+                            description: "Send communication - Policy documents - Honda Activa 2020",
+                            agent: "CX Priya",
+                            duration: "12m 15s"
+                          },
+                          {
+                            id: 3,
+                            timestamp: "14 May 2026 at 3:30 PM",
+                            description: "Edit policy - Edit Engine chasis number - Ecosport Titanium 2025",
+                            agent: "CX Priya",
+                            duration: "12m 15s"
+                          }
+                        ]
+
+                        return (
+                          <div className="flex flex-col gap-4 p-0">
+                            {taskHistoryData.map((task) => (
+                              <div 
+                                key={task.id} 
+                                className="border border-[#e7e7f0] rounded-[12px] px-4 py-[16px]"
+                              >
+                                <div className="flex flex-col gap-2">
+                                  <div className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
+                                    {task.timestamp}
+                                  </div>
+                                  <div className="font-euclid text-[14px] font-medium leading-[20px] text-[#5b5675]">
+                                    {task.description}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
                     }
                     
                     return (
@@ -1479,14 +1891,60 @@ export function RightSidebar({
             )}
 
                 {!activeSection && (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                  <div className="h-full flex flex-col relative">
+                    {/* Header with 3-dot menu for no active section */}
+                    <div className="mb-3">
+                      <div className="flex items-center justify-end pt-3 pb-0 border-0">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowTabsDropdown(!showTabsDropdown)}
+                            className="flex items-center justify-center w-6 h-6 hover:bg-[#f0f0f6] rounded transition-colors"
+                            aria-label="Workflow Menu"
+                          >
+                            <MoreVertical className="w-4 h-4 text-[#5b5675]" />
+                          </button>
+                          
+                          {/* Workflow Dropdown */}
+                          {showTabsDropdown && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-40"
+                                onClick={() => setShowTabsDropdown(false)}
+                              />
+                              <div className="absolute top-8 right-0 z-50 w-48 bg-white rounded-lg border border-[#e7e7f0] shadow-[0px_4px_4px_-2px_rgba(54,53,76,0.06)]">
+                                <div className="py-[6px]">
+                                  <button
+                                    onClick={() => {
+                                      // Create a new tab for task history
+                                      createAIActionTab('task_history', 'Task History')
+                                      setShowTabsDropdown(false)
+                                      // Auto-switch to AI section
+                                      onSectionChange?.("ai")
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-2 text-left hover:bg-[#f8f7fc] transition-colors"
+                                  >
+                                    <div className="font-euclid text-sm text-[#040222]">
+                                      View task history
+                                    </div>
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <p className="font-euclid text-sm text-[#5b5675]">
-                        Select a tool to get started
-                      </p>
+                    </div>
+                    
+                    <div className="flex items-start justify-center h-full pt-16">
+                      <div className="text-center">
+                        <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-3">
+                          <Sparkles className="w-6 h-6 text-[#5b5675]" />
+                        </div>
+                        <p className="font-euclid text-sm text-[#5b5675]">
+                          AI workflows will appear here
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

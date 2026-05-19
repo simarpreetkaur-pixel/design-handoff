@@ -68,12 +68,13 @@ export function UseCasesDrawer({ open, onOpenChange, onSelectUseCase }: UseCases
                 <button
                   key={section.id}
                   type="button"
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation()
                     onSelectUseCase({
                       customerId: scenario.customerId,
                       crmDemo: scenario.crmDemo,
                     })
-                  }
+                  }}
                   className="flex w-full rounded-sm px-1 py-1 text-left font-euclid text-sm font-semibold text-[#040222] transition-colors hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
                 >
                   {section.number}. {section.title}

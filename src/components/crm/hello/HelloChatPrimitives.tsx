@@ -34,11 +34,11 @@ export const HELLO_SPLIT_GRIP_HOVER_BRIDGE_MS = 220
 
 /** Rounded shell for the right workflow pane — chat stays flush on page `#fafafa`. */
 export const helloWorkflowPaneShellClass =
-  "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-[box-shadow,transform] motion-safe:duration-300 motion-safe:ease-out"
+  "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out"
 
 /** Desktop: animate column widths when the split opens (grid-template-columns). */
 export const helloSplitShellTransitionClass =
-  "motion-safe:lg:transition-[grid-template-columns,gap] motion-safe:lg:duration-[700ms] motion-safe:lg:ease-[cubic-bezier(0.22,1,0.36,1)]"
+  "motion-safe:lg:transition-all motion-safe:lg:duration-700 motion-safe:lg:ease-in-out"
 
 export type HelloWorkflowSplitHandleProps = {
   onMouseDown: (e: MouseEvent<HTMLDivElement>) => void
@@ -283,10 +283,14 @@ export function HelloRenewalReminderCard({
 export function HelloCxBubbleCard({
   children,
   showIdentity = true,
+  identityLabel,
 }: {
   children: ReactNode
   showIdentity?: boolean
+  /** Overrides {@link helloCxResponderName} for historical / alternate CX rows. */
+  identityLabel?: string
 }) {
+  const cxLabel = identityLabel?.trim() || helloCxResponderName
   return (
     <div className="flex w-full min-w-0 max-w-full justify-end">
       <div
@@ -323,7 +327,7 @@ export function HelloCxBubbleCard({
             {showIdentity ? (
               <div className="flex min-w-0 flex-col gap-2">
                 <p className="font-euclid text-[12px] font-normal leading-[18px] text-white/80">
-                  {helloCxResponderName}
+                  {cxLabel}
                 </p>
                 <div className="min-w-0">{children}</div>
               </div>
@@ -466,7 +470,7 @@ export function WorkflowPaneShimmerOverlay({
       className={cn(
         "pointer-events-none",
         "absolute inset-0 z-[5] overflow-hidden rounded-xl bg-[#f9f8fc]",
-        "transition-opacity motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "transition-opacity motion-safe:ease-in-out",
         exiting ? "opacity-0" : "opacity-100",
       )}
       style={{ transitionDuration: `${fadeMs}ms` }}

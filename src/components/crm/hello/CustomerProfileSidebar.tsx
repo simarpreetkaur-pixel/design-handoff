@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 // Asset constants - using local icons
 const profileIcon = "https://www.figma.com/api/mcp/asset/c19639ff-1d1a-479f-922d-07df8c54c2a3" // Keep original for now
 const relationshipIcon = "/icons/relationship.png"
+const messagesIcon = "/icons/messages.svg"
 const pendingIcon = "/icons/pending.png"
 const checkIcon = "/icons/verified.png"
 const carIcon = "/icons/car.png"
@@ -324,7 +325,7 @@ export function CustomerProfileSidebar({
       {/* Customer Details Section */}
       <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full shrink-0">
         {/* Section Header */}
-        <div className="bg-[#f8f7fc] h-12 w-full">
+        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
           <div className="flex gap-1.5 items-center px-4 py-3.5">
             <div className="overflow-hidden relative shrink-0 w-5 h-5">
               <img alt="" className="block max-w-none w-full h-full object-contain" src={profileIcon} />
@@ -378,7 +379,7 @@ export function CustomerProfileSidebar({
       {/* ACKO Relationship Section */}
       <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
         {/* Section Header */}
-        <div className="bg-[#f8f7fc] h-12 w-full">
+        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
           <div className="flex gap-1.5 items-center px-4 py-3.5">
             <div className="overflow-hidden relative shrink-0 w-5 h-5">
               <img alt="" className="block max-w-none w-full h-full object-contain" src={relationshipIcon} />
@@ -434,78 +435,103 @@ export function CustomerProfileSidebar({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Separator Line */}
-        <div className="h-0 w-full relative">
-          <div className="absolute inset-0 border-t border-dotted border-[#e7e7f0]" />
-        </div>
-
-        {/* Active Policies Section */}
-        <div className="flex flex-col gap-3 items-start px-3 w-full">
-          <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-            Active Policies:
-          </div>
-
-          {/* Policy Items */}
-          <div className="flex flex-col gap-3 w-full">
-            {activePolicies.length > 0 ? (
-              activePolicies.map((policy) => (
-                <PolicyItem key={policy.id} policy={policy} />
-              ))
-            ) : (
-              <div className="bg-[#f8f7fc] p-2 rounded-lg w-full">
-                <div className="text-[#5b5675] text-sm font-euclid">
-                  No active policies
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Separator Line for Inactive Policies */}
-        {inactivePolicies.length > 0 && (
-          <div className="h-0 w-full relative">
-            <div className="absolute inset-0 border-t border-dotted border-[#e7e7f0]" />
-          </div>
-        )}
-
-        {/* Inactive Policies Section */}
-        {inactivePolicies.length > 0 && (
-          <div className="flex flex-col gap-3 items-start px-3 w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              Inactive Policies:
+      {/* Last support interaction — Figma node 9101:22138 */}
+      <div className="w-full rounded-[12px] border border-solid border-[#e7e7f0] bg-white p-4">
+        <div className="flex w-full flex-col items-start gap-[7px]">
+          <div className="flex items-start gap-1">
+            <div className="relative size-5 shrink-0 overflow-clip">
+              <img
+                alt=""
+                className="block size-full max-w-none object-contain"
+                src={messagesIcon}
+              />
             </div>
+            <p className="shrink-0 whitespace-nowrap font-euclid text-sm font-medium leading-5 text-[#5b5675]">
+              Support bot • 2 hours ago
+            </p>
+          </div>
+          <p className="w-full font-euclid text-sm font-normal leading-5 text-[#5b5675]">
+            Rajesh enquired about how to raise a claim on support.
+          </p>
+        </div>
+      </div>
 
-            {/* Inactive Policy Items */}
-            <div className="flex flex-col gap-3 w-full">
-              {inactivePolicies.map((inactivePolicy) => (
-                <div key={inactivePolicy.id} className="bg-[#f8f7fc] flex flex-col gap-2 p-2 rounded-lg w-full">
-                  <div className="flex items-start justify-between cursor-pointer">
-                    <div className="flex gap-1 items-start">
-                      <div className="flex items-center py-0.5">
-                        <div className="overflow-hidden relative shrink-0 w-5 h-5">
-                          <img alt="" className="block max-w-none w-full h-full object-contain" src={carIcon} />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1 items-start justify-center">
-                        <div className="text-[#36354c] text-sm font-medium font-euclid leading-5">
-                          {inactivePolicy.productTitle}
-                        </div>
-                        <div className="text-[#5b5675] text-xs font-euclid leading-[18px]">
-                          {inactivePolicy.policyNumber}
-                        </div>
+      {/* Active Policies Section */}
+      <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
+        {/* Section Header */}
+        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
+          <div className="flex gap-1.5 items-center px-4 py-3.5">
+            <div className="overflow-hidden relative shrink-0 w-5 h-5">
+              <img alt="" className="block max-w-none w-full h-full object-contain" src={profileIcon} />
+            </div>
+            <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
+              ACTIVE POLICIES
+            </div>
+          </div>
+        </div>
+
+        {/* Policy Items */}
+        <div className="flex flex-col gap-3 items-start px-3 w-full">
+          {activePolicies.length > 0 ? (
+            activePolicies.map((policy) => (
+              <PolicyItem key={policy.id} policy={policy} />
+            ))
+          ) : (
+            <div className="bg-[#f8f7fc] p-2 rounded-lg w-full">
+              <div className="text-[#5b5675] text-sm font-euclid">
+                No active policies
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inactive Policies Section */}
+      {inactivePolicies.length > 0 && (
+        <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
+          {/* Section Header */}
+          <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
+            <div className="flex gap-1.5 items-center px-4 py-3.5">
+              <div className="overflow-hidden relative shrink-0 w-5 h-5">
+                <img alt="" className="block max-w-none w-full h-full object-contain" src={profileIcon} />
+              </div>
+              <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
+                INACTIVE POLICIES
+              </div>
+            </div>
+          </div>
+
+          {/* Inactive Policy Items */}
+          <div className="flex flex-col gap-3 items-start px-3 w-full">
+            {inactivePolicies.map((inactivePolicy) => (
+              <div key={inactivePolicy.id} className="bg-[#f8f7fc] flex flex-col gap-2 p-2 rounded-lg w-full">
+                <div className="flex items-start justify-between cursor-pointer">
+                  <div className="flex gap-1 items-start">
+                    <div className="flex items-center py-0.5">
+                      <div className="overflow-hidden relative shrink-0 w-5 h-5">
+                        <img alt="" className="block max-w-none w-full h-full object-contain" src={carIcon} />
                       </div>
                     </div>
-                    <div className="flex items-center justify-center">
-                      <ChevronDown className="w-4 h-4 text-[#5b5675]" />
+                    <div className="flex flex-col gap-1 items-start justify-center">
+                      <div className="text-[#36354c] text-sm font-medium font-euclid leading-5">
+                        {inactivePolicy.productTitle}
+                      </div>
+                      <div className="text-[#5b5675] text-xs font-euclid leading-[18px]">
+                        {inactivePolicy.policyNumber}
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center justify-center">
+                    <ChevronDown className="w-4 h-4 text-[#5b5675]" />
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -992,10 +992,10 @@ export function EditPolicyHelloView({
   }
 
   const workflowPaneShellClass =
-    "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-[box-shadow,transform] motion-safe:duration-300 motion-safe:ease-out"
+    "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out"
 
   const splitShellTransitionClass =
-    "motion-safe:lg:transition-[grid-template-columns,gap] motion-safe:lg:duration-[700ms] motion-safe:lg:ease-[cubic-bezier(0.22,1,0.36,1)]"
+    "motion-safe:lg:transition-all motion-safe:lg:duration-700 motion-safe:lg:ease-in-out"
 
   const policyPickOptions = pickablePolicies.map((p) => ({
     key: p.id,
