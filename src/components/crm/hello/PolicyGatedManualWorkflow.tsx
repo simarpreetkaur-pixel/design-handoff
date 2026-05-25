@@ -105,7 +105,6 @@ export function PolicyGatedManualWorkflow({
       return (
         <SendCommunicationManualPanel
           customer={customer}
-          customerPolicies={customerPolicies}
           initialPolicy={policy}
           onBack={onBackFromWorkflow}
           onSent={(msg) => {

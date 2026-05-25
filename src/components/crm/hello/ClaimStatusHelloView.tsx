@@ -557,7 +557,7 @@ export function ClaimStatusHelloView({
                 options={[
                   { key: "escalate_f_ops", label: "Escalate to F-ops" },
                   { key: "view_communication_history", label: "View Communication history" },
-                  { key: "view_claim_status_timeline", label: "View claim status timeline" },
+                  { key: "view_claim_status_timeline", label: "View claim status" },
                   { key: "something_else", label: "Customer calling for something else." },
                 ]}
                 disabled={spentFlowOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID)}

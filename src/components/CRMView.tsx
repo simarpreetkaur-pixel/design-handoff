@@ -8,10 +8,15 @@ import {
   rajKapoorClaimStatusNexonJtbd,
   rajKapoorRaiseClaimNexonJtbd,
   rajKapoorRoadSideAssistanceJtbd,
+  rekhaGuptaClaimStatusEscalatedJtbd,
   sunilGuptaGmcEditNameJtbd,
   sunilGuptaRefundEscalationJtbd,
   sunilGuptaSwiftDzireEditNameJtbd,
 } from "@/data/mockCustomers"
+import {
+  rekhaGuptaSupportHistoryEntries,
+  rekhaGuptaSupportHistoryPreview,
+} from "@/data/rekhaGuptaClaimStatusEscalated"
 import { buildAiCompanionWelcomeMessage } from "@/lib/aiCompanionWelcome"
 import { canonicalOngoingJtbdTitle } from "@/lib/canonicalOngoingLabels"
 import { createChatEndorsementJtbd } from "@/lib/chatCreatedEndorsementJtbd"
@@ -81,43 +86,36 @@ function UnknownCallerResolutionView({
 
   if (skeletonLoading) {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#fafafa]">
-      {/* Top Navigation Skeleton */}
-      <div className="flex h-[72px] w-full items-center gap-[14px] bg-white px-[40px] py-[18px] border-b border-[#e7e7f0] shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-        <div className="h-[36px] w-[158px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-        <div className="h-[26px] w-[26px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-        <div className="h-[34px] flex-1 rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-        <div className="h-[36px] w-[120px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-      </div>
-
-      {/* Main Content Skeleton */}
-      <div className="flex h-[calc(100vh-72px)] w-full ">
-        {/* Left Panel */}
-        <div className="w-[300px] border-r border-[#e7e7f0] bg-white p-6">
+      <div className="flex h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden bg-[#fafafa]">
+        <div className="w-[298px] shrink-0 border-r border-[#e7e7f0] bg-white p-4">
           <div className="space-y-4">
-            <div className="h-[24px] w-[200px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-            <div className="h-[100px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-            <div className="space-y-2">
-              <div className="h-[16px] w-[150px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-              <div className="h-[60px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-            </div>
+            <div className="h-6 w-40 rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
+            <div className="h-24 w-full rounded-xl bg-[#ecebf3] motion-safe:animate-pulse" />
+            <div className="h-32 w-full rounded-xl bg-[#ecebf3] motion-safe:animate-pulse" />
           </div>
         </div>
-
-        {/* Right Panel */}
-        <div className="flex-1 bg-[#fafafa] p-6">
-          <div className="space-y-4">
-            <div className="h-[32px] w-[300px] rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-            <div className="h-[400px] w-full rounded-md bg-[#ecebf3] motion-safe:animate-pulse" />
-          </div>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-12">
+          <div className="h-64 w-full max-w-lg rounded-xl bg-[#ecebf3] motion-safe:animate-pulse" />
         </div>
-      </div>
+        <div className="hidden w-12 shrink-0 border-l border-[#e7e7f0] bg-white lg:block" aria-hidden />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-72px)] w-full flex-col items-center justify-center bg-[#fafafa] px-6 py-12 ">
+    <div className="flex h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden bg-[#fafafa]">
+      <aside className="flex w-[298px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-[#e7e7f0] bg-white p-4 shadow-[2px_0px_4px_rgba(0,0,0,0.09)]">
+        <p className="font-euclid text-xs font-medium uppercase tracking-wide text-[#5b5675]">
+          Customer profile
+        </p>
+        <div className="rounded-xl border border-[#e7e7f0] bg-[#f8f7fc] p-4">
+          <p className="font-euclid text-sm leading-5 text-[#5b5675]">
+            Profile and policies load after you identify the caller.
+          </p>
+        </div>
+      </aside>
+
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-12">
       <div className="w-full max-w-lg rounded-[12px] border border-[#e7e7f0] bg-white p-8 shadow-[0px_2px_4px_0px_rgba(0,0,0,0.06)]">
       <h2 className="font-euclid text-lg font-semibold text-[#040222]">Unknown caller</h2>
       <p className="mt-2 font-euclid text-[14px] leading-5 text-[#5b5675]">
@@ -160,6 +158,14 @@ function UnknownCallerResolutionView({
       <p className="mt-6 font-euclid text-[12px] leading-[18px] text-[#9c9aaf]">
         Demo: search <span className="font-medium text-[#5b5675]">1234</span> to open Sunil Gupta&apos;s profile.
       </p>
+      </div>
+      </div>
+
+      <div
+        className="hidden shrink-0 border-l border-[#e7e7f0] bg-white lg:flex lg:w-12 lg:flex-col lg:items-center lg:pt-4"
+        aria-hidden
+      >
+        <div className="size-8 rounded-lg bg-[#f8f7fc]" />
       </div>
     </div>
   )
@@ -288,6 +294,9 @@ export function CRMView() {
 
   const isRajKapoorClaimStatusFlow =
     customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon"
+
+  const isRekhaClaimStatusEscalatedFlow =
+    customerId === "rekha-gupta" && resolvedChatMockCase === "rekha_claim_status_escalated"
 
   const isSunilEditPolicyHelloFlowCase3 =
     customerId === "sunil-gupta" && resolvedChatMockCase === SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK
@@ -427,6 +436,9 @@ export function CRMView() {
     if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon") {
       return [rajKapoorClaimStatusNexonJtbd]
     }
+    if (customerId === "rekha-gupta" && resolvedChatMockCase === "rekha_claim_status_escalated") {
+      return [rekhaGuptaClaimStatusEscalatedJtbd]
+    }
     if (customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_escalation_refund_payment") {
       return [sunilGuptaRefundEscalationJtbd]
     }
@@ -489,6 +501,9 @@ export function CRMView() {
     }
     if (customerId === "raj-kapoor" && resolvedChatMockCase === "raj_cold_nexon") {
       return crmDemo?.initialSelectedJtbdId ?? rajKapoorClaimStatusNexonJtbd.id
+    }
+    if (customerId === "rekha-gupta" && resolvedChatMockCase === "rekha_claim_status_escalated") {
+      return crmDemo?.initialSelectedJtbdId ?? rekhaGuptaClaimStatusEscalatedJtbd.id
     }
     return crmDemo?.initialSelectedJtbdId
   }, [customerId, sunilEndorsementChoice, crmDemo?.initialSelectedJtbdId, resolvedChatMockCase])
@@ -835,7 +850,9 @@ export function CRMView() {
     const activePolicies = effectiveActivePolicies
     const profileCustomer = displayCustomer!
     const raiseClaimHelloPolicy =
-      activePolicies.find((p) => p.id === "policy-raj-motor-1") ??
+      (isRekhaClaimStatusEscalatedFlow
+        ? activePolicies.find((p) => p.id === "policy-rekha-nexon-motor")
+        : activePolicies.find((p) => p.id === "policy-raj-motor-1")) ??
       activePolicies[0] ??
       data.activePolicies[0]
 
@@ -917,6 +934,23 @@ export function CRMView() {
           activePolicies={activePolicies}
           inactivePolicies={inactivePolicies}
           displayPhone={displayLookupPhone}
+          onHelloToast={(message) => setCrmToast(message)}
+          className="h-full min-h-0 overflow-hidden"
+        />
+      </div>
+      ) : isRekhaClaimStatusEscalatedFlow ? (
+      <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden ">
+        <RaiseClaimHelloView
+          customer={profileCustomer}
+          raiseClaimPolicy={raiseClaimHelloPolicy}
+          claimStatusJtbd={rekhaGuptaClaimStatusEscalatedJtbd}
+          claimStatusVariant="escalated"
+          initialWorkflowType="claim_status"
+          activePolicies={activePolicies}
+          inactivePolicies={inactivePolicies}
+          displayPhone={displayLookupPhone}
+          supportHistoryPreview={rekhaGuptaSupportHistoryPreview}
+          supportHistoryEntries={rekhaGuptaSupportHistoryEntries}
           onHelloToast={(message) => setCrmToast(message)}
           className="h-full min-h-0 overflow-hidden"
         />

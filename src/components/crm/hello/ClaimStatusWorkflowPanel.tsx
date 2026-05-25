@@ -2,7 +2,6 @@ import { X } from "lucide-react"
 
 import { ClaimStatusTimeline } from "@/components/crm/ClaimStatusTimeline"
 import { CommunicationHistoryPanel } from "@/components/crm/hello/CommunicationHistoryPanel"
-import { Button } from "@/components/ui/button"
 import type { Customer, JTBD, Policy } from "@/types/crm"
 
 export type ClaimStatusWorkflowView =
@@ -119,28 +118,9 @@ export function ClaimStatusWorkflowPanel({
 
   return (
     <div className="flex min-h-0 flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-            Claim status
-          </p>
-          <p className="font-euclid text-[14px] font-semibold leading-5 text-[#040222]">
-            {vehicleLabel(policy)}
-          </p>
-        </div>
-        {onClose ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-[#5b5675] hover:bg-[#f5f3fc] hover:text-[#36354c]"
-            onClick={onClose}
-            aria-label="Close claim status workspace"
-          >
-            <X className="size-4" strokeWidth={2} />
-          </Button>
-        ) : null}
-      </div>
+      <p className="sr-only">
+        Claim status workflow for {vehicleLabel(policy)}
+      </p>
       <ClaimStatusTimeline steps={jtbd.status} jtbdType={jtbd.type} />
     </div>
   )

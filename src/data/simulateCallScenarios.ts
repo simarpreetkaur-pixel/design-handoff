@@ -69,6 +69,14 @@ const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
     lastCallBadge: "Returning caller",
     lastCallVariant: "default",
   },
+  "rekha-gupta": {
+    yearsWithAcko: "4 years with ACKO",
+    ongoingIssue: "Claim Status",
+    lastCallBadge: "Frustrated caller",
+    lastCallVariant: "warning",
+    showCallVehicle: true,
+    showLastCall: true,
+  },
   "unknown-caller": {
     yearsWithAcko: "",
     ongoingIssue: "Unknown",
@@ -107,6 +115,9 @@ export type IncomingCallModalViewModel = {
    * Set from use-case preview merges, not live simulate defaults.
    */
   callContextQuickSummary?: string
+  /** Drawer #9 — Case type pill below Vehicle (e.g. Escalated). */
+  caseTypeBadge?: string
+  caseTypeBadgeVariant?: "default" | "angry" | "warning"
 }
 
 /**

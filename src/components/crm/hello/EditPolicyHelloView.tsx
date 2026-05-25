@@ -1,5 +1,5 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react"
-import { Send, X } from "lucide-react"
+import { Send } from "lucide-react"
 
 import { formatPolicyChatRadioEcho, PolicyChatRadioContent } from "@/lib/policyChatRadioLabel"
 import { cn, customerFirstNameOrFull } from "@/lib/utils"
@@ -14,30 +14,19 @@ import {
   HelloChatColumnBackground,
   HelloClaimRaisedSuccessBody,
   HelloCxBubbleCard,
-  HelloPolicyDetailPanelSkeleton,
   HelloTellCustomerLabel,
   TypingIndicator,
-  WorkflowPaneShimmerOverlay,
   createHelloChatIdentityStreak,
   helloTellCustomerCalloutClass,
   helloWorkflowOfferPickShellClass,
+  helloSplitShellTransitionClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
-import {
-  HelloCustomerProfileBar,
-  helloProfileNonPolicyRibbonAckMessage,
-  helloProfileNonPolicyRibbonActionLabel,
-  type HelloProfileNonPolicyRibbonActionId,
-} from "@/components/crm/hello/HelloCustomerProfileBar"
-import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
-import { PolicyDetailPanel, HelloPolicyChatDetailCard } from "@/components/crm/ActivePoliciesPanel"
+import { CustomerProfileSidebar } from "@/components/crm/hello/CustomerProfileSidebar"
+import { RightSidebar } from "@/components/crm/hello/RightSidebar"
+import { HelloPolicyChatDetailCard } from "@/components/crm/ActivePoliciesPanel"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
 import { Button } from "@/components/ui/button"
 import {
-  EDIT_POLICY_CUSTOMER_STEPS,
-  EDIT_POLICY_CUSTOMER_TAT_LINE,
-  EDIT_POLICY_HEALTH_NOTE_LINE,
-  EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS,
-  EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE,
   editPolicyPolicyholderNameSelfServeTip,
   editPolicyTalktrackAdvisorEmphasis,
   editPolicyTalktrackLead,
@@ -70,13 +59,9 @@ import {
   HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS,
   HELLO_SECOND_ACK_TYPING_INDICATOR_MS,
   HELLO_SELF_SERVE_READ_PAUSE_MS,
-  HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS,
-  HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS,
   HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS,
   helloFreeTextAckStub,
   helloPolicyBarWorkflowOfferPickOptions,
-  helloProfileRibbonPolicyAckMessage,
-  helloProfileRibbonPolicyDisplayName,
   helloRaiseClaimChoices,
   helloSomethingElseAckComposerAlways,
   HELLO_COMPOSER_SHADOW_CLEARANCE_CLASS,
@@ -84,13 +69,7 @@ import {
   HELLO_POLICY_BAR_ASSISTANCE_PROMPT,
   type HelloPolicyBarActionKey,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
-import { scheduleHelloProfileRibbonAckSequence } from "@/components/crm/hello/helloProfileRibbonAckSchedule"
-import { HelloRibbonBlankSplitPane } from "@/components/crm/hello/HelloRibbonBlankSplitPane"
-import {
-  helloPolicyHeadingNumber,
-  helloPolicyHeadingProduct,
-  useHelloPolicyDetailPane,
-} from "@/components/crm/hello/useHelloPolicyDetailPane"
+import { useHelloPolicyDetailPane } from "@/components/crm/hello/useHelloPolicyDetailPane"
 import {
   SUNIL_UNKNOWN_REASON_COMPANION_OPENER,
   SUNIL_UNKNOWN_REASON_DEMO_UNLOCK_LOOKUP_DIGITS,
@@ -100,96 +79,6 @@ const SUNIL_UNKNOWN_REASON_HELLO_COMPOSER_SUGGESTIONS: { id: string; label: stri
   { id: "edit_policy", label: "Edit policy", sendText: "Edit policy" },
 ]
 
-function SelfServeStepsPanel({ 
-  editKind, 
-  onCancel, 
-  onDone 
-}: { 
-  editKind: EndorsementEditKind; 
-  onCancel?: () => void; 
-  onDone?: () => void 
-}) {
-  const steps = editKind === "policy_holder_name"
-    ? EDIT_POLICY_POLICYHOLDER_NAME_CUSTOMER_STEPS
-    : EDIT_POLICY_CUSTOMER_STEPS
-  
-  const tatLine = editKind === "policy_holder_name"
-    ? EDIT_POLICY_POLICYHOLDER_NAME_TAT_LINE
-    : EDIT_POLICY_CUSTOMER_TAT_LINE
-
-  return (
-    <div className="flex min-h-0 flex-col gap-4">
-      {/* Header with Cancel button */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-            Customer Steps
-          </p>
-          <h2 className="mt-1 font-euclid text-[16px] font-semibold leading-6 text-[#040222]">
-            Steps for the customer
-          </h2>
-          <p className="mt-1 font-euclid text-[13px] leading-5 text-[#5b5675]">
-            Guide the customer through these steps to complete their edit policy request.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-          aria-label="Cancel steps guide"
-        >
-          <X className="size-5" aria-hidden />
-        </button>
-      </div>
-
-      {/* Steps content */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-xl border border-[#e7e7f0] bg-white p-4">
-        <div>
-          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675]">
-            Steps for the customer
-          </p>
-          <ol className="mt-2.5 list-decimal space-y-2 pl-5 font-euclid text-[14px] leading-6 text-[#36354c] marker:font-medium marker:text-[#5b5675]">
-            {steps.map((step, index) => (
-              <li key={index}>{step}</li>
-            ))}
-          </ol>
-        </div>
-
-        <div className="rounded-lg border-l-2 border-[#7c47e1]/35 bg-[#f8f7fc] p-3">
-          <p className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#7c47e1]">
-            Tell the customer
-          </p>
-          <div className="mt-2 space-y-2.5">
-            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-              {tatLine}
-            </p>
-            <p className="border-l-2 border-[#7c47e1]/35 pl-3 font-euclid text-[14px] font-normal leading-6 text-[#36354c]">
-              {EDIT_POLICY_HEALTH_NOTE_LINE}
-            </p>
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="mt-auto flex justify-end gap-3 pt-4 border-t border-[#e7e7f0]">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg border border-[#e7e7f0] bg-white px-4 py-2 font-euclid text-[14px] font-medium text-[#5b5675] transition-colors hover:bg-[#f4f4f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onDone}
-            className="rounded-lg bg-[#7c47e1] px-4 py-2 font-euclid text-[14px] font-medium text-white transition-colors hover:bg-[#6b3ccd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export type HelloEditAssistantBody =
   | { kind: "text"; text: string }
@@ -256,7 +145,6 @@ export function EditPolicyHelloView({
   const replyTypingLabelId = useId()
   const choicesRevealTypingLabelId = useId()
   const listRef = useRef<HTMLDivElement>(null)
-  const workflowPaneScrollRef = useRef<HTMLDivElement>(null)
 
   const needsPolicyPick = pickablePolicies.length >= 2 && !inboundEditPolicyContext
 
@@ -288,14 +176,24 @@ export function EditPolicyHelloView({
   const [spentOfferIds, setSpentOfferIds] = useState<Set<string>>(() => new Set())
   const [messages, setMessages] = useState<HelloEditChatMessage[]>([])
   const [composerText, setComposerText] = useState("")
-  const [workflowActive, setWorkflowActive] = useState(false)
-  const [activeWorkflowEditKind, setActiveWorkflowEditKind] = useState<EndorsementEditKind | null>(null)
+  const [editPolicyWorkflow, setEditPolicyWorkflow] = useState<{
+    policy: Policy
+    editKind: EndorsementEditKind
+  } | null>(null)
   const [selfServeStepsActive, setSelfServeStepsActive] = useState(false)
+  const [selfServeStepsType, setSelfServeStepsType] = useState<"edit_policy" | null>(null)
   const [selfServeStepsEditKind, setSelfServeStepsEditKind] = useState<EndorsementEditKind | null>(null)
   const policyDetailPane = useHelloPolicyDetailPane()
-  const [workflowShimmerPhase, setWorkflowShimmerPhase] = useState<"hidden" | "show" | "hide">(
-    "hidden",
+  const [policyDetailSubview, setPolicyDetailSubview] = useState<"detail" | "endorsements">("detail")
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(true)
+  const [rightSidebarActiveSection, setRightSidebarActiveSection] = useState<
+    "manual-actions" | "ai" | null
+  >(null)
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(() =>
+    Math.round(window.innerWidth * 0.3),
   )
+  const [isManualMode, setIsManualMode] = useState(false)
+  const [showSkeletonLoader, setShowSkeletonLoader] = useState(false)
   const [replyTyping, setReplyTyping] = useState(false)
 
   // Unknown reason case - dynamic suggestions
@@ -307,15 +205,10 @@ export function EditPolicyHelloView({
   }, [isUnknownReasonCase, composerText])
 
   const editPolicySuccessPushedRef = useRef(false)
-  const ribbonAckCleanupRef = useRef<(() => void) | null>(null)
+  const prevEditPolicyWorkflowRef = useRef<typeof editPolicyWorkflow>(null)
 
-  const [extraRibbonPane, setExtraRibbonPane] = useState<
-    | null
-    | { kind: "non_policy"; action: HelloProfileNonPolicyRibbonActionId }
-    | { kind: "raise_claim_stub"; policyLabel: string }
-  >(null)
-
-  const rightPaneSplit = workflowActive || policyDetailPane.isOpen || extraRibbonPane !== null || selfServeStepsActive
+  /** Workflows render in the right sidebar (same shell as Raise Claim / Claim Status). */
+  const rightPaneSplit = false
 
   const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
   const readMs = HELLO_SELF_SERVE_READ_PAUSE_MS
@@ -327,6 +220,37 @@ export function EditPolicyHelloView({
   const pushAssistant = (body: HelloEditAssistantBody) => {
     const id = `hello-edit-a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     setMessages((prev) => [...prev, { id, role: "assistant", body }])
+  }
+
+  const openEditPolicyInSidebar = (policy: Policy, kind: EndorsementEditKind) => {
+    policyDetailPane.close()
+    setEditPolicyWorkflow({ policy, editKind: kind })
+    setRightSidebarCollapsed(false)
+    setRightSidebarActiveSection("ai")
+  }
+
+  const handleRightSidebarToggle = () => {
+    setRightSidebarCollapsed(!rightSidebarCollapsed)
+    if (
+      rightSidebarCollapsed &&
+      (editPolicyWorkflow || selfServeStepsActive || policyDetailPane.isOpen)
+    ) {
+      setRightSidebarActiveSection("ai")
+    }
+  }
+
+  const handleRightSidebarSectionChange = (section: "manual-actions" | "ai" | null) => {
+    setRightSidebarActiveSection(section)
+  }
+
+  const handleModeToggle = () => {
+    setShowSkeletonLoader(true)
+    setRightSidebarCollapsed(false)
+    window.setTimeout(() => {
+      setIsManualMode(!isManualMode)
+      setShowSkeletonLoader(false)
+      setRightSidebarActiveSection(!isManualMode ? "manual-actions" : "ai")
+    }, 2000)
   }
 
   /** After policy is chosen (multi-policy opening): typing → “what to edit” radios. */
@@ -394,36 +318,12 @@ export function EditPolicyHelloView({
     }
   }, [needsPolicyPick, typingMs, inboundEditPolicyContext, isUnknownReasonCase])
 
-  useEffect(() => () => {
-    ribbonAckCleanupRef.current?.()
-    ribbonAckCleanupRef.current = null
-  }, [])
-
-  const prevWorkflowActiveRef = useRef(false)
   useEffect(() => {
-    if (workflowActive && !prevWorkflowActiveRef.current) {
+    if (editPolicyWorkflow && !prevEditPolicyWorkflowRef.current) {
       editPolicySuccessPushedRef.current = false
     }
-    prevWorkflowActiveRef.current = workflowActive
-  }, [workflowActive])
-
-  useEffect(() => {
-    if (!workflowActive) {
-      setWorkflowShimmerPhase("hidden")
-      return
-    }
-    setWorkflowShimmerPhase("show")
-    const toHide = window.setTimeout(() => {
-      setWorkflowShimmerPhase("hide")
-    }, HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS)
-    const toRemove = window.setTimeout(() => {
-      setWorkflowShimmerPhase("hidden")
-    }, HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS + HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS)
-    return () => {
-      window.clearTimeout(toHide)
-      window.clearTimeout(toRemove)
-    }
-  }, [workflowActive])
+    prevEditPolicyWorkflowRef.current = editPolicyWorkflow
+  }, [editPolicyWorkflow])
 
   useEffect(() => {
     const el = listRef.current
@@ -438,11 +338,9 @@ export function EditPolicyHelloView({
     openingModePickVisible,
     messages,
     spentOfferIds,
-    workflowActive,
+    editPolicyWorkflow,
     policyDetailPane.pane,
     replyTyping,
-    workflowShimmerPhase,
-    extraRibbonPane,
     selfServeStepsActive,
   ])
 
@@ -475,11 +373,18 @@ export function EditPolicyHelloView({
       return
     }
 
+    if (actionKey === "view_details" || actionKey === "share_policy_document") {
+      setEditPolicyWorkflow(null)
+      policyDetailPane.open(policy)
+      setRightSidebarCollapsed(false)
+      setRightSidebarActiveSection("ai")
+      return
+    }
+
     if (actionKey === "edit_policy") {
       setSelectedPolicy(policy)
       setComposerEditFlowKind(null)
-      setWorkflowActive(false)
-      setActiveWorkflowEditKind(null)
+      setEditPolicyWorkflow(null)
       policyDetailPane.close()
       window.setTimeout(() => {
         setReplyTyping(true)
@@ -571,10 +476,12 @@ export function EditPolicyHelloView({
             pushAssistant({ kind: "text", text: "Opening the customer steps guide on the right." })
             window.setTimeout(() => {
               policyDetailPane.close()
-              setWorkflowActive(false)
-              setActiveWorkflowEditKind(null)
+              setEditPolicyWorkflow(null)
+              setSelfServeStepsType("edit_policy")
               setSelfServeStepsEditKind(kind)
               setSelfServeStepsActive(true)
+              setRightSidebarCollapsed(false)
+              setRightSidebarActiveSection("ai")
             }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, typingMs)
         }, readMs)
@@ -593,9 +500,7 @@ export function EditPolicyHelloView({
             setReplyTyping(false)
             pushAssistant({ kind: "text", text: helloEditPolicyPolicyholderNameRcTellCustomer })
             window.setTimeout(() => {
-              policyDetailPane.close()
-              setActiveWorkflowEditKind(kind)
-              setWorkflowActive(true)
+              openEditPolicyInSidebar(workflowPolicy, kind)
             }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
           }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
         }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
@@ -613,9 +518,7 @@ export function EditPolicyHelloView({
           setReplyTyping(false)
           pushAssistant({ kind: "text", text: advisorScript })
             window.setTimeout(() => {
-              policyDetailPane.close()
-              setActiveWorkflowEditKind(kind)
-              setWorkflowActive(true)
+              openEditPolicyInSidebar(workflowPolicy, kind)
             }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
         }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
       }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
@@ -764,9 +667,10 @@ export function EditPolicyHelloView({
     if (editPolicySuccessPushedRef.current) return
     editPolicySuccessPushedRef.current = true
     window.setTimeout(() => {
-      setWorkflowActive(false)
-      setActiveWorkflowEditKind(null)
+      setEditPolicyWorkflow(null)
       policyDetailPane.close()
+      setRightSidebarCollapsed(true)
+      setRightSidebarActiveSection(null)
       setReplyTyping(true)
       window.setTimeout(() => {
         setReplyTyping(false)
@@ -990,12 +894,6 @@ export function EditPolicyHelloView({
       </div>
     )
   }
-
-  const workflowPaneShellClass =
-    "overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_2px_4px_2px_rgba(54,53,76,0.04)] motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out"
-
-  const splitShellTransitionClass =
-    "motion-safe:lg:transition-all motion-safe:lg:duration-700 motion-safe:lg:ease-in-out"
 
   const policyPickOptions = pickablePolicies.map((p) => ({
     key: p.id,
@@ -1275,219 +1173,94 @@ export function EditPolicyHelloView({
     <div
       data-omni-ai-surface="hello-edit-policy"
       className={cn(
-        "relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#fafafa]",
+        "relative flex h-full min-h-0 w-full overflow-hidden bg-[#fafafa]",
         className,
       )}
       aria-label="Edit Policy — Hello view"
     >
-      <HelloCustomerProfileBar
+      <CustomerProfileSidebar
         customer={customer}
         activePolicies={pickablePolicies}
         inactivePolicies={inactivePolicies}
-        onActivePolicyRibbonAction={(policy, action) => {
-          ribbonAckCleanupRef.current?.()
-          setSelectedPolicy(policy)
-          ribbonAckCleanupRef.current = scheduleHelloProfileRibbonAckSequence({
-            setTyping: setReplyTyping,
-            appendAck: () => {
-              pushAssistant({ kind: "text", text: helloProfileRibbonPolicyAckMessage(policy, action) })
-            },
-            thenOpen: () => {
-              setExtraRibbonPane(null)
-              if (action === "view_details" || action === "share_policy_document") {
-                setWorkflowActive(false)
-                setActiveWorkflowEditKind(null)
-                policyDetailPane.open(policy)
-                return
-              }
-              if (action === "edit_policy") {
-                policyDetailPane.close()
-                setActiveWorkflowEditKind(HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND)
-                setWorkflowActive(true)
-                return
-              }
-              if (action === "raise_claim") {
-                policyDetailPane.close()
-                setWorkflowActive(false)
-                setActiveWorkflowEditKind(null)
-                setExtraRibbonPane({
-                  kind: "raise_claim_stub",
-                  policyLabel: helloProfileRibbonPolicyDisplayName(policy),
-                })
-              }
-            },
-          })
-        }}
-        onNonPolicyRibbonAction={(action) => {
-          ribbonAckCleanupRef.current?.()
-          ribbonAckCleanupRef.current = scheduleHelloProfileRibbonAckSequence({
-            setTyping: setReplyTyping,
-            appendAck: () => {
-              pushAssistant({ kind: "text", text: helloProfileNonPolicyRibbonAckMessage(action) })
-            },
-            thenOpen: () => {
-              setWorkflowActive(false)
-              setActiveWorkflowEditKind(null)
-              policyDetailPane.close()
-              setExtraRibbonPane({ kind: "non_policy", action })
-            },
-          })
-        }}
+        emptyActivePoliciesMessage={
+          isUnknownReasonCase && pickablePolicies.length === 0
+            ? "Policies are hidden until you identify the customer. Demo: set lookup to 1234 in the header."
+            : undefined
+        }
       />
 
-      <div
-        className={cn(
-          "relative flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden px-[40px] pt-5 pb-5 lg:pb-6",
-          "lg:grid lg:grid-rows-1 lg:items-stretch",
-          rightPaneSplit
-            ? "lg:grid-cols-[minmax(0,46%)_minmax(0,54%)] lg:gap-5"
-            : "lg:grid-cols-[minmax(0,1fr)_minmax(0,0fr)] lg:gap-0",
-          splitShellTransitionClass,
-        )}
-      >
-        <HelloChatColumnBackground />
-        {aiCompanionColumn}
-        <div
-          className={cn(
-            "relative z-10 min-h-0 min-w-0 overflow-hidden",
-            rightPaneSplit ? "flex min-h-0 flex-1 flex-col lg:h-full" : "contents lg:block",
-          )}
-        >
-          {policyDetailForPane ? (
-            <div
-              className={cn(
-                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
-              )}
-            >
-              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e7e7f0] bg-white px-4 py-3 lg:px-5">
-                <div className="min-w-0 flex-1 pr-2">
-                  <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
-                    Policy details
-                  </p>
-                  <p
-                    className="mt-0.5 truncate font-euclid text-[14px] font-semibold leading-5 text-[#040222]"
-                    title={policyDetailTitleForAria ?? undefined}
-                  >
-                    {policyDetailHead?.product}
-                    {policyDetailHead?.number ? (
-                      <span className="font-normal text-[#5b5675]"> · {policyDetailHead.number}</span>
-                    ) : null}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => policyDetailPane.close()}
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-                  aria-label={`Close policy details for ${policyDetailTitleForAria ?? "policy"}`}
-                >
-                  <X className="size-5" aria-hidden />
-                </button>
-              </div>
-              <div
-                ref={workflowPaneScrollRef}
-                className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
-              >
-                {policyDetailLoading ? (
-                  <HelloPolicyDetailPanelSkeleton embedded />
-                ) : (
-                  <PolicyDetailPanel variant="embedded" policy={policyDetailForPane} />
-                )}
-              </div>
+      {showSkeletonLoader ? (
+        <div className="flex flex-1 items-center justify-center bg-[#fafafa]">
+          <div className="w-full max-w-2xl animate-pulse space-y-4 px-8">
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+              <div className="mb-4 h-6 w-2/3 rounded bg-gray-200" />
+              <div className="mb-3 h-4 w-full rounded bg-gray-200" />
+              <div className="mb-3 h-4 w-4/5 rounded bg-gray-200" />
+              <div className="h-4 w-3/5 rounded bg-gray-200" />
             </div>
-          ) : workflowActive && activeWorkflowEditKind ? (
-            <div
-              className={cn(
-                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
-              )}
-            >
-              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div
-                  ref={workflowPaneScrollRef}
-                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
-                >
-                  <EditPolicyWorkflowPanel
-                    key={`hello-edit-policy-${workflowPolicy.id}-${activeWorkflowEditKind}`}
-                    customer={customer}
-                    policy={workflowPolicy}
-                    editKind={activeWorkflowEditKind}
-                    scrollContainerRef={workflowPaneScrollRef}
-                    onClose={() => {
-                      setWorkflowActive(false)
-                      setActiveWorkflowEditKind(null)
-                    }}
-                    onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
-                  />
-                </div>
-                {workflowShimmerPhase !== "hidden" ? (
-                  <WorkflowPaneShimmerOverlay
-                    exiting={workflowShimmerPhase === "hide"}
-                    fadeMs={HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS}
-                  />
-                ) : null}
-              </div>
-            </div>
-          ) : selfServeStepsActive && selfServeStepsEditKind ? (
-            <div
-              className={cn(
-                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
-              )}
-            >
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5">
-                <SelfServeStepsPanel
-                  editKind={selfServeStepsEditKind}
-                  onCancel={() => {
-                    setSelfServeStepsActive(false)
-                    setSelfServeStepsEditKind(null)
-                  }}
-                  onDone={() => {
-                    setSelfServeStepsActive(false)
-                    setSelfServeStepsEditKind(null)
-                    // Add success message to chat
-                    window.setTimeout(() => {
-                      setReplyTyping(true)
-                      window.setTimeout(() => {
-                        setReplyTyping(false)
-                        pushAssistant({ 
-                          kind: "text", 
-                          text: "Steps shared with customer successfully. They can now proceed with the edit policy process using the guidance provided." 
-                        })
-                      }, 800) // Typing delay
-                    }, 300) // Brief pause before typing starts
-                  }}
-                />
-              </div>
-            </div>
-          ) : extraRibbonPane ? (
-            <div
-              className={cn(
-                "relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                workflowPaneShellClass,
-              )}
-            >
-              <HelloRibbonBlankSplitPane
-                title={
-                  extraRibbonPane.kind === "raise_claim_stub"
-                    ? "Raise a claim"
-                    : helloProfileNonPolicyRibbonActionLabel(extraRibbonPane.action)
-                }
-                subtitle={
-                  extraRibbonPane.kind === "raise_claim_stub" ? extraRibbonPane.policyLabel : null
-                }
-                onCancel={() => {
-                  ribbonAckCleanupRef.current?.()
-                  ribbonAckCleanupRef.current = null
-                  setExtraRibbonPane(null)
-                }}
-              />
-            </div>
-          ) : (
-            <div className="relative z-10 hidden min-h-0 min-w-0 lg:block" aria-hidden />
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {!isManualMode && (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div
+                className={cn(
+                  "relative flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden px-[40px] pt-5 pb-5 lg:pb-6",
+                  "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0fr)] lg:grid-rows-1 lg:items-stretch lg:gap-0",
+                  helloSplitShellTransitionClass,
+                )}
+              >
+                <HelloChatColumnBackground />
+                {aiCompanionColumn}
+                <div className="relative z-10 hidden min-h-0 min-w-0 overflow-hidden lg:block" aria-hidden />
+              </div>
+            </div>
+          )}
+
+          <RightSidebar
+            isCollapsed={rightSidebarCollapsed}
+            isOpen={!rightSidebarCollapsed}
+            onToggle={handleRightSidebarToggle}
+            activeSection={rightSidebarActiveSection}
+            onSectionChange={handleRightSidebarSectionChange}
+            width={rightSidebarWidth}
+            onWidthChange={setRightSidebarWidth}
+            isManualMode={isManualMode}
+            onModeToggle={handleModeToggle}
+            workflowActive={false}
+            editPolicyWorkflow={editPolicyWorkflow}
+            customer={customer}
+            displayPhone={displayPhone}
+            selfServeStepsActive={selfServeStepsActive}
+            selfServeStepsType={selfServeStepsType}
+            policyDetailForPane={policyDetailForPane}
+            customerPolicies={pickablePolicies}
+            onEditPolicyWorkflowClose={() => setEditPolicyWorkflow(null)}
+            onSelfServeStepsClose={() => {
+              setSelfServeStepsActive(false)
+              setSelfServeStepsType(null)
+              setSelfServeStepsEditKind(null)
+            }}
+            onPolicyDetailClose={() => policyDetailPane.close()}
+            onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
+            onCTAPressed={(action, policy) => {
+              if (action === "edit_policy") {
+                openEditPolicyInSidebar(policy, HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND)
+                return
+              }
+              if (action === "view_details" || action === "share_policy_document") {
+                setEditPolicyWorkflow(null)
+                policyDetailPane.open(policy)
+                setRightSidebarCollapsed(false)
+                setRightSidebarActiveSection("ai")
+              }
+            }}
+            policyDetailSubview={policyDetailSubview}
+            onPolicyDetailViewChange={setPolicyDetailSubview}
+          />
+        </>
+      )}
     </div>
   )
 }

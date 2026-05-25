@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
-import { MessageCircle, Pause, Sparkles, User, Volume2, X } from "lucide-react"
+import { Pause, Sparkles, User, Volume2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -8,24 +8,15 @@ import {
   playMp3ArrayBuffer,
 } from "@/lib/elevenLabsLiveListeningTts"
 import type { Customer, EndorsementEditKind, InactivePolicy, Policy } from "@/types/crm"
-import { AIChatPanel, type AIChatCaseContext } from "@/components/crm/AIChatPanel"
-import { HelloCustomerProfileBar } from "@/components/crm/hello/HelloCustomerProfileBar"
-import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
-import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
+import { CustomerProfileSidebar } from "@/components/crm/hello/CustomerProfileSidebar"
+import { RightSidebar } from "@/components/crm/hello/RightSidebar"
+import { useHelloRightSidebarState } from "@/components/crm/hello/useHelloRightSidebarState"
 import {
   HelloChatColumnBackground,
-  WorkflowPaneShimmerOverlay,
-  helloWorkflowPaneShellClass,
+  helloSplitShellTransitionClass,
 } from "@/components/crm/hello/HelloChatPrimitives"
-import {
-  HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS,
-  HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS,
-  HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS,
-  helloRaiseClaimVehicleLabel,
-  helloWorkflowPaneTitle,
-} from "@/components/crm/hello/helloRaiseClaimCopy"
-import { helloEditWorkflowPaneTitle } from "@/components/crm/hello/helloEditPolicyCopy"
-import { rajKapoorRaiseClaimNexonJtbd } from "@/data/mockCustomers"
+import { HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS, helloRaiseClaimVehicleLabel } from "@/components/crm/hello/helloRaiseClaimCopy"
+import { HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND } from "@/components/crm/hello/helloEditPolicyCopy"
 
 /** Index in {@link LIVE_TRANSCRIPT_PRE_CLAIM_LINES} — AI surfaces Raise claim after this Raj line. */
 const LIVE_TRANSCRIPT_RAISE_CLAIM_HINT_INDEX = 1
@@ -222,8 +213,6 @@ export type LiveListeningRaiseClaimHelloViewProps = {
 
 type LiveTranscriptLine = { id: string; speaker: "raj" | "cx"; text: string }
 
-type CenterPaneKind = "raise_claim" | "edit_policy"
-
 export function LiveListeningRaiseClaimHelloView({
   customer,
   raiseClaimPolicy,
@@ -234,8 +223,8 @@ export function LiveListeningRaiseClaimHelloView({
   className,
 }: LiveListeningRaiseClaimHelloViewProps) {
   const typingStatusId = useId()
-  const workflowPaneScrollRef = useRef<HTMLDivElement>(null)
   const transcriptScrollRef = useRef<HTMLDivElement>(null)
+  const sidebar = useHelloRightSidebarState()
   const postClaimTranscriptGenRef = useRef(0)
   /** Matches `callSimFollowing` — initialized true so the first transcript lines hear correct ref before effects run. */
   const callSimFollowingRef = useRef(true)
@@ -249,18 +238,16 @@ export function LiveListeningRaiseClaimHelloView({
 
   const [transcript, setTranscript] = useState<LiveTranscriptLine[]>([])
   const [typingSide, setTypingSide] = useState<"raj" | "cx" | null>(null)
-  const [aiCompanionOpen, setAiCompanionOpen] = useState(false)
-  const [aiCompanionHydrated, setAiCompanionHydrated] = useState(false)
   const [raiseClaimSuggestionVisible, setRaiseClaimSuggestionVisible] = useState(false)
   const [editPolicySuggestionVisible, setEditPolicySuggestionVisible] = useState(false)
-  const [activeCenterPane, setActiveCenterPane] = useState<CenterPaneKind | null>(null)
+  const [raiseClaimWorkflowActive, setRaiseClaimWorkflowActive] = useState(false)
+  const [editPolicyWorkflow, setEditPolicyWorkflow] = useState<{
+    policy: Policy
+    editKind: EndorsementEditKind
+  } | null>(null)
   const [claimWorkflowDemoCompleted, setClaimWorkflowDemoCompleted] = useState(false)
-  const [workflowShimmerPhase, setWorkflowShimmerPhase] = useState<"hidden" | "show" | "hide">(
-    "hidden",
-  )
 
   const vehicleLabel = helloRaiseClaimVehicleLabel(raiseClaimPolicy)
-  const raiseClaimPaneTitle = helloWorkflowPaneTitle(vehicleLabel)
 
   const healthEditPolicy = useMemo(() => {
     return (
@@ -276,61 +263,22 @@ export function LiveListeningRaiseClaimHelloView({
     healthEditPolicy.type ||
     "Health policy"
 
-  const editPolicyPaneTitle = helloEditWorkflowPaneTitle(healthPolicyPaneLabel)
+  const openRaiseClaimInSidebar = useCallback(() => {
+    setRaiseClaimSuggestionVisible(false)
+    setEditPolicyWorkflow(null)
+    setRaiseClaimWorkflowActive(true)
+    sidebar.openAiSidebar()
+  }, [sidebar])
 
-  const chatCaseContext = useMemo((): AIChatCaseContext => {
-    return {
-      jtbdLabel: rajKapoorRaiseClaimNexonJtbd.title,
-      vehicle: rajKapoorRaiseClaimNexonJtbd.vehicle,
-      jtbdType: "claim",
-      policyNumber: raiseClaimPolicy.policyNumber,
-    }
-  }, [raiseClaimPolicy.policyNumber])
-
-  const workflowChatContext = useMemo(
-    () => ({
-      customerName: customer.name,
-      activePolicies,
-      callContextVehicle: customer.callContext.vehicle,
-      ongoingRaiseClaimWorkflowPresent: activeCenterPane === "raise_claim",
-    }),
-    [customer.name, activePolicies, customer.callContext.vehicle, activeCenterPane],
-  )
-
-  const handleCrmFlowFromChat = useCallback((action: FlowActionValue) => {
-    if (action === "raise_claim") {
-      setRaiseClaimSuggestionVisible(false)
-      setActiveCenterPane("raise_claim")
-      return
-    }
-    if (action === "advisor_ui" || action === "endorsements") {
-      setEditPolicySuggestionVisible(false)
-      setActiveCenterPane("edit_policy")
-    }
-  }, [])
-
-  useEffect(() => {
-    if (activeCenterPane === "raise_claim") setRaiseClaimSuggestionVisible(false)
-    if (activeCenterPane === "edit_policy") setEditPolicySuggestionVisible(false)
-  }, [activeCenterPane])
-
-  useEffect(() => {
-    if (!activeCenterPane) {
-      setWorkflowShimmerPhase("hidden")
-      return
-    }
-    setWorkflowShimmerPhase("show")
-    const toHide = window.setTimeout(() => {
-      setWorkflowShimmerPhase("hide")
-    }, HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS)
-    const toRemove = window.setTimeout(() => {
-      setWorkflowShimmerPhase("hidden")
-    }, HELLO_WORKFLOW_PANE_SHIMMER_HOLD_MS + HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS)
-    return () => {
-      window.clearTimeout(toHide)
-      window.clearTimeout(toRemove)
-    }
-  }, [activeCenterPane])
+  const openEditPolicyInSidebar = useCallback(() => {
+    setEditPolicySuggestionVisible(false)
+    setRaiseClaimWorkflowActive(false)
+    setEditPolicyWorkflow({
+      policy: healthEditPolicy,
+      editKind: LIVE_LISTENING_HEALTH_EDIT_KIND,
+    })
+    sidebar.openAiSidebar()
+  }, [healthEditPolicy, sidebar])
 
   useEffect(() => {
     const el = transcriptScrollRef.current
@@ -487,7 +435,7 @@ export function LiveListeningRaiseClaimHelloView({
   const handleRaiseClaimWorkflowComplete = useCallback(() => {
     onHelloToast?.("Claim raised — workspace will close (demo).")
     window.setTimeout(() => {
-      setActiveCenterPane(null)
+      setRaiseClaimWorkflowActive(false)
       setClaimWorkflowDemoCompleted(true)
     }, HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS)
   }, [onHelloToast])
@@ -495,7 +443,7 @@ export function LiveListeningRaiseClaimHelloView({
   const handleEditPolicyWorkflowComplete = useCallback(() => {
     onHelloToast?.("Edit policy workflow submitted (demo).")
     window.setTimeout(() => {
-      setActiveCenterPane(null)
+      setEditPolicyWorkflow(null)
     }, HELLO_FNOL_SUCCESS_BEFORE_COLLAPSE_MS)
   }, [onHelloToast])
 
@@ -686,10 +634,7 @@ export function LiveListeningRaiseClaimHelloView({
                     <button
                       type="button"
                       className="mt-4 inline-flex h-11 w-auto shrink-0 self-start items-center justify-center rounded-lg border border-[#5920c5] bg-white px-4 font-euclid text-[14px] font-medium text-[#5920c5] shadow-[0px_5px_2px_rgba(18,18,18,0.04)] transition-colors hover:bg-[#faf8ff]"
-                      onClick={() => {
-                        setRaiseClaimSuggestionVisible(false)
-                        setActiveCenterPane("raise_claim")
-                      }}
+                      onClick={openRaiseClaimInSidebar}
                     >
                       Open Raise claim
                     </button>
@@ -705,10 +650,7 @@ export function LiveListeningRaiseClaimHelloView({
                     <button
                       type="button"
                       className="mt-4 inline-flex h-11 w-auto shrink-0 self-start items-center justify-center rounded-lg border border-[#5920c5] bg-white px-4 font-euclid text-[14px] font-medium text-[#5920c5] shadow-[0px_5px_2px_rgba(18,18,18,0.04)] transition-colors hover:bg-[#faf8ff]"
-                      onClick={() => {
-                        setEditPolicySuggestionVisible(false)
-                        setActiveCenterPane("edit_policy")
-                      }}
+                      onClick={openEditPolicyInSidebar}
                     >
                       Open Edit policy
                     </button>
@@ -722,195 +664,87 @@ export function LiveListeningRaiseClaimHelloView({
     </div>
   )
 
-  const centerWorkspace = (
-    <div
-      className={cn(
-        "relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-hidden",
-        helloWorkflowPaneShellClass,
-      )}
-    >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e7e7f0] bg-white px-4 py-3 lg:px-5">
-        <p className="min-w-0 truncate font-euclid text-[14px] font-semibold leading-5 text-[#040222]">
-          {activeCenterPane === "raise_claim"
-            ? raiseClaimPaneTitle
-            : activeCenterPane === "edit_policy"
-              ? editPolicyPaneTitle
-              : "Workspace"}
-        </p>
-        {activeCenterPane ? (
-          <button
-            type="button"
-            onClick={() => setActiveCenterPane(null)}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-            aria-label="Close workspace"
-          >
-            <X className="size-5" aria-hidden />
-          </button>
-        ) : null}
-      </div>
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-        {activeCenterPane ? (
-          <div
-            ref={workflowPaneScrollRef}
-            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable] lg:p-5"
-          >
-            {activeCenterPane === "raise_claim" ? (
-              <RaiseClaimWorkflowPanel
-                key="hello-live-listening-raise-claim"
-                customer={customer}
-                policy={raiseClaimPolicy}
-                scrollContainerRef={workflowPaneScrollRef}
-                showPanelHeader={false}
-                onRcEmailSent={handleRcEmailSentFromWorkflow}
-                onFnolComplete={handleRaiseClaimWorkflowComplete}
-                onClose={() => setActiveCenterPane(null)}
-              />
-            ) : (
-              <EditPolicyWorkflowPanel
-                key={`hello-live-listening-edit-policy-${healthEditPolicy.id}-${LIVE_LISTENING_HEALTH_EDIT_KIND}`}
-                customer={customer}
-                policy={healthEditPolicy}
-                editKind={LIVE_LISTENING_HEALTH_EDIT_KIND}
-                scrollContainerRef={workflowPaneScrollRef}
-                showPanelHeader={false}
-                onRcEmailSent={handleRcEmailSentFromWorkflow}
-                onClose={() => setActiveCenterPane(null)}
-                onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
-              />
-            )}
-          </div>
-        ) : (
-          <div className="flex min-h-[min(200px,32vh)] flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-            <p className="font-euclid text-[14px] font-semibold text-[#36354c]">No action open</p>
-            <p className="max-w-sm font-euclid text-[13px] leading-5 text-[#5b5675]">
-              Use <span className="font-medium text-[#36354c]">AI Suggested actions</span> under Live listening, or tap
-              the <span className="font-medium text-[#36354c]">floating AI Companion</span> — both can open Raise claim
-              or Edit policy here.
-            </p>
-          </div>
-        )}
-        {workflowShimmerPhase !== "hidden" && activeCenterPane ? (
-          <WorkflowPaneShimmerOverlay
-            exiting={workflowShimmerPhase === "hide"}
-            fadeMs={HELLO_WORKFLOW_PANE_SHIMMER_FADE_MS}
-          />
-        ) : null}
-      </div>
-    </div>
-  )
-
-  const aiCompanionFabAndPanel = (
-    <>
-      <button
-        type="button"
-        className={cn(
-          "fixed bottom-6 right-6 z-[90] flex size-14 items-center justify-center rounded-full shadow-[0_8px_28px_rgba(92,50,201,0.35)] ring-2 ring-white/90 transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1] focus-visible:ring-offset-2 sm:bottom-8 sm:right-10",
-          aiCompanionOpen ? "bg-[#5a32c9]" : "bg-gradient-to-br from-[#7c47e1] to-[#5a32c9]",
-        )}
-        aria-label={aiCompanionOpen ? "Close AI Companion" : "Open AI Companion"}
-        aria-expanded={aiCompanionOpen}
-        onClick={() => {
-          setAiCompanionHydrated(true)
-          setAiCompanionOpen((o) => !o)
-        }}
-      >
-        <MessageCircle className="size-6 text-white" strokeWidth={2} aria-hidden />
-      </button>
-
-      {aiCompanionHydrated ? (
-        <div
-          className={cn(
-            "fixed bottom-24 right-6 z-[100] flex h-[min(72vh,620px)] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-[#e7e7f0] bg-white shadow-[0_12px_48px_rgba(28,11,62,0.18)] transition-[opacity,transform] duration-200 ease-out sm:bottom-28 sm:right-10",
-            aiCompanionOpen
-              ? "pointer-events-auto translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-2 opacity-0",
-          )}
-          aria-hidden={!aiCompanionOpen}
-        >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#ececf2] bg-white px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
-                <img
-                  src="/icons/ai-companion-header.png"
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="size-8 object-cover"
-                />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-euclid text-[13px] font-semibold leading-5 text-[#2c2067]">
-                  AI Companion
-                </p>
-                <p className="truncate font-euclid text-[11px] leading-4 text-[#6c6c80]">Crisp answers for this case</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#5b5675] transition-colors hover:bg-[#f4f4f6] hover:text-[#040222] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"
-              aria-label="Close AI Companion"
-              onClick={() => setAiCompanionOpen(false)}
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <AIChatPanel
-              key={`live-listening-ai-${customer.id}`}
-              hideHeader
-              isActive={aiCompanionOpen}
-              botReplyDelayMs={1650}
-              chatMockCase="raj_live_listening_raise_claim"
-              activeJtbdType="claim"
-              caseContext={chatCaseContext}
-              contextualWelcomeText={
-                "You’re on a **live call** with the customer. Ask for timelines (e.g. KYC), SOP hints, or say **raise a claim** / **edit policy** to open the **center** workspace."
-              }
-              workflowChatContext={workflowChatContext}
-              onChatRaiseClaimWorkflowCreated={() => setActiveCenterPane("raise_claim")}
-              onChatEndorsementWorkflowCreated={() => setActiveCenterPane("edit_policy")}
-            />
-          </div>
-        </div>
-      ) : null}
-    </>
-  )
-
   return (
     <div
       data-omni-ai-surface="hello-live-listening-raise-claim"
       className={cn(
-        "relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#fafafa]",
+        "relative flex h-full min-h-0 w-full overflow-hidden bg-[#fafafa]",
         className,
       )}
-      aria-label="Live listening — workspace and AI companion"
+      aria-label="Live listening — Hello CRM view"
     >
-      <HelloCustomerProfileBar
+      <CustomerProfileSidebar
         customer={customer}
         activePolicies={activePolicies}
         inactivePolicies={inactivePolicies}
       />
 
-      <div className="relative flex min-h-0 w-full flex-1 flex-col gap-4 overflow-hidden px-[40px] pt-5 lg:min-h-0 pb-[calc(1.5rem+3.5rem+0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(2rem+3.5rem+0.75rem+env(safe-area-inset-bottom,0px))]">
-        <HelloChatColumnBackground />
-        {displayPhone ? <p className="sr-only">{`Lookup phone context: ${displayPhone}`}</p> : null}
-
-        <div
-          className={cn(
-            "relative z-10 grid min-h-0 w-full flex-1 gap-4",
-            "grid-cols-1",
-            activeCenterPane ? "lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]" : "lg:grid-cols-1",
-            "lg:grid-rows-1 lg:items-stretch",
-          )}
-        >
-          <div className="min-h-0 min-w-0 lg:overflow-hidden">{liveListeningRail}</div>
-          {activeCenterPane ? (
-            <div className="h-full min-h-0 min-w-0">{centerWorkspace}</div>
-          ) : null}
+      {sidebar.showSkeletonLoader ? (
+        <div className="flex flex-1 items-center justify-center bg-[#fafafa]">
+          <div className="h-48 w-full max-w-2xl animate-pulse rounded-xl bg-white shadow-sm" />
         </div>
+      ) : (
+        <>
+          {!sidebar.isManualMode && (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div
+                className={cn(
+                  "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden px-[40px] pt-5 pb-5 lg:pb-6",
+                  helloSplitShellTransitionClass,
+                )}
+              >
+                <HelloChatColumnBackground />
+                {displayPhone ? (
+                  <p className="sr-only">{`Lookup phone context: ${displayPhone}`}</p>
+                ) : null}
+                <div className="relative z-10 min-h-0 flex-1">{liveListeningRail}</div>
+              </div>
+            </div>
+          )}
 
-        {aiCompanionFabAndPanel}
-      </div>
+          <RightSidebar
+            isCollapsed={sidebar.rightSidebarCollapsed}
+            isOpen={!sidebar.rightSidebarCollapsed}
+            onToggle={sidebar.handleRightSidebarToggle}
+            activeSection={sidebar.rightSidebarActiveSection}
+            onSectionChange={sidebar.handleRightSidebarSectionChange}
+            width={sidebar.rightSidebarWidth}
+            onWidthChange={sidebar.setRightSidebarWidth}
+            isManualMode={sidebar.isManualMode}
+            onModeToggle={sidebar.handleModeToggle}
+            customer={customer}
+            displayPhone={displayPhone}
+            workflowActive={raiseClaimWorkflowActive}
+            claimWorkflowPolicy={raiseClaimWorkflowActive ? raiseClaimPolicy : null}
+            editPolicyWorkflow={editPolicyWorkflow}
+            customerPolicies={activePolicies}
+            onWorkflowClose={() => setRaiseClaimWorkflowActive(false)}
+            onEditPolicyWorkflowClose={() => setEditPolicyWorkflow(null)}
+            onFnolComplete={handleRaiseClaimWorkflowComplete}
+            onEditPolicyWorkflowComplete={handleEditPolicyWorkflowComplete}
+            onRcEmailSent={handleRcEmailSentFromWorkflow}
+            onCTAPressed={(action, policy) => {
+              if (action === "raise_claim") {
+                setRaiseClaimWorkflowActive(true)
+                setEditPolicyWorkflow(null)
+                sidebar.openAiSidebar()
+              }
+              if (action === "edit_policy") {
+                setRaiseClaimWorkflowActive(false)
+                setEditPolicyWorkflow({
+                  policy,
+                  editKind: HELLO_PROFILE_RIBBON_DEFAULT_EDIT_KIND,
+                })
+                sidebar.openAiSidebar()
+              }
+              if (action === "view_details" || action === "share_policy_document") {
+                sidebar.openAiSidebar()
+              }
+            }}
+            triggerManualAction={sidebar.manualActionTrigger}
+          />
+        </>
+      )}
     </div>
   )
 }

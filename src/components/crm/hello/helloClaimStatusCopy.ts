@@ -22,9 +22,21 @@ export const helloClaimStatusChoices: readonly {
 }[] = [
   { id: "escalate_f_ops", label: "Escalate to F-ops" },
   { id: "view_communication_history", label: "View Communication history" },
-  { id: "view_claim_status_timeline", label: "View claim status timeline" },
+  { id: "view_claim_status_timeline", label: "View claim status" },
   { id: "something_else", label: "Customer calling for something else." },
 ]
+
+/** UC9 — escalated repeat caller: two choices only (Figma 9203:23755). */
+export const helloClaimStatusEscalatedChoices: readonly {
+  id: HelloClaimStatusChoiceId
+  label: string
+}[] = [
+  { id: "view_claim_status_timeline", label: "View claim status" },
+  { id: "view_communication_history", label: "View communication history" },
+]
+
+export const helloFopsEscalationEscalatedSuccessQuotedLine =
+  "F-ops will chase finance for the delayed reimbursement and call the customer back with a payout date."
 
 export function claimStatusPreviousCxSummaryCopy(jtbd: JTBD): string {
   const raw =

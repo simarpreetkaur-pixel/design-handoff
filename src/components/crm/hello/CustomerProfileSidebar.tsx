@@ -1,12 +1,17 @@
 import { ChevronDown, Copy } from "lucide-react"
 import { useState } from "react"
+import type { SidebarActiveClaim } from "@/data/sidebarActiveClaim"
 import type { Customer, Policy, InactivePolicy } from "@/types/crm"
 import { cn } from "@/lib/utils"
+import {
+  SupportHistoryModal,
+  type SupportHistoryEntry,
+} from "@/components/crm/hello/SupportHistoryModal"
 
 // Asset constants - using local icons
 const profileIcon = "https://www.figma.com/api/mcp/asset/c19639ff-1d1a-479f-922d-07df8c54c2a3" // Keep original for now
 const relationshipIcon = "/icons/relationship.png"
-const messagesIcon = "/icons/messages.svg"
+const customerServiceIcon = "/icons/customer-service.png"
 const pendingIcon = "/icons/pending.png"
 const checkIcon = "/icons/verified.png"
 const carIcon = "/icons/car.png"
@@ -19,10 +24,101 @@ interface CustomerProfileSidebarProps {
   activePolicies: Policy[]
   inactivePolicies: InactivePolicy[]
   className?: string
+  /** Sidebar preview row; defaults to generic demo copy. */
+  supportHistoryPreview?: SupportHistoryEntry
+  /** Full list when “View conversations” is opened. */
+  supportHistoryEntries?: SupportHistoryEntry[]
+  /** Claim-status flows — Active Claim card below ACKO Relationship (Figma 9367:22470 / 9367:22418). */
+  activeClaim?: SidebarActiveClaim | null
+  /** When there are no active policies, show this instead of the default empty copy (e.g. unknown-reason unlock). */
+  emptyActivePoliciesMessage?: string
 }
 
 interface PolicyItemProps {
   policy: Policy
+}
+
+function ActiveClaimDetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex w-full items-start justify-between text-xs font-euclid leading-[18px]">
+      <span className="shrink-0 text-[#5b5675]">{label}</span>
+      <span className="min-w-0 max-w-[123px] text-right font-medium text-[#36354c]">{value}</span>
+    </div>
+  )
+}
+
+function ActiveClaimItem({ claim }: { claim: SidebarActiveClaim }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const showCallbackJewel = Boolean(claim.chCallSchedule?.trim())
+
+  const toggleExpanded = () => setIsExpanded((prev) => !prev)
+
+  return (
+    <div className="flex w-full flex-col gap-2 rounded-lg bg-[#f8f7fc] p-2">
+      <div
+        className="flex w-full cursor-pointer items-start justify-between"
+        onClick={toggleExpanded}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            toggleExpanded()
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+      >
+        <div className="flex min-w-0 flex-1 items-start gap-1">
+          <div className="flex shrink-0 items-center py-0.5">
+            <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+              <img alt="" className="block h-full w-full max-w-none object-contain" src={carIcon} />
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col items-start justify-center gap-1">
+            <div className="flex items-center gap-1">
+              <span className="font-euclid text-sm font-medium leading-5 text-[#36354c]">
+                {claim.vehicleName}
+              </span>
+              {showCallbackJewel ? (
+                <span
+                  className="h-3 w-3 shrink-0 rounded-[9px] border-[1.5px] border-white bg-[#e05752]"
+                  aria-label="Claim handler callback scheduled"
+                />
+              ) : null}
+            </div>
+            <p className="whitespace-pre font-euclid text-xs leading-[18px] text-[#5b5675]">
+              {`Claim ID:  ${claim.claimId}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center justify-center">
+          {isExpanded ? (
+            <div className="rotate-180">
+              <ChevronDown className="h-4 w-4 text-[#5b5675]" aria-hidden />
+            </div>
+          ) : (
+            <ChevronDown className="h-4 w-4 text-[#5b5675]" aria-hidden />
+          )}
+        </div>
+      </div>
+
+      {isExpanded ? (
+        <>
+          <div className="h-0 w-full border-t border-[#e7e7f0]" />
+          <div className="flex w-full flex-col gap-3">
+            {showCallbackJewel ? (
+              <ActiveClaimDetailRow label="CH call schedule" value={claim.chCallSchedule!.trim()} />
+            ) : null}
+            <ActiveClaimDetailRow label="Claim type" value={claim.claimType} />
+            <ActiveClaimDetailRow label="Claim date" value={claim.claimDate} />
+            <ActiveClaimDetailRow label="Policy holder" value={claim.policyHolder} />
+            <ActiveClaimDetailRow label="Policy" value={claim.policy} />
+            <ActiveClaimDetailRow label="Claim amount" value={claim.claimAmount} />
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
 }
 
 function PolicyItem({ policy }: PolicyItemProps) {
@@ -274,12 +370,32 @@ function PolicyItem({ policy }: PolicyItemProps) {
   )
 }
 
+const DEFAULT_SUPPORT_HISTORY_PREVIEW: SupportHistoryEntry = {
+  agent: "CX Anita",
+  timestamp: "45 days ago",
+  description:
+    "Customer called to check the claim status for their GMC Policy, for their mother's cataract operation",
+}
+
 export function CustomerProfileSidebar({
   customer,
   activePolicies,
   inactivePolicies,
   className,
+  supportHistoryPreview = DEFAULT_SUPPORT_HISTORY_PREVIEW,
+  supportHistoryEntries,
+  activeClaim,
+  emptyActivePoliciesMessage,
 }: CustomerProfileSidebarProps) {
+  const [supportHistoryModalOpen, setSupportHistoryModalOpen] = useState(false)
+
+  const handleViewConversations = () => {
+    setSupportHistoryModalOpen(true)
+  }
+
+  const handleCloseSupportHistory = () => {
+    setSupportHistoryModalOpen(false)
+  }
 
   // Format date of birth from customer data or use placeholder
   const formatDateOfBirth = (customer: Customer) => {
@@ -317,13 +433,22 @@ export function CustomerProfileSidebar({
   return (
     <div 
       className={cn(
-        "bg-white border-r border-[#e7e7f0] border-solid flex flex-col gap-4 items-start pb-14 pt-4 px-3 w-[298px] h-full overflow-y-auto",
+        "bg-white border-r border-[#e7e7f0] border-solid flex flex-col w-[298px] h-full",
         "shadow-[2px_0px_4px_rgba(0,0,0,0.09)]",
         className
       )}
     >
-      {/* Customer Details Section */}
-      <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full shrink-0">
+      {/* Conditional Content - Show Modal or Sidebar */}
+      {supportHistoryModalOpen ? (
+        <SupportHistoryModal
+          isOpen={supportHistoryModalOpen}
+          onClose={handleCloseSupportHistory}
+          entries={supportHistoryEntries}
+        />
+      ) : (
+        <div className="flex flex-col gap-4 items-start pb-14 pt-4 px-3 h-full overflow-y-auto">
+          {/* Customer Details Section */}
+          <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full shrink-0">
         {/* Section Header */}
         <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
           <div className="flex gap-1.5 items-center px-4 py-3.5">
@@ -437,24 +562,64 @@ export function CustomerProfileSidebar({
         </div>
       </div>
 
-      {/* Last support interaction — Figma node 9101:22138 */}
-      <div className="w-full rounded-[12px] border border-solid border-[#e7e7f0] bg-white p-4">
-        <div className="flex w-full flex-col items-start gap-[7px]">
-          <div className="flex items-start gap-1">
-            <div className="relative size-5 shrink-0 overflow-clip">
-              <img
-                alt=""
-                className="block size-full max-w-none object-contain"
-                src={messagesIcon}
-              />
+      {/* Active Claim — claim-status flows (Figma 9367:22470 / 9367:22418) */}
+      {activeClaim ? (
+        <div
+          className="flex w-full flex-col items-start gap-2.5 rounded-xl border border-solid border-[#e7e7f0] bg-white pb-4"
+          data-figma-ref="9367:22470"
+        >
+          <div className="h-12 w-full shrink-0 rounded-t-xl bg-[#f8f7fc]">
+            <div className="flex items-center gap-1.5 px-4 py-3.5">
+              <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+                <img
+                  alt=""
+                  className="block h-full w-full max-w-none object-contain"
+                  src={customerServiceIcon}
+                />
+              </div>
+              <div className="flex flex-col justify-center font-euclid text-xs font-medium leading-5 text-[#5b5675]">
+                ACTIVE CLAIM
+              </div>
             </div>
-            <p className="shrink-0 whitespace-nowrap font-euclid text-sm font-medium leading-5 text-[#5b5675]">
-              Support bot • 2 hours ago
-            </p>
           </div>
-          <p className="w-full font-euclid text-sm font-normal leading-5 text-[#5b5675]">
-            Rajesh enquired about how to raise a claim on support.
-          </p>
+          <div className="flex w-full flex-col items-start gap-3 px-3">
+            <ActiveClaimItem claim={activeClaim} />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Support History Section — Figma node 9207:24144 */}
+      <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
+        {/* Section Header */}
+        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
+          <div className="flex gap-1.5 items-center px-4 py-3.5">
+            <div className="overflow-hidden relative shrink-0 w-5 h-5">
+              <img alt="" className="block max-w-none w-full h-full object-contain" src={customerServiceIcon} />
+            </div>
+            <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
+              SUPPORT HISTORY
+            </div>
+          </div>
+        </div>
+
+        {/* Support History Content */}
+        <div className="flex flex-col gap-3 items-start px-3 w-full">
+          <div className="flex flex-col gap-1 w-full">
+            <div className="text-[#36354c] text-xs font-medium font-euclid leading-5">
+              {supportHistoryPreview.agent} • {supportHistoryPreview.timestamp}
+            </div>
+            <div className="text-[#5b5675] text-sm font-euclid leading-5">
+              {supportHistoryPreview.description}
+            </div>
+          </div>
+          
+          {/* View conversations link */}
+          <button 
+            onClick={handleViewConversations}
+            className="text-[#7c47e1] text-xs font-medium font-euclid leading-5 hover:underline"
+          >
+            View conversations
+          </button>
         </div>
       </div>
 
@@ -480,8 +645,8 @@ export function CustomerProfileSidebar({
             ))
           ) : (
             <div className="bg-[#f8f7fc] p-2 rounded-lg w-full">
-              <div className="text-[#5b5675] text-sm font-euclid">
-                No active policies
+              <div className="text-[#5b5675] text-sm font-euclid leading-5">
+                {emptyActivePoliciesMessage ?? "No active policies"}
               </div>
             </div>
           )}
@@ -531,6 +696,8 @@ export function CustomerProfileSidebar({
             ))}
           </div>
         </div>
+      )}
+      </div>
       )}
     </div>
   )

@@ -154,16 +154,12 @@ export function helloEditWorkflowPaneTitle(policyLabel: string): string {
   return `Edit Policy — ${policyLabel}`
 }
 
-/** Hello workflow accordion — step 2 title (after Request RC copy). */
+/** Hello workflow accordion — step 2 title (after Request Documents). */
 export const helloWorkflowStepEditPolicy = "Edit Policy"
 
-/** Shown on locked step 2 trigger until RC + licence request is approved. */
+/** Shown on locked Edit Policy step until requested documents are approved. */
 export const helloWorkflowStepEditPolicyLockedHint =
-  "Next step — opens after you approve the received RC and driving licence."
-
-/** One-line summary when Edit Policy workflow step 1 (Request RC) is collapsed after approval. */
-export const helloEditPolicyRequestRcCollapsedSummary =
-  "Request sent on WhatsApp — documents approved. Continue with Edit Policy below."
+  "Opens after you approve the documents received from the customer."
 
 export const helloEditPolicyWorkflowSuccessHeadline =
   "The policy update has been submitted successfully."

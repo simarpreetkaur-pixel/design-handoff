@@ -5,9 +5,11 @@ import { cn, scrollElementWithinContainer } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import type { Customer, Policy } from "@/types/crm"
 import { RaiseFnolPanel } from "@/components/crm/RaiseFnolPanel"
-import { RequestDocumentFigmaForm } from "@/components/crm/hello/RequestDocumentFigmaForm"
-import { RequestDocumentWorkflowFollowup } from "@/components/crm/RequestDocumentWorkflowFollowup"
-import { useRequestDocumentWorkflowStep } from "@/components/crm/useRequestDocumentWorkflowStep"
+import {
+  REQUEST_DOCUMENTS_STEP_ID,
+  RequestDocumentsAccordionStep,
+  useRequestDocumentsWorkflow,
+} from "@/components/crm/hello/RequestDocumentsAccordionStep"
 import {
   Accordion,
   AccordionContent,
@@ -42,7 +44,6 @@ export type RaiseClaimWorkflowPanelProps = {
 
 type WorkflowPhase = "step1_documents" | "step2_fnol"
 
-const STEP_REQUEST_DOCUMENTS = "request-documents"
 const STEP_RAISE_CLAIM = "raise-claim"
 
 /** Let accordion height settle before scrolling active step into view. */
@@ -51,7 +52,7 @@ const WORKFLOW_STEP_SCROLL_INTO_VIEW_MS = 220
 function phaseToOpenStep(phase: WorkflowPhase): string {
   switch (phase) {
     case "step1_documents":
-      return STEP_REQUEST_DOCUMENTS
+      return REQUEST_DOCUMENTS_STEP_ID
     case "step2_fnol":
       return STEP_RAISE_CLAIM
   }
@@ -80,7 +81,7 @@ export function RaiseClaimWorkflowPanel({
   const [phase, setPhase] = useState<WorkflowPhase>(isCompleted ? "step2_fnol" : "step1_documents")
 
   const [openStep, setOpenStep] = useState<string>(() => 
-    isCompleted ? STEP_REQUEST_DOCUMENTS : phaseToOpenStep("step1_documents")
+    isCompleted ? REQUEST_DOCUMENTS_STEP_ID : phaseToOpenStep("step1_documents")
   )
 
   const onDocumentsRequestDispatched = useCallback(() => {
@@ -91,7 +92,7 @@ export function RaiseClaimWorkflowPanel({
     setPhase("step2_fnol")
   }, [])
 
-  const documents = useRequestDocumentWorkflowStep({
+  const documents = useRequestDocumentsWorkflow({
     onRequestDispatched: onDocumentsRequestDispatched,
     onDocumentsApproved,
   })
@@ -114,7 +115,7 @@ export function RaiseClaimWorkflowPanel({
   useEffect(() => {
     const container = scrollContainerRef?.current
     const refs: Record<string, RefObject<HTMLDivElement | null>> = {
-      [STEP_REQUEST_DOCUMENTS]: itemRequestDocumentsRef,
+      [REQUEST_DOCUMENTS_STEP_ID]: itemRequestDocumentsRef,
       [STEP_RAISE_CLAIM]: itemRaiseClaimRef,
     }
     const target = refs[openStep]?.current
@@ -162,60 +163,17 @@ export function RaiseClaimWorkflowPanel({
         )}
         aria-label="Raise claim workflow steps"
       >
-        {/* Step 1: Request Documents */}
-        <AccordionItem
-          ref={itemRequestDocumentsRef}
-          value={STEP_REQUEST_DOCUMENTS}
-          className="scroll-mt-3"
-        >
-          <AccordionTrigger
-            className={cn(
-              openStep === STEP_REQUEST_DOCUMENTS ? "py-3" : "py-2 min-h-0",
-              compactPriorSteps && openStep !== STEP_REQUEST_DOCUMENTS && "py-1.5"
-            )}
-          >
-            <span
-              className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-euclid text-[13px] font-semibold",
-                step1Done
-                  ? "bg-[#0fa457] text-white"
-                  : phase === "step1_documents"
-                    ? "bg-[#7c47e1] text-white"
-                    : "border border-[#e7e7f0] bg-white text-[#5b5675]",
-              )}
-              aria-hidden
-            >
-              {step1Done ? <Check className="size-4" strokeWidth={2.5} /> : "1"}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-              <span className="font-euclid text-[14px] font-semibold leading-6 text-[#040222]">
-                Request Documents
-              </span>
-              {step1Done && openStep === STEP_REQUEST_DOCUMENTS ? (
-                <span className="font-euclid text-[12px] font-normal leading-[18px] text-[#5b5675]">
-                  Documents approved
-                </span>
-              ) : null}
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="space-y-0 px-1">
-            <RequestDocumentFigmaForm
-              defaultEmail={customer.email}
-              defaultPhone={customer.phone}
-              disabled={documents.formDisabled}
-              onSubmit={() => documents.dispatchRequest()}
-            />
-            <RequestDocumentWorkflowFollowup
-              phase={documents.followupPhase}
-              documentDeliveryIndex={documents.documentDeliveryIndex}
-              receivedAtMs={documents.receivedAtMs}
-              onApprove={documents.approveDocuments}
-              onReRequestDocuments={documents.reRequestDocuments}
-              documentLabel="documents"
-              customerName={customer.name}
-            />
-          </AccordionContent>
-        </AccordionItem>
+        <RequestDocumentsAccordionStep
+          itemRef={itemRequestDocumentsRef}
+          openStep={openStep}
+          activeWorkflowPhase="step1_documents"
+          currentWorkflowPhase={phase}
+          stepNumber={1}
+          stepDone={step1Done}
+          compactPriorSteps={compactPriorSteps}
+          customer={customer}
+          documents={documents}
+        />
 
         {/* Step 2 — always visible; locked until step 1 completes */}
         <AccordionItem

@@ -31,6 +31,12 @@ export function Select({
   const selectedOption = options.find(option => option.value === selectedValue)
 
   useEffect(() => {
+    if (value !== undefined) {
+      setSelectedValue(value)
+    }
+  }, [value])
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
         setIsOpen(false)

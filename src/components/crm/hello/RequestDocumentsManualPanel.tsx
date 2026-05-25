@@ -1,8 +1,9 @@
-import { RequestDocumentWorkflowFollowup } from "@/components/crm/RequestDocumentWorkflowFollowup"
-import { useRequestDocumentWorkflowStep } from "@/components/crm/useRequestDocumentWorkflowStep"
 import type { Customer } from "@/types/crm"
 import { ManualWorkflowHeader } from "@/components/crm/hello/ManualWorkflowHeader"
-import { RequestDocumentFigmaForm } from "@/components/crm/hello/RequestDocumentFigmaForm"
+import {
+  RequestDocumentsWorkflowContent,
+  useRequestDocumentsWorkflow,
+} from "@/components/crm/hello/RequestDocumentsAccordionStep"
 
 export type RequestDocumentsManualPanelProps = {
   customer?: Customer
@@ -10,40 +11,31 @@ export type RequestDocumentsManualPanelProps = {
   onSent?: (message: string) => void
 }
 
-/** Standalone manual request-documents flow — no policy selection required. */
+/** Standalone manual request-documents — same form/follow-up as workflow step 1. */
 export function RequestDocumentsManualPanel({
   customer,
   onBack,
   onSent,
 }: RequestDocumentsManualPanelProps) {
-  const documents = useRequestDocumentWorkflowStep({
+  const documents = useRequestDocumentsWorkflow({
     onRequestDispatched: () => {
       onSent?.("Document request sent successfully.")
     },
   })
 
+  if (!customer) {
+    return (
+      <div className="space-y-4">
+        <ManualWorkflowHeader title="Request documents" onBack={onBack} />
+        <p className="font-euclid text-sm text-[#5b5675]">Customer context is required.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <ManualWorkflowHeader title="Request documents" onBack={onBack} />
-
-      <RequestDocumentFigmaForm
-        defaultPhone={customer?.phone}
-        defaultEmail={customer?.email}
-        disabled={documents.formDisabled}
-        onSubmit={() => documents.dispatchRequest()}
-      />
-
-      {documents.followupPhase !== "waiting" ? (
-        <RequestDocumentWorkflowFollowup
-          phase={documents.followupPhase}
-          documentDeliveryIndex={documents.documentDeliveryIndex}
-          receivedAtMs={documents.receivedAtMs}
-          onApprove={documents.approveDocuments}
-          onReRequestDocuments={documents.reRequestDocuments}
-          documentLabel="documents"
-          customerName={customer?.name}
-        />
-      ) : null}
+      <RequestDocumentsWorkflowContent customer={customer} documents={documents} />
     </div>
   )
 }

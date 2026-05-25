@@ -22,7 +22,7 @@ export type EditPolicyManualPanelProps = {
   onComplete?: () => void
 }
 
-/** Manual edit policy: policy → edit field → RC → documents → endorsement. */
+/** Manual edit policy: policy → edit field → request documents → endorsement. */
 export function EditPolicyManualPanel({
   customer,
   customerPolicies,

@@ -1,6 +1,11 @@
 import type { Customer, InactivePolicy, JTBD, Policy, PolicyAction, RelatedSopRow } from "@/types/crm"
 import { buildStandardRaiseClaimAgentActions } from "@/lib/chatCreatedRaiseClaimJtbd"
 import { RAISE_CLAIM_TALKTRACK } from "@/lib/raiseClaimGuidanceCopy"
+import {
+  rekhaGupta,
+  rekhaGuptaActivePolicies,
+  rekhaGuptaClaimStatusEscalatedJtbd,
+} from "@/data/rekhaGuptaClaimStatusEscalated"
 
 export const rajeshKumar: Customer = {
   id: "rajesh-kumar",
@@ -1196,7 +1201,19 @@ export const mockCustomers: Record<
     activePolicies: simarpreetActivePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
+  "rekha-gupta": {
+    customer: rekhaGupta,
+    jtbds: [rekhaGuptaClaimStatusEscalatedJtbd],
+    activePolicies: rekhaGuptaActivePolicies,
+    inactivePolicies: emptyInactivePolicies,
+  },
 }
+
+export {
+  rekhaGupta,
+  rekhaGuptaActivePolicies,
+  rekhaGuptaClaimStatusEscalatedJtbd,
+} from "@/data/rekhaGuptaClaimStatusEscalated"
 
 function customerMatchesPolicyNumber(
   data: (typeof mockCustomers)[string],

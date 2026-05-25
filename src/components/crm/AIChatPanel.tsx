@@ -115,6 +115,8 @@ export type ChatMockCase =
   | "sunil_endorsement_unknown_reason"
   /** Sunil — Escalation / refund past TAT (drawer #6); Hello scripted journey. */
   | "sunil_escalation_refund_payment"
+  /** Rekha Gupta — claim status escalated, 5th call (drawer #9). */
+  | "rekha_claim_status_escalated"
 
 interface AIChatPanelProps {
   isActive?: boolean

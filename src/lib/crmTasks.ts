@@ -223,7 +223,7 @@ export const POLICY_GATE_TITLES: Partial<Record<CrmTaskId, { title: string; desc
   },
   "send-communication": {
     title: "Send communication",
-    description: "Select the policy this communication is about",
+    description: "Select the policy you want to send communication for",
   },
   "road-side-assistance": {
     title: "Road side assistance",

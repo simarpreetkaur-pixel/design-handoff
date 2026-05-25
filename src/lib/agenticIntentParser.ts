@@ -3,6 +3,10 @@ import type { Policy } from "@/types/crm"
 export interface AgenticIntent {
   documentType?: string
   policyFilter?: string
+  /** Resolved policy id after chat policy pick. */
+  policyId?: string
+  /** When set, document type is fixed (e.g. send policy document flow). */
+  lockDocumentType?: "policy-document"
   channels?: string[]
   phoneNumber?: string
   emailAddress?: string

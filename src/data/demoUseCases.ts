@@ -1,6 +1,7 @@
 import type { CrmDemoState } from "@/types/navigation"
 import {
   rajKapoorClaimStatusNexonJtbd,
+  rekhaGuptaClaimStatusEscalatedJtbd,
   sunilGuptaRefundEscalationJtbd,
   sunilGuptaSwiftDzireEditNameJtbd,
 } from "@/data/mockCustomers"
@@ -154,6 +155,25 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
           chatMockCase: "raj_live_listening_raise_claim",
           callContextOverride: {
             reason: "Raise a claim",
+            vehicle: "Tata Nexon",
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: "claim-status-escalated",
+    number: 9,
+    title: "Claim status escalated",
+    pills: [
+      {
+        label: "Rekha Gupta",
+        customerId: "rekha-gupta",
+        crmDemo: {
+          chatMockCase: "rekha_claim_status_escalated",
+          initialSelectedJtbdId: rekhaGuptaClaimStatusEscalatedJtbd.id,
+          callContextOverride: {
+            reason: "Claim Status",
             vehicle: "Tata Nexon",
           },
         },

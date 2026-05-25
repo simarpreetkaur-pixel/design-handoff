@@ -103,6 +103,8 @@ interface RightSidebarProps {
   onRcEmailSent?: () => void
   onFnolComplete?: () => void
   onEditPolicyWorkflowComplete?: () => void
+  /** AI send communication tab — collapse sidebar + chat success (Raise Claim parity). */
+  onSendCommunicationComplete?: () => void
   onCTAPressed?: (action: string, policy: Policy) => void
   onRCPageEmailSent?: () => void
   policyDetailSubview?: "detail" | "endorsements"
@@ -456,6 +458,7 @@ export function RightSidebar({
   onRcEmailSent,
   onFnolComplete,
   onEditPolicyWorkflowComplete,
+  onSendCommunicationComplete,
   onCTAPressed,
   onRCPageEmailSent,
   policyDetailSubview = "detail",
@@ -1499,13 +1502,12 @@ export function RightSidebar({
                             customer={customer}
                             customerPolicies={customerPolicies}
                             onBack={() => closeTab(activeTab.id)}
-                            onSent={(message) => {
-                              addToast(message, "success")
+                            onSent={() => {
                               closeTab(activeTab.id)
-                              // Reset width back to default
                               if (onWidthChange) {
                                 onWidthChange(defaultExpandedWidth)
                               }
+                              onSendCommunicationComplete?.()
                             }}
                             agenticIntent={activeTab.data}
                           />

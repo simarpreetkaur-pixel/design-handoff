@@ -1,5 +1,5 @@
 import type { IncomingCallModalViewModel } from "@/data/simulateCallScenarios"
-import { rajKapoorClaimStatusNexonJtbd } from "@/data/mockCustomers"
+import { rajKapoorClaimStatusNexonJtbd, rekhaGuptaClaimStatusEscalatedJtbd } from "@/data/mockCustomers"
 import { ONGOING_CLAIM_STATUS, ONGOING_RAISE_CLAIM } from "@/lib/canonicalOngoingLabels"
 import type { CrmDemoState } from "@/types/navigation"
 import { SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK, SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK } from "@/data/sunilEditPolicyUseCases"
@@ -94,6 +94,21 @@ export function mergeUseCaseIncomingPreview(
       ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Unknown",
       showCallVehicle: false,
       showLastCall: false,
+    }
+  }
+
+  if (customerId === "rekha-gupta" && crmDemo?.chatMockCase === "rekha_claim_status_escalated") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || ONGOING_CLAIM_STATUS,
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || vm.vehicle,
+      showCallVehicle: true,
+      caseTypeBadge: "Escalated",
+      caseTypeBadgeVariant: "angry",
+      showLastCall: true,
+      lastCallBadge: "Frustrated caller",
+      lastCallVariant: "warning",
+      callContextQuickSummary: rekhaGuptaClaimStatusEscalatedJtbd.openingQuickSummary,
     }
   }
 

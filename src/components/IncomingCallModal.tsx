@@ -309,14 +309,29 @@ export function IncomingCallModal({
                     <p className="min-w-0 font-euclid text-[#040222]">{viewModel.vehicle}</p>
                   </div>
                 )}
+                {viewModel.caseTypeBadge ? (
+                  <div className="grid w-full grid-cols-1 items-center gap-x-8 gap-y-2 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr]">
+                    <p className="w-full font-euclid text-[#5b5675] opacity-80 sm:w-[132px]">
+                      Case type
+                    </p>
+                    <Badge
+                      variant={getLastCallBadgeVariant(
+                        viewModel.caseTypeBadgeVariant ?? "warning",
+                      )}
+                      className="justify-self-start rounded-md px-2 py-0.5 text-sm font-medium"
+                    >
+                      {viewModel.caseTypeBadge}
+                    </Badge>
+                  </div>
+                ) : null}
                 {viewModel.showLastCall && (
-                  <div className="flex w-full flex-wrap items-center justify-between gap-3">
-                    <p className="font-euclid text-sm font-medium leading-5 text-[#5b5675] opacity-80">
+                  <div className="grid w-full grid-cols-1 items-center gap-x-8 gap-y-2 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr]">
+                    <p className="w-full font-euclid text-[#5b5675] opacity-80 sm:w-[132px]">
                       Last call
                     </p>
                     <Badge
                       variant={getLastCallBadgeVariant(viewModel.lastCallVariant)}
-                      className="rounded-md px-2 py-0.5 text-sm font-medium"
+                      className="justify-self-start rounded-md px-2 py-0.5 text-sm font-medium"
                     >
                       {viewModel.lastCallBadge}
                     </Badge>
