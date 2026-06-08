@@ -117,6 +117,10 @@ export type ChatMockCase =
   | "sunil_escalation_refund_payment"
   /** Rekha Gupta — claim status escalated, 5th call (drawer #9). */
   | "rekha_claim_status_escalated"
+  /** Raj Kapoor — raise claim v2: NCB-warning flow (use case 10). */
+  | "raj_raise_claim_v2"
+  /** Raj Kapoor — unable to select garage (use case 11). */
+  | "raj_unable_select_garage"
 
 interface AIChatPanelProps {
   isActive?: boolean

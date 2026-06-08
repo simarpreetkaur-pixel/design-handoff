@@ -1,4 +1,4 @@
-import { Check, Clock, Mail, MessageCircle } from "lucide-react"
+import { Check, Clock, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { DocumentRequestPhase } from "@/components/crm/useRequestDocumentWorkflowStep"
@@ -165,39 +165,13 @@ export function RequestDocumentWorkflowFollowup({
       )}
 
       {isReceived && (
-        <div className="space-y-2">
-          <div className="rounded-lg border border-[#e7e7f0] bg-white p-3">
-            <div className="flex items-start gap-2">
-              <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#0fa457]" />
-              <div className="flex-1 space-y-2">
-                <p className="font-euclid text-[13px] leading-5 text-[#040222]">
-                  {documentLabel} received from customer
-                </p>
-                <p className="font-euclid text-[12px] leading-[18px] text-[#5b5675]">
-                  Please review the {documentLabel} and approve or request them again if needed.
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              onClick={() => setShowReviewModal(true)}
-              className="flex-1 bg-[#7c47e1] font-euclid text-[13px] font-semibold text-white hover:bg-[#6b3ccd]"
-            >
-              Review {documentLabel}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onReRequestDocuments}
-              className="font-euclid text-[13px] font-medium"
-            >
-              Re-request
-            </Button>
-          </div>
-        </div>
+        <Button
+          type="button"
+          onClick={() => setShowReviewModal(true)}
+          className="w-full bg-[#7c47e1] font-euclid text-[13px] font-semibold text-white hover:bg-[#6b3ccd]"
+        >
+          Review {documentLabel}
+        </Button>
       )}
 
       {isApproved && (

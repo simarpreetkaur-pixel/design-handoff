@@ -180,4 +180,34 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
       },
     ],
   },
+  {
+    id: "raise-claim-v2",
+    number: 10,
+    title: "Raise a claim v2",
+    pills: [
+      {
+        label: "Raj Kapoor",
+        customerId: "raj-kapoor",
+        crmDemo: { chatMockCase: "raj_raise_claim_v2" },
+      },
+    ],
+  },
+  {
+    id: "unable-to-select-garage",
+    number: 11,
+    title: "Unable to select garage",
+    pills: [
+      {
+        label: "Raj Kapoor",
+        customerId: "raj-kapoor",
+        crmDemo: {
+          chatMockCase: "raj_unable_select_garage",
+          callContextOverride: {
+            reason: "Unable to select garage",
+            vehicle: "Tata Nexon",
+          },
+        },
+      },
+    ],
+  },
 ]

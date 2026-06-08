@@ -23,6 +23,7 @@ export type CrmTaskId =
   | "communication-history"
   | "payment-history"
   | "kyc-logs"
+  | "nearby-garages"
   | "firefly"
   | "freshdesk"
   | "spectra"
@@ -126,6 +127,15 @@ export const CRM_TASKS: CrmTaskDefinition[] = [
     id: "request-documents",
     label: "Request documents",
     description: "Request documents from customer",
+    category: "quick-actions",
+    requiresPolicy: false,
+    manualFlow: true,
+    aiCapable: true,
+  },
+  {
+    id: "nearby-garages",
+    label: "Nearby garages",
+    description: "Find network garages near customer",
     category: "quick-actions",
     requiresPolicy: false,
     manualFlow: true,

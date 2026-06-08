@@ -35,11 +35,25 @@ export function mergeUseCaseIncomingPreview(
     vm = { ...vm, ...patch }
   }
 
-  if (customerId === "raj-kapoor" && crmDemo?.chatMockCase === "raj_raise_claim_nexon_gmc") {
+  if (
+    customerId === "raj-kapoor" &&
+    (crmDemo?.chatMockCase === "raj_raise_claim_nexon_gmc" ||
+      crmDemo?.chatMockCase === "raj_raise_claim_v2")
+  ) {
     return {
       ...vm,
       ongoingIssue: ONGOING_RAISE_CLAIM,
       vehicle: "Tata Nexon",
+      showCallVehicle: true,
+      showLastCall: false,
+    }
+  }
+
+  if (customerId === "raj-kapoor" && crmDemo?.chatMockCase === "raj_unable_select_garage") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Unable to select garage",
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Tata Nexon",
       showCallVehicle: true,
       showLastCall: false,
     }

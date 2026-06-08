@@ -16,9 +16,17 @@ import { CommunicationHistoryPanel } from "@/components/crm/hello/CommunicationH
 import { PaymentHistoryPanel } from "@/components/crm/hello/PaymentHistoryPanel"
 import { KycVerificationLogs } from "@/components/crm/hello/KycVerificationLogs"
 import { AgenticSendCommunication } from "@/components/crm/hello/AgenticSendCommunication"
+import { NearbyGaragesPanel } from "@/components/crm/hello/NearbyGaragesPanel"
+import { SimilarCasesPanel } from "@/components/crm/hello/SimilarCasesPanel"
 import { RequestDocumentsManualPanel } from "@/components/crm/hello/RequestDocumentsManualPanel"
 import { PolicyGatedManualWorkflow } from "@/components/crm/hello/PolicyGatedManualWorkflow"
 import { SimpleManualTaskPanel } from "@/components/crm/hello/SimpleManualTaskPanel"
+import {
+  HelloPowerToolsPanel,
+  HelloRightPanelIconRail,
+  HELLO_RIGHT_PANEL_RAIL_WIDTH,
+  type HelloRightRailTab,
+} from "@/components/crm/hello/HelloRightPanelRail"
 import { getTaskById, getTasksByCategory, type CrmTaskId } from "@/lib/crmTasks"
 import type { AgenticIntent } from "@/lib/agenticIntentParser"
 
@@ -37,12 +45,6 @@ const dataInvestigationItems = getTasksByCategory("data-investigation").map((t) 
   label: t.label,
   description: t.description,
 }))
-const powerToolsItems = getTasksByCategory("power-tools").map((t) => ({
-  id: t.id,
-  label: t.label,
-  description: t.description,
-}))
-
 /**
  * AI Actions Tab System
  * 
@@ -60,7 +62,7 @@ const powerToolsItems = getTasksByCategory("power-tools").map((t) => ({
 interface AIActionTab {
   id: string
   title: string
-  type: "agentic_send_communication" | "raise_claim_workflow" | "edit_policy_workflow" | "claim_status_workflow" | "policy_detail" | "self_serve_steps" | "communication_history" | "payment_history" | "task_history"
+  type: "agentic_send_communication" | "raise_claim_workflow" | "edit_policy_workflow" | "claim_status_workflow" | "policy_detail" | "self_serve_steps" | "communication_history" | "payment_history" | "task_history" | "nearby_garages" | "similar_cases"
   data?: any // Specific data for each tab type
   isActive: boolean
 }
@@ -492,30 +494,98 @@ export function RightSidebar({
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const { toasts, addToast, removeToast } = useToasts()
   
-  // 4-dot menu dropdown state
-  const [showPowerToolsDropdown, setShowPowerToolsDropdown] = useState(false)
-  
+  const [activeRailTab, setActiveRailTab] = useState<HelloRightRailTab>("workflows")
+
   // Tabs 3-dot menu dropdown state
   const [showTabsDropdown, setShowTabsDropdown] = useState(false)
   
   // Handle manual action trigger from parent (for autocomplete suggestions)
   useEffect(() => {
     if (triggerManualAction) {
+      setActiveRailTab("workflows")
+      onSectionChange?.("ai")
       handleManualActionClick(triggerManualAction.actionId)
     }
   }, [triggerManualAction])
   
-  const collapsedWidth = 52
-  
-  // Calculate viewport-based widths dynamically
+  const collapsedWidth = HELLO_RIGHT_PANEL_RAIL_WIDTH
+
+  // Calculate viewport-based widths dynamically (content pane only; rail adds fixed width)
   const defaultExpandedWidth = Math.round(viewportWidth * 0.3)
   const minWidth = Math.round(viewportWidth * 0.2)
   const maxWidth = Math.round(viewportWidth * 0.5)
-  
-  const currentWidth = isCollapsed ? collapsedWidth : (propWidth || defaultExpandedWidth)
-  // In manual mode, calculate width to fill remaining space after customer profile (298px)
-  const width = isManualMode && !isCollapsed ? `calc(100vw - 298px)` : `${currentWidth}px`
-  
+
+  /** Rail + flyout only — no empty content pane (manual-mode tab or collapsed). */
+  const isRailOnlyView =
+    !isManualMode && (isCollapsed || activeRailTab === "manual-mode")
+
+  const contentPaneWidth = isRailOnlyView ? 0 : propWidth || defaultExpandedWidth
+  const currentWidth = isRailOnlyView
+    ? collapsedWidth
+    : contentPaneWidth + HELLO_RIGHT_PANEL_RAIL_WIDTH
+  // In manual mode the sidebar always fills all available space (no chat pane)
+  const width =
+    isManualMode && !isCollapsed ? `calc(100vw - 298px)` : `${currentWidth}px`
+
+  const manualModeRailProps = {
+    isManualMode,
+    onToggle: () => {
+      onModeToggle?.()
+      // Dismiss the flyout after confirming the switch
+      setActiveRailTab("workflows")
+    },
+  }
+
+  const handleRailTabChange = useCallback(
+    (tab: HelloRightRailTab) => {
+      if (tab === "manual-mode") {
+        // Toggle the confirmation flyout — second click dismisses it
+        if (activeRailTab === "manual-mode") {
+          // Flyout already open — close it
+          setActiveRailTab(isManualMode ? "workflows" : "workflows")
+          if (!isManualMode && !isCollapsed) onToggle?.()
+          return
+        }
+        // Open the flyout (works the same in both AI and manual mode)
+        if (!isManualMode && !isCollapsed) onToggle?.()
+        setActiveRailTab("manual-mode")
+        return
+      }
+
+      if (tab === "power-tools") {
+        if (activeRailTab === "power-tools") {
+          // Clicking power-tools again closes it — in manual mode go back to actions grid,
+          // in AI mode collapse the sidebar
+          if (isManualMode) {
+            setActiveRailTab("workflows")
+          } else {
+            onToggle?.()
+          }
+          return
+        }
+        if (isCollapsed) onToggle?.()
+        setActiveRailTab("power-tools")
+        return
+      }
+
+      // Workflows tab
+      if (isManualMode) {
+        setActiveRailTab("workflows")
+        onSectionChange?.("ai")
+        return
+      }
+
+      if (!isCollapsed && activeRailTab === tab) {
+        onToggle?.()
+        return
+      }
+      if (isCollapsed) onToggle?.()
+      setActiveRailTab(tab)
+      if (tab === "workflows") onSectionChange?.("ai")
+    },
+    [activeRailTab, isCollapsed, isManualMode, onModeToggle, onSectionChange, onToggle],
+  )
+
   // Dynamic text breakpoint calculation
   // When gap between buttons would be 8px (gap-2), switch to icon-only mode
   // Calculate minimum width needed for comfortable text display:
@@ -529,20 +599,19 @@ export function RightSidebar({
   // Update text visibility based on current width and spacing
   React.useEffect(() => {
     if (!isCollapsed) {
-      // Switch to icon-only when width is too small for comfortable text spacing
-      setShowTabText(currentWidth >= textBreakpoint)
+      setShowTabText(contentPaneWidth >= textBreakpoint)
     } else {
       setShowTabText(false)
     }
-  }, [currentWidth, isCollapsed, textBreakpoint])
+  }, [contentPaneWidth, isCollapsed, textBreakpoint])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (isCollapsed) return
     e.preventDefault()
     setIsDragging(true)
     setDragStartX(e.clientX)
-    setDragStartWidth(currentWidth)
-  }, [isCollapsed, currentWidth])
+    setDragStartWidth(contentPaneWidth)
+  }, [isCollapsed, contentPaneWidth])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !dragStartX) return
@@ -682,10 +751,16 @@ export function RightSidebar({
     return aiActionTabs.find(tab => tab.isActive) || null
   }
 
+  useEffect(() => {
+    if (!isCollapsed && activeSection === "ai") {
+      setActiveRailTab("workflows")
+    }
+  }, [isCollapsed, activeSection])
+
   // Handle self-serve tab trigger from parent
   useEffect(() => {
     if (triggerSelfServeTab) {
-      // Switch to AI section
+      setActiveRailTab("workflows")
       if (onSectionChange) {
         onSectionChange("ai")
       }
@@ -701,14 +776,13 @@ export function RightSidebar({
   // Handle agentic intent processing
   useEffect(() => {
     if (agenticIntent) {
-      // Create a new tab for the agentic workflow
+      setActiveRailTab("workflows")
       const tabTitle = agenticIntent.documentType 
         ? `Send ${agenticIntent.documentType.replace('-', ' ')}`
         : "Send Communication"
       
       createAIActionTab('agentic_send_communication', tabTitle, agenticIntent)
       
-      // Auto-switch to AI Actions tab
       onSectionChange?.("ai")
       
       // Auto-expand sidebar if collapsed
@@ -942,6 +1016,28 @@ export function RightSidebar({
           onWidthChange(Math.round(viewportWidth * 0.45))
         }
       }
+    } else if (actionId === "nearby-garages") {
+      if (onSectionChange) {
+        onSectionChange("ai")
+      }
+      const existingTab = aiActionTabs.find((t) => t.type === "nearby_garages")
+      if (existingTab) {
+        switchToTab(existingTab.id)
+      } else {
+        const tabId = createAIActionTab("nearby_garages", "Nearby Garages")
+        setActiveTabId(tabId)
+      }
+    } else if (actionId === "similar-cases") {
+      if (onSectionChange) {
+        onSectionChange("ai")
+      }
+      const existingTab = aiActionTabs.find((t) => t.type === "similar_cases")
+      if (existingTab) {
+        switchToTab(existingTab.id)
+      } else {
+        const tabId = createAIActionTab("similar_cases", "Similar Cases")
+        setActiveTabId(tabId)
+      }
     } else if (actionId === "firefly") {
       window.open("https://firefly.acko.com", "_blank", "noopener,noreferrer")
     } else if (actionId === "freshdesk") {
@@ -1037,14 +1133,15 @@ export function RightSidebar({
   return (
     <div
       className={cn(
-        "h-full bg-white shrink-0 relative group border-l border-[#e7e7f0]",
+        "relative h-full shrink-0 border-l border-[#e7e7f0] bg-white group",
         !isDragging && "transition-all duration-300 ease-in-out",
+        isRailOnlyView && "z-50 overflow-visible",
         className,
       )}
       style={{ width }}
     >
       {/* Enhanced resize handle with better visual feedback */}
-      {!isCollapsed && !isManualMode && (
+      {!isRailOnlyView && !isManualMode && (
         <>
           {/* Visual indicator line */}
           <div
@@ -1083,139 +1180,25 @@ export function RightSidebar({
           </div>
         </>
       )}
-      {isCollapsed ? (
-        // Collapsed State - Just the toggle button
-        <div className="flex flex-col gap-6 items-center pt-4 px-3">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="flex items-center justify-center w-7 h-7 hover:bg-[#f0f0f6] rounded transition-colors"
-            aria-label="Expand sidebar"
-          >
-            <img 
-              src="/icons/sidebar-toggle.png" 
-              alt="Toggle sidebar" 
-              className="w-6 h-6"
-            />
-          </button>
-        </div>
+      {isRailOnlyView ? (
+        <HelloRightPanelIconRail
+          activeTab={activeRailTab}
+          onTabChange={handleRailTabChange}
+          manualMode={manualModeRailProps}
+          isRailOnlyLayout
+          className="overflow-visible"
+        />
       ) : (
-        // Expanded State - Full sidebar content
-        <div className="flex flex-col h-full">
-          {/* Header with Workflows title, 4-dot menu and toggle */}
-          <div className="flex items-center justify-between p-4 border-0 border-b border-b-[#ebebeb]">
-            {/* Workflows title */}
-            <h3 className="font-euclid text-sm font-medium text-[#36354c]">
-              Workflows
-            </h3>
-            <div className="flex items-center gap-4">
-              {/* 4-dot menu */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowPowerToolsDropdown(!showPowerToolsDropdown)}
-                  className="flex items-center justify-center w-10 h-10 hover:bg-[#f0f0f6] rounded transition-colors"
-                  aria-label="Power Tools Menu"
-                >
-                  <img 
-                    src="/icons/4-dot-menu.png" 
-                    alt="Power Tools Menu" 
-                    className="w-5 h-5"
-                  />
-                </button>
-                
-                {/* Power Tools Dropdown */}
-                {showPowerToolsDropdown && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40"
-                      onClick={() => setShowPowerToolsDropdown(false)}
-                    />
-                    <div className="absolute top-12 right-0 z-50 w-[271px] bg-white rounded-[12px] border border-[#e7e7f0] shadow-[0px_4px_4px_-2px_rgba(54,53,76,0.06)]">
-                      <div className="pt-[15px] pl-[13px] pr-[13px] pb-[15px]">
-                        {/* Power Tools Section */}
-                        <div className="mb-[13px]">
-                          <h4 className="font-euclid text-[12px] font-semibold uppercase tracking-wide text-[#5b5675] mb-[16px]">
-                            POWER TOOLS
-                          </h4>
-                          <div className="space-y-2">
-                            {powerToolsItems.map((tool) => (
-                              <button
-                                key={tool.id}
-                                onClick={() => {
-                                  handleManualActionClick(tool.id)
-                                  setShowPowerToolsDropdown(false)
-                                }}
-                                className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-[#f8f7fc] transition-colors group"
-                              >
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f0f0f6] transition-colors">
-                                  {tool.id === 'firefly' && <Zap className="h-4 w-4 text-[#5b5675]" />}
-                                  {tool.id === 'freshdesk' && <MessageSquare className="h-4 w-4 text-[#5b5675]" />}
-                                  {tool.id === 'spectra' && <Sparkles className="h-4 w-4 text-[#5b5675]" />}
-                                </div>
-                                <div className="flex-1 text-left">
-                                  <div className="font-euclid text-sm font-medium text-[#040222]">
-                                    {tool.label}
-                                  </div>
-                                  <div className="font-euclid text-xs text-[#5b5675]">
-                                    {tool.description}
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Divider */}
-                        <div className="h-0 border-t border-[#e7e7f0] w-full mb-[17px]"></div>
-                        
-                        {/* Mode Toggle Section */}
-                        <div className="flex items-center justify-between">
-                          <span className="font-euclid text-[12px] font-medium leading-[18px] text-black">
-                            Switch to manual mode
-                          </span>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isManualMode}
-                              onChange={() => {
-                                onModeToggle?.()
-                                setShowPowerToolsDropdown(false)
-                              }}
-                              className="sr-only peer"
-                            />
-                            <div className="w-[40px] h-[24px] bg-[#e7e7f0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-[#7c47e1]"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              
-              {/* Collapse button - only show in AI mode */}
-              {!isManualMode && (
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  className="flex items-center justify-center w-7 h-7 hover:bg-[#f0f0f6] rounded transition-colors"
-                  aria-label="Collapse sidebar"
-                >
-                  <img 
-                    src="/icons/sidebar-toggle.png" 
-                    alt="Toggle sidebar" 
-                    className="w-6 h-6 rotate-180"
-                  />
-                </button>
-              )}
-            </div>
-          </div>
+        <div className="flex h-full min-h-0 flex-row overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Content Area — in manual+power-tools: actions grid left + power tools panel right */}
+          <div className="flex h-full min-h-0 flex-row overflow-hidden">
 
-          {/* Content Area */}
-          <div className={cn(
-            "flex-1 overflow-y-auto",
-            isManualMode ? "px-8 pb-8" : "px-4 pb-4"
-          )}>
+            {/* Left side: manual actions grid — always visible in manual mode */}
+            <div className={cn(
+              "overflow-y-auto",
+              isManualMode ? "flex-1 px-8 pb-8" : "flex-1 px-4 pb-4",
+            )}>
             {isManualMode ? (
               <div className="space-y-3">
                 {policyGateAction ? (
@@ -1333,8 +1316,11 @@ export function RightSidebar({
                   </>
                 )}
               </div>
+            ) : activeRailTab === "power-tools" ? (
+              /* AI mode power tools — fills entire content area */
+              <HelloPowerToolsPanel onToolClick={handleManualActionClick} />
             ) : (
-              // AI Mode - show both manual actions and AI actions based on activeSection
+              // Workflows rail tab — AI workflows + legacy manual-actions section
               <div>
 
                 {activeSection === "manual-actions" && (
@@ -1828,6 +1814,16 @@ export function RightSidebar({
                           />
                         )
                         
+                      case 'nearby_garages':
+                        return (
+                          <NearbyGaragesPanel className="p-1" />
+                        )
+
+                      case 'similar_cases':
+                        return (
+                          <SimilarCasesPanel className="p-1" />
+                        )
+
                       case 'task_history':
                         // Mock task history data - in real implementation, this would come from props or API
                         const taskHistoryData = [
@@ -1952,7 +1948,23 @@ export function RightSidebar({
                 )}
               </div>
             )}
-          </div>
+            </div>{/* end left content pane */}
+
+            {/* Right side: power tools panel — only in manual mode when power-tools tab is active */}
+            {isManualMode && activeRailTab === "power-tools" && (
+              <div className="flex min-h-0 shrink-0 flex-col border-l border-[#e7e7f0] overflow-hidden" style={{ width: contentPaneWidth }}>
+                <HelloPowerToolsPanel onToolClick={handleManualActionClick} />
+              </div>
+            )}
+
+          </div>{/* end flex-row content area */}
+          </div>{/* end flex-1 wrapper */}
+          <HelloRightPanelIconRail
+            activeTab={activeRailTab}
+            onTabChange={handleRailTabChange}
+            manualMode={manualModeRailProps}
+            className="overflow-visible"
+          />
         </div>
       )}
       <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -167,6 +167,155 @@ export function helloAgentBehalfNetworkGarageBulletsJoined(): string {
   return HELLO_AGENT_BEHALF_NETWORK_GARAGE_BULLETS.join("\n")
 }
 
+// ─── Documents required to raise a claim ─────────────────────────────────────
+
+/**
+ * Detects if the CX's message is asking about documents required to raise a claim
+ * (natural language, case-insensitive).
+ */
+export function helloComposerTriggersDocsQuery(text: string): boolean {
+  const q = text.trim().toLowerCase()
+  return (
+    (q.includes("document") || q.includes("docs") || q.includes("papers") || q.includes("required")) &&
+    (q.includes("claim") || q.includes("raise") || q.includes("file"))
+  ) || (
+    q.includes("what") && q.includes("need") && (q.includes("claim") || q.includes("raise"))
+  ) || q === "documents" || q === "docs for claim" || q === "claim documents"
+}
+
+/** AI chat response listing documents required to raise a motor claim. */
+export const helloClaimDocumentsResponse = `Here are the documents required to raise a motor insurance claim:
+
+RC Copy (Registration Certificate)
+• Original or a clear photo of the vehicle's RC
+
+Driver's Licence
+• Valid DL of the person driving at the time of the incident
+
+FIR (if applicable)
+• Required for theft, third-party damage, or major accidents
+
+Photos of the damage
+• Clear photos of all damaged areas before any repairs
+
+Repair estimate (if available)
+• Workshop estimate helps speed up claim assessment
+
+All documents can be submitted digitally through the ACKO app.`
+
+// ─── NCB Warning (Use Case 10 — Raise a claim v2) ───────────────────────────
+
+/**
+ * Detects if the CX's message is asking about NCB or NCB Protect (natural language, case-insensitive).
+ */
+export function helloComposerTriggersNcbExplainer(text: string): boolean {
+  const q = text.trim().toLowerCase()
+  return (
+    q.includes("ncb") ||
+    q.includes("no claim bonus") ||
+    q.includes("no-claim bonus") ||
+    q.includes("ncb protect") ||
+    q.includes("claim bonus") ||
+    q.includes("bonus") ||
+    (q.includes("impact") && q.includes("claim")) ||
+    (q.includes("what") && q.includes("happen") && q.includes("claim")) ||
+    (q.includes("will") && q.includes("lose") && (q.includes("discount") || q.includes("bonus")))
+  )
+}
+
+/**
+ * AI chat response for NCB impact when a specific policy is known.
+ * @param vehicleLabel — e.g. "Tata Nexon" or "Honda Activa"
+ */
+export function helloNcbExplainerForPolicy(vehicleLabel: string): string {
+  return `NCB (No Claim Bonus) is a discount earned for every claim-free year — ranging from 20% to 50% off the premium.
+
+For ${vehicleLabel}, the customer currently has a 25% NCB discount. Once this claim is settled, it resets to 0%.
+
+Impact example:
+• 5-year premium if they claim — ₹1,10,000
+• 5-year premium if they don't — ₹80,000
+• Potential savings lost — ₹30,000
+
+ACKO recommends filing a claim only when repair costs exceed the savings lost from NCB reset.`
+}
+
+/**
+ * AI chat response when customer asks about NCB or NCB Protect — mirrors the in-app
+ * "What is No Claim Bonus?" screen content, rendered as plain text in the Hello chat.
+ * @deprecated Prefer {@link helloNcbExplainerForPolicy} for policy-specific context.
+ */
+export const helloNcbExplainerResponse = helloNcbExplainerForPolicy("this policy")
+
+/** Prompt shown when CX asks NCB and customer has multiple auto policies — asks which one. */
+export const helloNcbPolicyPickPrompt =
+  "The customer has multiple motor policies. Which one is the NCB impact question for?"
+
+/** Stable offer-id prefix for the NCB policy-pick radio. */
+export const HELLO_NCB_POLICY_PICK_OFFER_ID_PREFIX = "ncb-policy-pick"
+
+// ─── UC11 — Unable to select garage ─────────────────────────────────────────
+
+/** Opening bubble for UC11. */
+export const helloGarageSelectOpener =
+  "Raj Kapoor is calling about their Tata Nexon \u2014 they\u2019re unable to select a garage while raising a claim."
+
+/** Prompt above the action radio group. */
+export const helloGarageSelectActionPrompt =
+  "How would you like to help?"
+
+/** Choice IDs for the UC11 action picker. */
+export type HelloGarageSelectChoiceId =
+  | "view_similar_cases"
+  | "nearby_garages"
+  | "raise_claim"
+  | "something_else"
+
+/** Stable offer-id for the UC11 action-pick radio group. */
+export const HELLO_GARAGE_SELECT_OFFER_ID = "garage-select-action"
+
+/** Radio options for UC11 action pick — shown directly after the opener. */
+export const helloGarageSelectChoices: readonly {
+  id: HelloGarageSelectChoiceId
+  label: string
+}[] = [
+  { id: "view_similar_cases", label: "View similar cases" },
+  { id: "nearby_garages", label: "View nearby garages" },
+  { id: "raise_claim", label: "Raise a claim" },
+  { id: "something_else", label: "Customer called for something else" },
+] as const
+
+/** After \u201cView similar cases\u201d is picked \u2014 ack before opening right pane. */
+export const helloGarageSelectViewCasesAck =
+  "Opening similar past cases in the panel on the right."
+
+/** After \u201cView nearby garages\u201d is picked \u2014 ack before opening right pane. */
+export const helloGarageSelectNearbyAck =
+  "As requested, opening Nearby Garages for you."
+
+/** After \u201cRaise a claim\u201d is picked in UC11 \u2014 second-level question. */
+export const helloGarageSelectRaiseClaimPrompt =
+  "Got it \u2014 should the customer raise the claim themselves, or would you like to raise it on their behalf?"
+
+/** Second-level choice IDs (mirrors the UC1 pattern). */
+export type HelloGarageSelectRaiseClaimChoiceId = "self_serve" | "agent_behalf"
+
+export const helloGarageSelectRaiseClaimChoices: readonly {
+  id: HelloGarageSelectRaiseClaimChoiceId
+  label: string
+}[] = [
+  { id: "self_serve", label: "Customer will do it themselves" },
+  { id: "agent_behalf", label: "Raise it on customer\u2019s behalf" },
+] as const
+
+export const HELLO_GARAGE_SELECT_RAISE_CLAIM_OFFER_ID = "garage-select-raise-claim"
+
+/** After \u201cCustomer called for something else\u201d in UC11. */
+export const helloGarageSelectSomethingElseAck =
+  "Got it \u2014 describe what they need in the message bar below and I\u2019ll align the next steps."
+
+// ─── End UC11 ────────────────────────────────────────────────────────────────
+
 /** After FNOL submit — success line (shown with green check in Hello companion). */
 export const helloClaimRaisedSuccessHeadline = "The claim has been raised successfully."
 

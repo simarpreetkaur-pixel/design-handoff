@@ -284,7 +284,16 @@ export function CRMView() {
   const isCrmOngoingSession = callState.state === "active_call" || callState.state === "viewing_crm"
 
   const isRajKapoorRaiseClaimFlow =
-    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_nexon_gmc"
+    customerId === "raj-kapoor" &&
+    (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+      resolvedChatMockCase === "raj_raise_claim_v2" ||
+      resolvedChatMockCase === "raj_unable_select_garage")
+
+  const isRajKapoorRaiseClaimV2Flow =
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_raise_claim_v2"
+
+  const isRajKapoorUnableSelectGarageFlow =
+    customerId === "raj-kapoor" && resolvedChatMockCase === "raj_unable_select_garage"
 
   const isRajKapoorLiveListeningFlow =
     customerId === "raj-kapoor" && resolvedChatMockCase === "raj_live_listening_raise_claim"
@@ -455,6 +464,8 @@ export function CRMView() {
     if (
       customerId === "raj-kapoor" &&
       (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+      resolvedChatMockCase === "raj_raise_claim_v2" ||
+      resolvedChatMockCase === "raj_unable_select_garage" ||
       resolvedChatMockCase === "raj_live_listening_raise_claim") &&
       !chatCreatedRaiseClaimJtbd &&
       !list.some((j) => j.id === demoRaiseClaimId)
@@ -495,6 +506,8 @@ export function CRMView() {
     if (
       customerId === "raj-kapoor" &&
       (resolvedChatMockCase === "raj_raise_claim_nexon_gmc" ||
+      resolvedChatMockCase === "raj_raise_claim_v2" ||
+      resolvedChatMockCase === "raj_unable_select_garage" ||
       resolvedChatMockCase === "raj_live_listening_raise_claim")
     ) {
       return crmDemo?.initialSelectedJtbdId ?? rajKapoorRaiseClaimNexonJtbd.id
@@ -921,6 +934,8 @@ export function CRMView() {
           inactivePolicies={inactivePolicies}
           displayPhone={displayLookupPhone}
           onHelloToast={(message) => setCrmToast(message)}
+          ncbWarningMode={isRajKapoorRaiseClaimV2Flow}
+          garageSelectMode={isRajKapoorUnableSelectGarageFlow}
           className="h-full min-h-0 overflow-hidden"
         />
       </div>

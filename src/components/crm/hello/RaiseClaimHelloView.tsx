@@ -11,7 +11,7 @@ import {
   useState,
 } from "react"
 import { resolveSidebarActiveClaim } from "@/data/sidebarActiveClaim"
-import { Send, X, Edit3, AlertCircle, Shield, CreditCard, MessageCircle, FileText, XCircle, Phone } from "lucide-react"
+import { Send, X, Edit3, AlertCircle, Shield, CreditCard, MessageCircle, FileText, XCircle, Phone, MapPin } from "lucide-react"
 
 import {
   RAISE_CLAIM_CUSTOMER_STEPS,
@@ -113,8 +113,26 @@ import {
   helloAgentBehalfNetworkGarageBulletsJoined,
   helloSomethingElseAckComposerAlways,
   helloCxResponderName,
+  helloNcbExplainerForPolicy,
+  helloComposerTriggersNcbExplainer,
+  helloComposerTriggersDocsQuery,
+  helloClaimDocumentsResponse,
+  helloNcbPolicyPickPrompt,
+  HELLO_NCB_POLICY_PICK_OFFER_ID_PREFIX,
   type HelloPolicyBarActionKey,
   type HelloRaiseClaimChoiceId,
+  helloGarageSelectOpener,
+  helloGarageSelectActionPrompt,
+  helloGarageSelectChoices,
+  HELLO_GARAGE_SELECT_OFFER_ID,
+  helloGarageSelectViewCasesAck,
+  helloGarageSelectNearbyAck,
+  helloGarageSelectRaiseClaimPrompt,
+  helloGarageSelectRaiseClaimChoices,
+  HELLO_GARAGE_SELECT_RAISE_CLAIM_OFFER_ID,
+  helloGarageSelectSomethingElseAck,
+  type HelloGarageSelectChoiceId,
+  type HelloGarageSelectRaiseClaimChoiceId,
 } from "@/components/crm/hello/helloRaiseClaimCopy"
 import { scheduleHelloProfileRibbonAckSequence } from "@/components/crm/hello/helloProfileRibbonAckSchedule"
 import { HelloRibbonBlankSplitPane } from "@/components/crm/hello/HelloRibbonBlankSplitPane"
@@ -322,6 +340,10 @@ function EditPolicySelfServeStepsPanel({
 export type HelloAssistantBody =
   | { kind: "text"; text: string }
   | { kind: "agent_behalf_network_garage" }
+  | { kind: "agent_behalf_ncb_warning" }
+  | { kind: "garage_select_action_pick"; offerId: string }
+  | { kind: "garage_select_raise_claim_pick"; offerId: string }
+  | { kind: "ncb_policy_pick"; offerId: string; policies: Policy[] }
   | { kind: "self_serve_tip" }
   | { kind: "raise_claim_offer"; offerId: string }
   | { kind: "raise_claim_policy_select"; offerId: string }
@@ -356,6 +378,16 @@ export type RaiseClaimHelloViewProps = {
    * {@link helloDefaultRenewalNudgeAfterClaim}; pass `null` to hide.
    */
   renewalNudgeAfterClaim?: { vehicleLabel: string; daysLeft: number } | null
+  /**
+   * When true, the "Raise it on customer's behalf" choice triggers an NCB-warning message
+   * instead of the network garage talking points (use case 10 — Raise a claim v2).
+   */
+  ncbWarningMode?: boolean
+  /**
+   * When true, the view opens in UC11 "Unable to select garage" mode — the opener,
+   * similar-case card and action radios are shown instead of the standard raise-claim intro.
+   */
+  garageSelectMode?: boolean
   className?: string
   /** Determines the workflow type - "raise_claim" for claim raising, "claim_status" for checking status */
   initialWorkflowType?: "raise_claim" | "claim_status"
@@ -422,6 +454,8 @@ export function RaiseClaimHelloView({
   displayPhone,
   onHelloToast,
   renewalNudgeAfterClaim,
+  ncbWarningMode = false,
+  garageSelectMode = false,
   className,
   initialWorkflowType,
   claimStatusJtbd,
@@ -431,6 +465,8 @@ export function RaiseClaimHelloView({
 }: RaiseClaimHelloViewProps) {
   const isClaimStatusMode =
     initialWorkflowType === "claim_status" && Boolean(claimStatusJtbd)
+  // UC11 — garage-select mode suppresses the standard raise-claim opener sequence
+  const isGarageSelectMode = garageSelectMode
   const activeClaimSidebar = useMemo(
     () => (isClaimStatusMode ? resolveSidebarActiveClaim(claimStatusJtbd) : null),
     [isClaimStatusMode, claimStatusJtbd],
@@ -467,7 +503,7 @@ export function RaiseClaimHelloView({
 
   const openerVehicleLabel = raiseClaimPolicy ? helloRaiseClaimVehicleLabel(raiseClaimPolicy) : "your vehicle"
 
-  const [openingTyping, setOpeningTyping] = useState(!isClaimStatusMode)
+  const [openingTyping, setOpeningTyping] = useState(!isClaimStatusMode && !isGarageSelectMode)
   const [openingVisible, setOpeningVisible] = useState(false)
   const [choicesRevealTyping, setChoicesRevealTyping] = useState(false)
   const [choicesVisible, setChoicesVisible] = useState(false)
@@ -563,6 +599,7 @@ export function RaiseClaimHelloView({
     { id: "communication_history", label: "Communication history", description: "View past interactions", icon: MessageCircle },
     { id: "transfer_call", label: "Transfer call", description: "Transfer call to another agent", icon: Phone },
     { id: "active_issues", label: "Active issues", description: "View ongoing policy issues", icon: AlertCircle },
+    { id: "nearby_garages", label: "Nearby garages", description: "Find network garages near customer", icon: MapPin },
   ]
 
   // Filter suggestions based on input text
@@ -725,24 +762,25 @@ export function RaiseClaimHelloView({
   }
 
   const handleModeToggle = () => {
-    // Show skeleton loader
-    setShowSkeletonLoader(true)
-    setRightSidebarCollapsed(false) // Ensure sidebar is open
-    
-    // After 2 seconds, switch the mode and hide skeleton loader
+    const switchingToManual = !isManualMode
+    if (switchingToManual) {
+      // Entering manual mode — show skeleton and keep sidebar open
+      setShowSkeletonLoader(true)
+      setRightSidebarCollapsed(false)
+    } else {
+      // Returning to AI mode — collapse the sidebar so it starts fresh
+      setRightSidebarCollapsed(true)
+      setRightSidebarActiveSection(null)
+    }
+
+    const delay = switchingToManual ? 2000 : 400
     setTimeout(() => {
-      setIsManualMode(!isManualMode)
+      setIsManualMode(switchingToManual)
       setShowSkeletonLoader(false)
-      
-      // Set appropriate section based on mode
-      if (!isManualMode) {
-        // Switching to manual mode
+      if (switchingToManual) {
         setRightSidebarActiveSection("manual-actions")
-      } else {
-        // Switching to AI mode
-        setRightSidebarActiveSection("ai")
       }
-    }, 2000)
+    }, delay)
   }
 
   const handleAgenticWorkflowTrigger = (intent: AgenticIntent, chatResponse: string) => {
@@ -900,7 +938,7 @@ export function RaiseClaimHelloView({
   }
 
   useEffect(() => {
-    if (isClaimStatusMode) return
+    if (isClaimStatusMode || isGarageSelectMode) return
 
     const timeouts: number[] = []
     let cancelled = false
@@ -927,7 +965,43 @@ export function RaiseClaimHelloView({
       cancelled = true
       timeouts.forEach((t) => window.clearTimeout(t))
     }
-  }, [isClaimStatusMode])
+  }, [isClaimStatusMode, isGarageSelectMode])
+
+  // UC11 — garage-select opener sequence
+  useEffect(() => {
+    if (!isGarageSelectMode) return
+
+    const timeouts: number[] = []
+    let cancelled = false
+    const schedule = (fn: () => void, ms: number) => {
+      timeouts.push(window.setTimeout(fn, ms))
+    }
+
+    // Bubble 1: opener, Bubble 2: prompt + action radios
+    schedule(() => {
+      if (cancelled) return
+      pushAssistant({ kind: "text", text: helloGarageSelectOpener })
+      schedule(() => {
+        if (cancelled) return
+        setReplyTyping(true)
+        schedule(() => {
+          if (cancelled) return
+          setReplyTyping(false)
+          pushAssistant({ kind: "text", text: helloGarageSelectActionPrompt })
+          schedule(() => {
+            if (cancelled) return
+            pushAssistant({ kind: "garage_select_action_pick", offerId: HELLO_GARAGE_SELECT_OFFER_ID })
+          }, 200)
+        }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+      }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
+    }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+
+    return () => {
+      cancelled = true
+      timeouts.forEach((t) => window.clearTimeout(t))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGarageSelectMode])
 
   useEffect(() => {
     if (!isClaimStatusMode || !claimStatusJtbd) return
@@ -1170,7 +1244,140 @@ export function RaiseClaimHelloView({
       setReplyTyping(true)
       window.setTimeout(() => {
         setReplyTyping(false)
-        pushAssistant({ kind: "text", text: helloSureCreatingWorkflowAck })
+        if (ncbWarningMode) {
+          // NCB-warning flow (UC10): bubble 1 — short ack, bubble 2 — NCB warning + tell the customer
+          pushAssistant({ kind: "text", text: "As requested, opening raise a claim for you." })
+          window.setTimeout(() => {
+            setReplyTyping(true)
+            window.setTimeout(() => {
+              setReplyTyping(false)
+              pushAssistant({ kind: "agent_behalf_ncb_warning" })
+              window.setTimeout(() => {
+                policyDetailPane.close()
+                setEditPolicyWorkflow(null)
+                setWorkflowActive(true)
+                setRightSidebarCollapsed(false)
+                setRightSidebarActiveSection("ai")
+              }, 1000)
+            }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
+          }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
+        } else {
+          pushAssistant({ kind: "text", text: helloSureCreatingWorkflowAck })
+          window.setTimeout(() => {
+            setReplyTyping(true)
+            window.setTimeout(() => {
+              setReplyTyping(false)
+              pushAssistant({ kind: "agent_behalf_network_garage" })
+              window.setTimeout(() => {
+                policyDetailPane.close()
+                setEditPolicyWorkflow(null)
+                setWorkflowActive(true)
+                setRightSidebarCollapsed(false)
+                setRightSidebarActiveSection("ai")
+              }, 1000)
+            }, HELLO_SECOND_ACK_TYPING_INDICATOR_MS)
+          }, HELLO_AGENT_BEHALF_PAUSE_AFTER_FIRST_ACK_MS)
+        }
+      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+    }, HELLO_BOT_REPLY_AFTER_USER_MS)
+  }
+
+  // ── UC11: action radio handler ───────────────────────────────────────────────
+  const handleGarageSelectPick = (
+    choiceId: HelloGarageSelectChoiceId,
+    userEchoLabel: string,
+    offerId: string,
+  ) => {
+    if (spentOfferIds.has(offerId)) return
+    setSpentOfferIds((prev) => new Set(prev).add(offerId))
+    setMessages((prev) => [
+      ...prev,
+      { id: `hello-user-garage-pick-${Date.now()}`, role: "user", text: userEchoLabel },
+    ])
+
+    window.setTimeout(() => {
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+
+        if (choiceId === "view_similar_cases") {
+          pushAssistant({ kind: "text", text: helloGarageSelectViewCasesAck })
+          window.setTimeout(() => {
+            setRightSidebarCollapsed(false)
+            setRightSidebarActiveSection("ai")
+            triggerManualAction("similar-cases")
+          }, 800)
+          return
+        }
+
+        if (choiceId === "nearby_garages") {
+          pushAssistant({ kind: "text", text: helloGarageSelectNearbyAck })
+          window.setTimeout(() => {
+            setRightSidebarCollapsed(false)
+            setRightSidebarActiveSection("ai")
+            triggerManualAction("nearby-garages")
+          }, 800)
+          return
+        }
+
+        if (choiceId === "something_else") {
+          pushAssistant({ kind: "text", text: helloGarageSelectSomethingElseAck })
+          return
+        }
+
+        // raise_claim — ask self-serve vs agent-behalf
+        pushAssistant({ kind: "text", text: helloGarageSelectRaiseClaimPrompt })
+        window.setTimeout(() => {
+          pushAssistant({
+            kind: "garage_select_raise_claim_pick",
+            offerId: HELLO_GARAGE_SELECT_RAISE_CLAIM_OFFER_ID,
+          })
+        }, 200)
+      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+    }, HELLO_BOT_REPLY_AFTER_USER_MS)
+  }
+
+  // ── UC11: raise-claim second-level handler (self-serve vs agent-behalf) ──────
+  const handleGarageSelectRaiseClaimPick = (
+    choiceId: HelloGarageSelectRaiseClaimChoiceId,
+    userEchoLabel: string,
+    offerId: string,
+  ) => {
+    if (spentOfferIds.has(offerId)) return
+    setSpentOfferIds((prev) => new Set(prev).add(offerId))
+    setMessages((prev) => [
+      ...prev,
+      { id: `hello-user-garage-rc-pick-${Date.now()}`, role: "user", text: userEchoLabel },
+    ])
+
+    window.setTimeout(() => {
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+
+        if (choiceId === "self_serve") {
+          pushAssistant({ kind: "self_serve_tip" })
+          window.setTimeout(() => {
+            setReplyTyping(true)
+            window.setTimeout(() => {
+              setReplyTyping(false)
+              pushAssistant({ kind: "text", text: "Opening the customer steps guide on the right." })
+              window.setTimeout(() => {
+                policyDetailPane.close()
+                setWorkflowActive(false)
+                setActiveWorkflowPolicy(null)
+                setEditPolicyWorkflow(null)
+                setSelfServeStepsType("raise_claim")
+                setSelfServeStepsEditKind(null)
+                setSelfServeStepsActive(true)
+              }, HELLO_WORKFLOW_SPLIT_AFTER_ACK_MS)
+            }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+          }, HELLO_SELF_SERVE_READ_PAUSE_MS)
+          return
+        }
+
+        // agent_behalf — open workflow pane (same as UC1 / UC10)
+        pushAssistant({ kind: "text", text: "As requested, opening raise a claim for you." })
         window.setTimeout(() => {
           setReplyTyping(true)
           window.setTimeout(() => {
@@ -1417,7 +1624,7 @@ export function RaiseClaimHelloView({
     setSelectedSuggestionIndex(-1)
     
     // Handle specific suggestions that should open panels directly
-    if (suggestion.id === "payment_history" || suggestion.id === "communication_history" || suggestion.id === "active_issues") {
+    if (suggestion.id === "payment_history" || suggestion.id === "communication_history" || suggestion.id === "active_issues" || suggestion.id === "nearby_garages") {
       // Add user message to chat
       setMessages((prev) => [...prev, { id: `hello-user-suggestion-${Date.now()}`, role: "user", text: suggestion.label }])
       
@@ -1433,6 +1640,9 @@ export function RaiseClaimHelloView({
       } else if (suggestion.id === "active_issues") {
         aiMessage = "As requested, opening Active issues and verification logs for you."
         actionId = "kyc-verification"
+      } else if (suggestion.id === "nearby_garages") {
+        aiMessage = "As requested, opening Nearby Garages for you."
+        actionId = "nearby-garages"
       }
       
       // AI acknowledges and then opens the panel
@@ -1448,8 +1658,12 @@ export function RaiseClaimHelloView({
           // After 1 second, open the panel
           setTimeout(() => {
             setRightSidebarCollapsed(false)
-            setRightSidebarActiveSection("manual-actions")
-            // Trigger the manual action
+            // nearby-garages opens in the AI tab area; other actions use manual section
+            if (actionId === "nearby-garages") {
+              setRightSidebarActiveSection("ai")
+            } else {
+              setRightSidebarActiveSection("manual-actions")
+            }
             triggerManualAction(actionId)
           }, 1000)
           
@@ -1648,6 +1862,50 @@ export function RaiseClaimHelloView({
           }
           return
         }
+        if (helloComposerTriggersDocsQuery(trimmed)) {
+          pushAssistant({ kind: "text", text: helloClaimDocumentsResponse })
+          return
+        }
+        if (helloComposerTriggersNcbExplainer(trimmed)) {
+          // NCB only applies to motor/auto policies
+          const autoPolicies = activePolicies.filter(
+            (p) =>
+              p.type?.toLowerCase().includes("motor") ||
+              p.type?.toLowerCase().includes("auto") ||
+              p.type?.toLowerCase().includes("car") ||
+              p.type?.toLowerCase().includes("bike") ||
+              !!p.vehicle,
+          )
+          if (autoPolicies.length === 0) {
+            pushAssistant({
+              kind: "text",
+              text: "NCB (No Claim Bonus) only applies to motor insurance policies. The customer doesn\u2019t appear to have an active motor policy.",
+            })
+          } else if (autoPolicies.length === 1) {
+            const vehicleLabel = autoPolicies[0]!.vehicle || autoPolicies[0]!.name || "this policy"
+            pushAssistant({ kind: "text", text: helloNcbExplainerForPolicy(vehicleLabel) })
+          } else {
+            // Multiple auto policies — ask CX to pick one first
+            pushAssistant({ kind: "text", text: helloNcbPolicyPickPrompt })
+            window.setTimeout(() => {
+              pushAssistant({
+                kind: "ncb_policy_pick",
+                offerId: `${HELLO_NCB_POLICY_PICK_OFFER_ID_PREFIX}-${Date.now()}`,
+                policies: autoPolicies,
+              })
+            }, 200)
+          }
+          return
+        }
+        if (/nearby\s+garage/i.test(trimmed)) {
+          pushAssistant({ kind: "text", text: "As requested, opening Nearby Garages for you." })
+          window.setTimeout(() => {
+            setRightSidebarCollapsed(false)
+            setRightSidebarActiveSection("ai")
+            triggerManualAction("nearby-garages")
+          }, 800)
+          return
+        }
         pushAssistant({ kind: "text", text: helloFreeTextAckStub })
       }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
     }, HELLO_BOT_REPLY_AFTER_USER_MS)
@@ -1714,6 +1972,90 @@ export function RaiseClaimHelloView({
             <p className="mt-3 whitespace-pre-line">{helloAgentBehalfNetworkGarageBulletsJoined()}</p>
           </div>
         )
+      case "agent_behalf_ncb_warning":
+        return (
+          <div className="flex min-w-0 flex-col gap-3 font-euclid">
+            <p className="text-[14px] font-normal leading-5 text-omni-n500">
+              This policy has no NCB Protect — once the claim is settled, the customer&apos;s <span className="font-semibold text-[#36354c]">25% NCB discount will reset to 0%</span>.
+            </p>
+            <div className={helloTellCustomerCalloutClass}>
+              <HelloTellCustomerLabel />
+              <p className="mt-1.5 text-[14px] font-medium leading-6 text-[#36354c]">
+                <span className="text-[#8b87a3]">&ldquo;</span>
+                Just so you know, you don&apos;t have NCB Protect on this policy. If this claim is settled, you&apos;ll lose your No Claim Bonus. Would you still like to go ahead?
+                <span className="text-[#8b87a3]">&rdquo;</span>
+              </p>
+            </div>
+          </div>
+        )
+      case "garage_select_action_pick": {
+        const offerId = body.offerId
+        return (
+          <WorkflowOfferPick
+            options={helloGarageSelectChoices.map((c) => ({
+              key: c.id,
+              label: c.label,
+              userEchoLabel: c.label,
+            }))}
+            disabled={spentOfferIds.has(offerId)}
+            onPick={(key, label) =>
+              handleGarageSelectPick(key as HelloGarageSelectChoiceId, label, offerId)
+            }
+          />
+        )
+      }
+
+      case "garage_select_raise_claim_pick": {
+        const offerId = body.offerId
+        return (
+          <WorkflowOfferPick
+            options={helloGarageSelectRaiseClaimChoices.map((c) => ({
+              key: c.id,
+              label: c.label,
+              userEchoLabel: c.label,
+            }))}
+            disabled={spentOfferIds.has(offerId)}
+            onPick={(key, label) =>
+              handleGarageSelectRaiseClaimPick(
+                key as HelloGarageSelectRaiseClaimChoiceId,
+                label,
+                offerId,
+              )
+            }
+          />
+        )
+      }
+
+      case "ncb_policy_pick": {
+        const offerId = body.offerId
+        return (
+          <WorkflowOfferPick
+            options={body.policies.map((p) => ({
+              key: p.id,
+              label: p.vehicle || p.name || p.policyNumber,
+              userEchoLabel: p.vehicle || p.name || p.policyNumber,
+            }))}
+            disabled={spentOfferIds.has(offerId)}
+            onPick={(key, label) => {
+              setSpentOfferIds((prev) => new Set([...prev, offerId]))
+              setMessages((prev) => [
+                ...prev,
+                { id: `hello-user-ncb-pick-${Date.now()}`, role: "user", text: label },
+              ])
+              const picked = body.policies.find((p) => p.id === key)
+              const vehicleLabel = picked?.vehicle || picked?.name || label
+              window.setTimeout(() => {
+                setReplyTyping(true)
+                window.setTimeout(() => {
+                  setReplyTyping(false)
+                  pushAssistant({ kind: "text", text: helloNcbExplainerForPolicy(vehicleLabel) })
+                }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+              }, HELLO_BOT_REPLY_AFTER_USER_MS)
+            }}
+          />
+        )
+      }
+
       case "claim_raised_success":
         return (
           <HelloClaimRaisedSuccessBody
@@ -2450,7 +2792,6 @@ export function RaiseClaimHelloView({
               >
                 <HelloChatColumnBackground />
                 {aiCompanionColumn}
-                {/* Main chat content area - no more split workflow content */}
                 <div className="relative z-10 min-h-0 min-w-0 overflow-hidden contents lg:block">
                   {/* All workflow content now appears in the right sidebar */}
                 </div>

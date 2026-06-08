@@ -180,7 +180,7 @@ export function RequestDocumentFigmaForm({
     (!policies?.length || Boolean(selectedPolicyId))
 
   return (
-    <div className="rounded-[12px] border border-[#e7e7f0] bg-white p-6" >
+    <div className="rounded-[12px] bg-white p-6">
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
           <p className="font-euclid text-[14px] font-medium leading-5 text-[#36354c]">Request via</p>
