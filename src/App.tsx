@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { HashRouter as BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { CallProvider } from "@/context/CallContext"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { Homepage } from "@/components/Homepage"
