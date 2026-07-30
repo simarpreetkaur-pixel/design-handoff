@@ -1,13 +1,18 @@
-import { X } from "lucide-react"
+import { useState } from "react"
+import { Check, ChevronDown, X } from "lucide-react"
 
 import { ClaimStatusTimeline } from "@/components/crm/ClaimStatusTimeline"
 import { CommunicationHistoryPanel } from "@/components/crm/hello/CommunicationHistoryPanel"
 import type { Customer, JTBD, Policy } from "@/types/crm"
+import { cn } from "@/lib/utils"
 
 export type ClaimStatusWorkflowView =
   | "timeline"
   | "escalate"
   | "communication_history"
+  | "schedule_ch_callback"
+
+export type ScheduleCHSelection = { date: "today" | "tomorrow"; slot: string }
 
 export type ClaimStatusWorkflowPanelProps = {
   jtbd: JTBD
@@ -17,6 +22,106 @@ export type ClaimStatusWorkflowPanelProps = {
   view: ClaimStatusWorkflowView
   onClose?: () => void
   onEscalationDone?: () => void
+  onScheduleCHDone?: (selection: ScheduleCHSelection) => void
+}
+
+const TIME_SLOTS = [
+  "9:00 AM – 11:00 AM",
+  "11:00 AM – 1:00 PM",
+  "1:00 PM – 3:00 PM",
+  "3:00 PM – 5:00 PM",
+] as const
+
+function policyDisplayLabel(p: Policy): string {
+  const vehicle = p.vehicle?.trim()
+  const name = p.name?.trim()
+  const num = p.policyNumber?.trim()
+  if (vehicle) return `${vehicle}${num ? ` — ${num}` : ""}`
+  if (name) return `${name}${num ? ` — ${num}` : ""}`
+  return num || "Policy"
+}
+
+function ScheduleCHCallbackPanel({
+  onCancel,
+  onDone,
+}: {
+  customerPolicies: Policy[]
+  preselectedPolicy?: Policy
+  onCancel?: () => void
+  onDone?: (selection: ScheduleCHSelection) => void
+}) {
+  const [selectedDate, setSelectedDate] = useState<"today" | "tomorrow" | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+
+  const isValid = Boolean(selectedDate && selectedSlot)
+
+  return (
+    <div className="flex min-h-0 flex-col gap-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-[#e7e7f0] p-6">
+
+        {/* Date selection */}
+        <div className="flex flex-col gap-3">
+          <p className="font-euclid text-sm font-medium leading-5 text-[#36354c]">Select date</p>
+          <div className="grid grid-cols-2 gap-3">
+            {(["today", "tomorrow"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setSelectedDate(d)}
+                className={cn(
+                  "flex h-12 items-center justify-center rounded-[6px] border font-euclid text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30",
+                  selectedDate === d
+                    ? "border-[#7c47e1] bg-[#7c47e1]/5 font-medium text-[#7c47e1]"
+                    : "border-[#e7e7f0] bg-white text-[#36354c] hover:border-[#c9c5e0]",
+                )}
+              >
+                {d === "today" ? "Today" : "Tomorrow"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Time slot selection */}
+        <div className="flex flex-col gap-3">
+          <p className="font-euclid text-sm font-medium leading-5 text-[#36354c]">Select time slot</p>
+          <div className="grid grid-cols-2 gap-3">
+            {TIME_SLOTS.map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => setSelectedSlot(slot)}
+                className={cn(
+                  "flex h-12 items-center justify-center rounded-[6px] border px-2 font-euclid text-sm leading-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30",
+                  selectedSlot === slot
+                    ? "border-[#7c47e1] bg-[#7c47e1]/5 font-medium text-[#7c47e1]"
+                    : "border-[#e5e5e5] bg-white text-[#36354c] hover:border-[#c9c5e0]",
+                )}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={!isValid}
+          onClick={() => { if (isValid && selectedDate && selectedSlot) { onDone?.({ date: selectedDate, slot: selectedSlot }); onCancel?.() } }}
+          className={cn(
+            "h-[42px] rounded-[6px] px-4 font-euclid text-sm font-medium text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30",
+            isValid
+              ? "bg-[#7c47e1] hover:bg-[#6b3ccd]"
+              : "cursor-not-allowed bg-[#7c47e1]/40",
+          )}
+        >
+          Schedule Callback
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function EscalateToOpsPanel({
@@ -93,6 +198,7 @@ export function ClaimStatusWorkflowPanel({
   view,
   onClose,
   onEscalationDone,
+  onScheduleCHDone,
 }: ClaimStatusWorkflowPanelProps) {
   if (view === "communication_history") {
     return (
@@ -111,6 +217,19 @@ export function ClaimStatusWorkflowPanel({
         onDone={() => {
           onEscalationDone?.()
           onClose?.()
+        }}
+      />
+    )
+  }
+
+  if (view === "schedule_ch_callback") {
+    return (
+      <ScheduleCHCallbackPanel
+        customerPolicies={customerPolicies.length ? customerPolicies : [policy]}
+        preselectedPolicy={policy}
+        onCancel={onClose}
+        onDone={(selection) => {
+          onScheduleCHDone?.(selection)
         }}
       />
     )

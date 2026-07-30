@@ -94,9 +94,9 @@ export function RequestDocumentFigmaForm({
   const [email, setEmail] = useState(false)
   const [phone, setPhone] = useState(defaultPhone)
   const [emailAddress, setEmailAddress] = useState(defaultEmail)
-  const [selectedDocs, setSelectedDocs] = useState<DocumentType[]>(["driving_license"])
+  const [selectedDocs, setSelectedDocs] = useState<DocumentType[]>(["rc_copy", "driving_license"])
   const [showDocPicker, setShowDocPicker] = useState(false)
-  const [message, setMessage] = useState(() => getDocumentTemplate("driving_license").whatsappMessage)
+  const [message, setMessage] = useState(() => getDocumentTemplate("rc_copy").whatsappMessage)
   
   const docPickerRef = useRef<HTMLDivElement>(null)
 

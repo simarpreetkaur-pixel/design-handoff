@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { AlertCircle, Check, ChevronDown, X } from "lucide-react"
+import { Check, ChevronDown, Clock } from "lucide-react"
 
 import type { ClaimCalloutRow, ClaimStatus, JTBDType } from "@/types/crm"
 import { cn } from "@/lib/utils"
@@ -38,7 +38,7 @@ function resolveStepBadge(step: ClaimStatus): { label: string; variant: StepBadg
   if (statusRow?.variant === "error") {
     return { label: statusRow.value, variant: "cancelled" }
   }
-  return { label: "In progress", variant: "current" }
+  return { label: "Pending", variant: "current" }
 }
 
 function StepStatusBadge({ label, variant }: { label: string; variant: StepBadgeVariant }) {
@@ -46,30 +46,27 @@ function StepStatusBadge({ label, variant }: { label: string; variant: StepBadge
 
   if (variant === "completed") {
     return (
-      <span className="inline-flex items-center gap-1">
-        <span className="flex size-4 items-center justify-center rounded-full bg-[#0fa457]/10">
-          <Check className="size-3 text-[#0fa457]" strokeWidth={2.5} aria-hidden />
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-[#ebfbee] px-2 py-1">
+        <span className="flex size-4 items-center justify-center rounded-full border border-[#0b753e]/20 bg-[#ebfbee]">
+          <Check className="size-2.5 text-[#0b753e]" strokeWidth={3} aria-hidden />
         </span>
-        <span className="font-euclid text-sm font-medium leading-none text-[#0fa457]">{label}</span>
+        <span className="font-euclid text-sm font-medium leading-none text-[#0b753e]">{label}</span>
       </span>
     )
   }
 
   if (variant === "cancelled") {
     return (
-      <span className="inline-flex items-center gap-1">
-        <span className="flex size-4 items-center justify-center">
-          <X className="size-4 text-[#e05752]" strokeWidth={2.5} aria-hidden />
-        </span>
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-[#fff0ef] px-2 py-1">
         <span className="font-euclid text-sm font-medium leading-none text-[#e05752]">{label}</span>
       </span>
     )
   }
 
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className="size-2 rounded-full bg-[#f58700]" aria-hidden />
-      <span className="font-euclid text-sm font-medium leading-none text-[#d16900]">{label}</span>
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-[#fff7e5] px-2 py-1">
+      <Clock className="size-4 text-[#f58700]" aria-hidden />
+      <span className="font-euclid text-sm font-medium leading-none text-[#f58700]">{label}</span>
     </span>
   )
 }
@@ -88,34 +85,47 @@ function ExpandedStepDetails({
 
   if (!lead && visibleRows.length === 0) {
     return (
-      <div className="mt-6 rounded-xl bg-[#f8f7fc] p-5">
-        {step.date ? (
-          <div className="flex flex-col gap-1">
-            <span className="font-euclid text-sm leading-5 text-[#5b5675]">Date</span>
-            <span className="font-euclid text-sm font-medium leading-5 text-[#36354c]">{step.date}</span>
-          </div>
-        ) : (
-          <p className="font-euclid text-sm leading-5 text-[#5b5675]">No additional details.</p>
-        )}
+      <div className="mt-4 rounded-xl bg-[#f8f7fc] p-5">
+        <p className="font-euclid text-sm leading-5 text-[#5b5675]">No additional details.</p>
       </div>
     )
   }
 
   return (
-    <div className="mt-6 flex flex-col gap-5 rounded-xl bg-[#f8f7fc] p-5">
+    <div className="mt-4 flex flex-col gap-3 rounded-xl bg-[#f8f7fc] p-5">
       {visibleRows.length > 0 ? (
-        <div className="flex flex-wrap items-start gap-x-12 gap-y-5">
+        <div className="flex flex-col gap-3">
           {visibleRows.map((row, i) => (
-            <div key={`${row.label}-${i}`} className="flex min-w-[120px] max-w-full flex-col gap-1 sm:min-w-[160px]">
-              <span className="font-euclid text-sm leading-5 text-[#5b5675]">{row.label}</span>
-              {row.variant === "error" ? (
-                <span className="inline-flex items-center gap-1 font-euclid text-sm font-medium leading-5 text-[#e05752]">
-                  <AlertCircle className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-                  {row.value}
-                </span>
-              ) : (
-                <span className="font-euclid text-sm font-medium leading-5 text-[#36354c]">{row.value}</span>
-              )}
+            <div key={`${row.label}-${i}`} className="flex flex-col gap-3">
+              <div className="flex items-start gap-8">
+                <span className="w-[132px] shrink-0 font-euclid text-sm leading-5 text-[#5b5675]">{row.label}</span>
+                {row.variant === "error" ? (
+                  <span className="inline-flex min-w-0 flex-1 items-center gap-1 font-euclid text-sm font-medium leading-5 text-[#e05752]">
+                    {row.value}
+                  </span>
+                ) : row.label === "Document upload status" ? (
+                  <span className="inline-flex items-center gap-1 font-euclid text-sm font-medium leading-5 text-[#0b753e]">
+                    <Check className="size-4 shrink-0" strokeWidth={2.5} aria-hidden />
+                    {row.value}
+                  </span>
+                ) : row.label === "Surveyor" ? (
+                  <span className="inline-flex min-w-0 flex-1 flex-wrap items-center gap-1.5 font-euclid text-sm font-medium leading-5 text-[#36354c]">
+                    {row.value.split("•")[0]?.trim()}
+                    {row.value.includes("ACKO Crew") ? (
+                      <span className="inline-flex items-center rounded-md bg-[#e2f5ff] px-1.5 py-0.5 font-euclid text-sm font-medium leading-none text-[#1b73e8]">
+                        ACKO Crew
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span className="min-w-0 flex-1 font-euclid text-sm font-medium leading-5 text-[#36354c]">
+                    {row.value}
+                  </span>
+                )}
+              </div>
+              {i < visibleRows.length - 1 ? (
+                <div className="h-px w-full bg-[#e7e7f0]" aria-hidden />
+              ) : null}
             </div>
           ))}
         </div>
@@ -152,21 +162,21 @@ function WorkflowStepCard({
 
   return (
     <div
-      className="w-full rounded-xl border border-solid border-[#e7e7f0] px-4 py-4"
-      data-figma-ref="9367:23013"
+      className="w-full rounded-xl border border-solid border-[#e7e7f0] px-4 py-5"
+      data-figma-ref="9597:8250"
     >
-      <div className="flex w-full items-start justify-between gap-3">
+      <div className="flex w-full items-start justify-between gap-6">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-[#5b5675]">
-            <span className="font-euclid text-base font-medium leading-6 text-white">{stepNumber}</span>
+          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-[#f8f7fc]">
+            <span className="font-euclid text-base font-medium leading-6 text-[#5b5675]">{stepNumber}</span>
           </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <p className="font-euclid text-sm font-medium leading-6 text-[#36354c]">{step.step}</p>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="font-euclid text-sm font-semibold leading-5 text-[#36354c]">{step.step}</p>
               <StepStatusBadge label={badge.label} variant={badge.variant} />
             </div>
             {step.date ? (
-              <p className="font-euclid text-xs leading-[18px] text-[#5b5675]">{step.date}</p>
+              <p className="font-euclid text-[12px] leading-[18px] text-[#5b5675]">{step.date}</p>
             ) : null}
           </div>
         </div>

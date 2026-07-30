@@ -1,5 +1,5 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react"
-import { Send } from "lucide-react"
+import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { AlertTriangle, Send } from "lucide-react"
 
 import { formatPolicyChatRadioEcho, PolicyChatRadioContent } from "@/lib/policyChatRadioLabel"
 import { cn, customerFirstNameOrFull } from "@/lib/utils"
@@ -1010,7 +1010,7 @@ export function EditPolicyHelloView({
                 return (
                   <div key={message.id} className="flex w-full min-w-0 justify-end">
                     <HelloCxBubbleCard showIdentity={streak.nextCxBubbleShowIdentity()}>
-                      <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
+                      <p className="text-left font-euclid text-[14px] font-medium leading-5 text-[#36354c]">
                         {message.text}
                       </p>
                     </HelloCxBubbleCard>
@@ -1063,7 +1063,8 @@ export function EditPolicyHelloView({
   const companionComposer = (
     <div className="relative z-20 shrink-0 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
       <div className="mx-auto flex w-full max-w-2xl min-w-0 justify-center">
-        <div className="w-full">
+        <div className="relative w-full">
+          {/* Unknown-reason quick suggestions (pre-existing) */}
           {sunilUnknownComposerSuggestionMatches.length > 0 ? (
             <div
               className="mb-2 flex max-h-[min(40vh,220px)] flex-col gap-1 overflow-y-auto rounded-xl border border-[#ececf2] bg-[#fafafa] p-1.5 shadow-sm"
@@ -1086,13 +1087,9 @@ export function EditPolicyHelloView({
               ))}
             </div>
           ) : null}
-          <div
-            className={cn(
-              "flex w-full min-w-0 items-end gap-2 rounded-3xl border border-[#e7e7f0] bg-white py-2 pl-4 pr-2 sm:pl-5 sm:pr-1.5",
-              "shadow-[0px_12px_40px_rgba(54,53,76,0.14),0px_4px_12px_rgba(54,53,76,0.06)]",
-              "ring-1 ring-[#36354c]/[0.05]",
-            )}
-          >
+
+          {/* Composer bar — UC1-consistent style */}
+          <div className="flex w-full items-center gap-3 rounded-2xl border border-[#e7e7f0] bg-white px-4 py-3 shadow-sm">
             <label htmlFor="edit-policy-hello-composer" className="sr-only">
               Message as CX
             </label>
@@ -1102,11 +1099,10 @@ export function EditPolicyHelloView({
               value={composerText}
               onChange={(e) => setComposerText(e.target.value)}
               onKeyDown={handleComposerKeyDown}
-              placeholder="Type a message…"
+              placeholder="Ask anything here..."
               className={cn(
-                "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-[#fafafa]/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
+                "max-h-32 min-h-[22px] flex-1 resize-none bg-transparent font-euclid text-[14px] leading-5 text-[#36354c]",
                 "outline-none ring-0 placeholder:text-[#8b87a3]",
-                "focus-visible:placeholder:text-[#a39eb8]",
               )}
             />
             <Button
@@ -1116,12 +1112,12 @@ export function EditPolicyHelloView({
               disabled={!composerText.trim()}
               aria-label="Send message"
               className={cn(
-                "mb-0.5 size-11 shrink-0 rounded-full bg-[#7c47e1] text-white shadow-md transition-[box-shadow,transform]",
-                "hover:bg-[#6b3ccd] hover:shadow-lg active:scale-[0.98]",
+                "size-8 shrink-0 rounded-full bg-[#5c30c9] text-white",
+                "hover:bg-[#4a27a0] active:scale-[0.98]",
                 "disabled:pointer-events-none disabled:opacity-40",
               )}
             >
-              <Send className="size-5" aria-hidden strokeWidth={2} />
+              <Send className="size-4" aria-hidden strokeWidth={2} />
             </Button>
           </div>
         </div>
@@ -1187,6 +1183,7 @@ export function EditPolicyHelloView({
             ? "Policies are hidden until you identify the customer. Demo: set lookup to 1234 in the header."
             : undefined
         }
+        showTabs
       />
 
       {showSkeletonLoader ? (
@@ -1258,6 +1255,7 @@ export function EditPolicyHelloView({
             }}
             policyDetailSubview={policyDetailSubview}
             onPolicyDetailViewChange={setPolicyDetailSubview}
+            showRailLabels
           />
         </>
       )}

@@ -121,6 +121,16 @@ export type ChatMockCase =
   | "raj_raise_claim_v2"
   /** Raj Kapoor — unable to select garage (use case 11). */
   | "raj_unable_select_garage"
+  /** Rajesh Kumar (Figma UC6) — raise a claim with Request Docs → Raise Claim flow. */
+  | "rajesh_raise_claim_figma"
+  /** Rajesh Kumar (Figma UC7) — edit policy with Send ACKO Alert (self-serve) flow. */
+  | "rajesh_edit_policy_figma"
+  /** UC6 — capability showcase: AI-guided command palette across all CRM features. */
+  | "rajesh_capability_showcase"
+  /** UC7 — Phase-1: scaled-down raise-a-claim flow with Quick Actions + Power Tools right panel. */
+  | "rajesh_phase1"
+  /** UC8 — Voicebot handover: edit name in policy flow for Sumit Sharma. */
+  | "sumit_voicebot_handover"
 
 interface AIChatPanelProps {
   isActive?: boolean
@@ -1697,9 +1707,9 @@ export function AIChatPanel({
               ) : (
                 <div key={message.id} className="flex w-full justify-end">
                   <div className="flex w-full max-w-[90%] items-start justify-end gap-2.5">
-                    <Card className="min-w-0 border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]">
+                    <Card className="min-w-0 border-0 bg-[#efe9fb] text-[#36354c] shadow-[0px_2px_8px_rgba(92,50,201,0.08)]">
                       <CardContent className="p-3 pt-3">
-                        <p className="text-left font-euclid text-[13px] font-medium leading-5 text-white">
+                        <p className="text-left font-euclid text-[13px] font-medium leading-5 text-[#36354c]">
                           {message.text}
                         </p>
                       </CardContent>

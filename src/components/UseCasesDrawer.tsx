@@ -7,6 +7,8 @@ import type { CrmDemoState } from "@/types/navigation"
 export type UseCaseSelection = {
   customerId: string
   crmDemo: CrmDemoState
+  /** When true, skip the incoming call modal and navigate directly to CRM. */
+  directEntry?: boolean
 }
 
 type UseCasesDrawerProps = {
@@ -73,6 +75,7 @@ export function UseCasesDrawer({ open, onOpenChange, onSelectUseCase }: UseCases
                     onSelectUseCase({
                       customerId: scenario.customerId,
                       crmDemo: scenario.crmDemo,
+                      directEntry: scenario.directEntry,
                     })
                   }}
                   className="flex w-full rounded-sm px-1 py-1 text-left font-euclid text-sm font-semibold text-[#040222] transition-colors hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c47e1]/30"

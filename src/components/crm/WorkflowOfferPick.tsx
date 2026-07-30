@@ -13,7 +13,7 @@ export function WorkflowOfferPick({
   selectedKey,
 }: {
   options: { key: string; label: ReactNode; userEchoLabel?: string; disabled?: boolean }[]
-  disabled: boolean
+  disabled?: boolean
   onPick: (key: string, label: string) => void
   /** When set, radios are controlled (keeps selection when reopening a step). */
   selectedKey?: string | null

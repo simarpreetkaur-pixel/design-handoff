@@ -297,7 +297,7 @@ export function IncomingCallModal({
               <CardContent className="flex flex-col gap-3 p-5 sm:p-5">
                 <div className="grid w-full grid-cols-1 items-center gap-x-8 text-sm font-medium leading-5 min-[400px]:grid-cols-[132px_1fr]">
                   <p className="w-full font-euclid text-[#5b5675] opacity-80 sm:w-[132px]">
-                    Ongoing issue
+                    Call reason
                   </p>
                   <p className="min-w-0 font-euclid text-[#040222]">{viewModel.ongoingIssue}</p>
                 </div>

@@ -11,7 +11,7 @@ import {
   useState,
 } from "react"
 import { resolveSidebarActiveClaim } from "@/data/sidebarActiveClaim"
-import { Send, X, Edit3, AlertCircle, Shield, CreditCard, MessageCircle, FileText, XCircle, Phone, MapPin } from "lucide-react"
+import { AlertTriangle, Send, X, Edit3, AlertCircle, Shield, CreditCard, MessageCircle, FileText, XCircle, Phone, MapPin, Check, Sparkles } from "lucide-react"
 
 import {
   RAISE_CLAIM_CUSTOMER_STEPS,
@@ -353,8 +353,10 @@ export type HelloAssistantBody =
   | { kind: "edit_policy_mode_offer"; offerId: string; introText: string }
   | { kind: "edit_policy_self_serve_tip"; editField: EndorsementEditKind }
   | { kind: "edit_policy_workflow_success" }
-  | { kind: "claim_raised_success" }
+  | { kind: "claim_raised_success"; claimId?: string }
   | { kind: "send_communication_success" }
+  | { kind: "schedule_ch_success"; dateLabel: string; slot: string }
+  | { kind: "schedule_ch_tell_customer" }
   | { kind: "renewal_reminder"; vehicleLabel: string; daysLeft: number }
   | { kind: "policy_bar_detail_card"; policyId: string }
   | { kind: "policy_bar_assistance_offer"; policyId: string; offerId: string }
@@ -600,6 +602,7 @@ export function RaiseClaimHelloView({
     { id: "transfer_call", label: "Transfer call", description: "Transfer call to another agent", icon: Phone },
     { id: "active_issues", label: "Active issues", description: "View ongoing policy issues", icon: AlertCircle },
     { id: "nearby_garages", label: "Nearby garages", description: "Find network garages near customer", icon: MapPin },
+    { id: "escalate", label: "Escalate issue", description: "Escalate to a higher support group or team", icon: AlertTriangle },
   ]
 
   // Filter suggestions based on input text
@@ -1140,6 +1143,8 @@ export function RaiseClaimHelloView({
         onHelloToast?.(HELLO_CLAIM_STATUS_ESCALATE_TOAST)
       } else if (key === "view_communication_history") {
         setClaimStatusWorkflow({ view: "communication_history" })
+      } else if (key === "schedule_ch_appointment") {
+        setClaimStatusWorkflow({ view: "schedule_ch_callback" })
       } else if (key === "view_claim_status_timeline" || key === "something_else") {
         setClaimStatusWorkflow({ view: "timeline" })
       }
@@ -1149,11 +1154,13 @@ export function RaiseClaimHelloView({
           ? isClaimStatusEscalated
             ? "Opening the escalation workspace on the right."
             : "Opening the F-ops escalation workspace on the right."
-          : key === "view_communication_history"
-            ? "Opening communication history on the right."
-            : key === "view_claim_status_timeline"
-              ? "Opening the claim status timeline on the right."
-              : "Opening the claim status workspace on the right — you can review the timeline there."
+          : key === "schedule_ch_appointment"
+            ? "Opening the claim status timeline on the right. You can schedule a claim handler appointment from there."
+            : key === "view_communication_history"
+              ? "Opening communication history on the right."
+              : key === "view_claim_status_timeline"
+                ? "Opening the claim status timeline on the right."
+                : "Opening the claim status workspace on the right — you can review the timeline there."
 
       window.setTimeout(() => {
         setReplyTyping(true)
@@ -1191,13 +1198,33 @@ export function RaiseClaimHelloView({
     }, 300)
   }, [])
 
+  const handleScheduleCHDone = useCallback((selection: { date: "today" | "tomorrow"; slot: string }) => {
+    setClaimStatusWorkflow(null)
+    setRightSidebarCollapsed(true)
+    setRightSidebarActiveSection(null)
+    const dateLabel = selection.date === "today" ? "Today" : "Tomorrow"
+    window.setTimeout(() => {
+      setReplyTyping(true)
+      window.setTimeout(() => {
+        setReplyTyping(false)
+        pushAssistant({ kind: "schedule_ch_success", dateLabel, slot: selection.slot })
+        window.setTimeout(() => {
+          setReplyTyping(true)
+          window.setTimeout(() => {
+            setReplyTyping(false)
+            pushAssistant({ kind: "schedule_ch_tell_customer" })
+          }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+        }, HELLO_RAISE_CLAIM_GAP_BEFORE_CHOICES_MS)
+      }, HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS)
+    }, 300)
+  }, [pushAssistant])
+
   const handleOpeningPick = (
     choiceId: HelloRaiseClaimChoiceId,
     userEchoLabel: string,
     offerId: string,
   ) => {
-    if (spentOfferIds.has(offerId)) return
-    setSpentOfferIds((prev) => new Set(prev).add(offerId))
+    void offerId
 
     setMessages((prev) => [
       ...prev,
@@ -1585,7 +1612,7 @@ export function RaiseClaimHelloView({
       setReplyTyping(true)
       window.setTimeout(() => {
         setReplyTyping(false)
-        pushAssistant({ kind: "claim_raised_success" })
+        pushAssistant({ kind: "claim_raised_success", claimId: "MTNDCR819234" })
 
         if (!renewalNudge) return
 
@@ -2061,6 +2088,7 @@ export function RaiseClaimHelloView({
           <HelloClaimRaisedSuccessBody
             headline={helloClaimRaisedSuccessHeadline}
             quotedLine={helloClaimRaisedSuccessQuotedLine}
+            claimId={body.claimId}
             onViewWorkflow={handleViewCompletedWorkflow}
           />
         )
@@ -2070,6 +2098,33 @@ export function RaiseClaimHelloView({
             headline={helloSendCommunicationSuccessHeadline}
             quotedLine={helloSendCommunicationSuccessQuotedLine}
           />
+        )
+      case "schedule_ch_success":
+        return (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#ecfdf5] ring-1 ring-[#d1fae5]"
+              aria-hidden
+            >
+              <Check className="size-3.5 text-[#059669]" strokeWidth={2.5} />
+            </div>
+            <p className="min-w-0 flex-1 font-euclid text-[14px] font-normal leading-5 text-omni-n500">
+              Claim handler callback scheduled for{" "}
+              <span className="font-semibold text-[#36354c]">{body.dateLabel}</span>,{" "}
+              <span className="font-semibold text-[#36354c]">{body.slot}</span>.
+            </p>
+          </div>
+        )
+      case "schedule_ch_tell_customer":
+        return (
+          <div className={helloTellCustomerCalloutClass}>
+            <HelloTellCustomerLabel />
+            <p className="mt-1.5 font-euclid text-[14px] font-medium leading-6 text-[#36354c]">
+              <span className="text-[#8b87a3]">&ldquo;</span>
+              Our claim handler will call you back to assist with the pickup &amp; survey. Please keep your vehicle accessible during the scheduled time slot.
+              <span className="text-[#8b87a3]">&rdquo;</span>
+            </p>
+          </div>
         )
       case "edit_policy_workflow_success":
         return (
@@ -2190,7 +2245,7 @@ export function RaiseClaimHelloView({
                   key: c.id,
                   label: c.label,
                 }))}
-                disabled={spentOfferIds.has(body.offerId)}
+                disabled={false}
                 onPick={(key, label) =>
                   handleOpeningPick(key as HelloRaiseClaimChoiceId, label, body.offerId)
                 }
@@ -2373,6 +2428,15 @@ export function RaiseClaimHelloView({
         </div>
       )
     }
+    if (body.kind === "claim_raised_success") {
+      return (
+        <div key={message.id} className="min-w-0 max-w-full">
+          <HelloAiBubbleCard bubbleWidth="wide" showIdentity={streak.nextAiBubbleShowIdentity()}>
+            {renderAssistantBody(body)}
+          </HelloAiBubbleCard>
+        </div>
+      )
+    }
     return (
       <div key={message.id} className="min-w-0 max-w-full">
         <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
@@ -2454,7 +2518,8 @@ export function RaiseClaimHelloView({
                   {!isClaimStatusEscalated && csShowB3 ? (
                     <HelloAiBubbleCard showIdentity={streak.nextAiBubbleShowIdentity()}>
                       <p className="font-euclid text-[14px] font-normal leading-5 text-omni-n500">
-                        Best possible action is to escalate this issue to F-ops team.
+                        Best action would be to{" "}
+                        <span className="font-semibold text-[#36354c]">schedule a claim handler callback</span>.
                       </p>
                     </HelloAiBubbleCard>
                   ) : null}
@@ -2525,7 +2590,7 @@ export function RaiseClaimHelloView({
                             key: c.id,
                             label: c.label,
                           }))}
-                          disabled={spentOfferIds.has(HELLO_OPENING_OFFER_ID)}
+                          disabled={false}
                           onPick={(key, label) =>
                             handleOpeningPick(key as HelloRaiseClaimChoiceId, label, HELLO_OPENING_OFFER_ID)
                           }
@@ -2555,7 +2620,7 @@ export function RaiseClaimHelloView({
                 return (
                   <div key={message.id} className="flex w-full min-w-0 justify-end">
                     <HelloCxBubbleCard showIdentity={streak.nextCxBubbleShowIdentity()}>
-                      <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
+                      <p className="text-left font-euclid text-[14px] font-medium leading-5 text-[#36354c]">
                         {message.text}
                       </p>
                     </HelloCxBubbleCard>
@@ -2578,55 +2643,61 @@ export function RaiseClaimHelloView({
 
   const companionComposer = (
     <div className="relative z-20 shrink-0 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-      {/* Suggestions dropdown */}
+      {/* Quick Actions drawer — UC6-consistent style */}
       {showSuggestions && filteredSuggestions.length > 0 && (
         <div className="mx-auto w-full max-w-2xl min-w-0 mb-2">
-          <div className="bg-white border border-[#e7e7f0] rounded-2xl shadow-lg overflow-hidden max-h-60 overflow-y-auto">
-            {filteredSuggestions.map((suggestion, index) => {
-              const Icon = suggestion.icon
-              return (
-                <button
-                  key={suggestion.id}
-                  onClick={() => handleSuggestionSelect(suggestion)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 hover:bg-[#f8f7fc] border-b border-[#e7e7f0] last:border-b-0 transition-colors",
-                    selectedSuggestionIndex === index && "bg-[#f8f7fc]"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-[#f8f7fc] rounded-lg flex items-center justify-center">
-                      <Icon className="w-4 h-4 text-[#7c47e1]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-euclid text-sm font-medium text-[#040222]">
-                        {suggestion.label}
-                      </div>
-                      <div className="font-euclid text-xs text-[#5b5675] mt-1">
-                        {suggestion.description}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-            <div className="px-4 py-2 bg-[#fafafa] border-t border-[#e7e7f0]">
-              <p className="font-euclid text-xs text-[#9c9aaf]">
-                Use ↑↓ to navigate, Tab or Enter to select, Esc to close
+          <div className="overflow-hidden rounded-xl border border-[#e7e7f0] bg-white shadow-[0px_-4px_24px_rgba(54,53,76,0.12)]">
+            <div className="flex items-center gap-2 border-b border-[#f0f0f6] px-4 py-2">
+              <Sparkles className="size-3.5 shrink-0 text-[#7c47e1]" aria-hidden />
+              <p className="font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#9c9aaf]">
+                Quick Actions
               </p>
+            </div>
+            <div className="max-h-[260px] overflow-y-auto py-1">
+              {filteredSuggestions.map((suggestion, index) => {
+                const Icon = suggestion.icon
+                return (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    onClick={() => handleSuggestionSelect(suggestion)}
+                    onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                    className={cn(
+                      "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                      selectedSuggestionIndex === index ? "bg-[#f5f3fc]" : "hover:bg-[#fafafa]",
+                    )}
+                  >
+                    <span className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                      selectedSuggestionIndex === index ? "bg-[#7c47e1] text-white" : "bg-[#f5f3fc] text-[#7c47e1]",
+                    )}>
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-euclid text-[13px] font-semibold leading-5 text-[#040222]">
+                        {suggestion.label}
+                      </span>
+                      <span className="block font-euclid text-[11px] leading-4 text-[#5b5675]">
+                        {suggestion.description}
+                      </span>
+                    </span>
+                    {selectedSuggestionIndex === index && (
+                      <span className="shrink-0 rounded border border-[#e7e7f0] bg-white px-1.5 py-0.5 font-euclid text-[10px] text-[#9c9aaf]">↵</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="border-t border-[#f0f0f6] px-4 py-2">
+              <p className="font-euclid text-[10px] text-[#c5c2d6]">↑↓ navigate · ↵ select · Esc dismiss</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Single floating bar: elevated pill with inline input + send — not a separate tiny FAB */}
+      {/* Composer bar — UC1-consistent style */}
       <div className="mx-auto flex w-full max-w-2xl min-w-0 justify-center">
-        <div
-          className={cn(
-            "flex w-full min-w-0 items-end gap-2 rounded-3xl border border-[#e7e7f0] bg-white py-2 pl-4 pr-2 sm:pl-5 sm:pr-1.5",
-            "shadow-[0px_12px_40px_rgba(54,53,76,0.14),0px_4px_12px_rgba(54,53,76,0.06)]",
-            "ring-1 ring-[#36354c]/[0.05]",
-          )}
-        >
+        <div className="flex w-full items-center gap-3 rounded-2xl border border-[#e7e7f0] bg-white px-4 py-3 shadow-sm">
           <label htmlFor="raise-claim-hello-composer" className="sr-only">
             Message as CX — {helloCxResponderName}
           </label>
@@ -2639,11 +2710,10 @@ export function RaiseClaimHelloView({
             onKeyDown={handleComposerKeyDown}
             onFocus={handleComposerFocus}
             onBlur={handleComposerBlur}
-            placeholder="Type a message…"
+            placeholder="Ask anything here..."
             className={cn(
-              "max-h-32 min-h-[44px] flex-1 resize-y rounded-2xl bg-white/80 py-2.5 pl-1 font-euclid text-[14px] leading-5 text-[#36354c]",
+              "max-h-32 min-h-[22px] flex-1 resize-none bg-transparent font-euclid text-[14px] leading-5 text-[#36354c]",
               "outline-none ring-0 placeholder:text-[#8b87a3]",
-              "focus-visible:placeholder:text-[#a39eb8]",
             )}
           />
           <Button
@@ -2653,12 +2723,12 @@ export function RaiseClaimHelloView({
             disabled={!composerText.trim()}
             aria-label="Send message"
             className={cn(
-              "mb-0.5 size-11 shrink-0 rounded-full bg-[#7c47e1] text-white shadow-md transition-[box-shadow,transform]",
-              "hover:bg-[#6b3ccd] hover:shadow-lg active:scale-[0.98]",
+              "size-8 shrink-0 rounded-full bg-[#5c30c9] text-white",
+              "hover:bg-[#4a27a0] active:scale-[0.98]",
               "disabled:pointer-events-none disabled:opacity-40",
             )}
           >
-            <Send className="size-5" aria-hidden strokeWidth={2} />
+            <Send className="size-4" aria-hidden strokeWidth={2} />
           </Button>
         </div>
       </div>
@@ -2722,6 +2792,7 @@ export function RaiseClaimHelloView({
         supportHistoryPreview={supportHistoryPreview}
         supportHistoryEntries={supportHistoryEntries}
         activeClaim={activeClaimSidebar}
+        showTabs
       />
 
       {/* Show skeleton loader during mode transition */}
@@ -2827,6 +2898,7 @@ export function RaiseClaimHelloView({
             }
             onClaimStatusWorkflowClose={() => setClaimStatusWorkflow(null)}
             onClaimStatusEscalationDone={handleClaimStatusEscalationDone}
+            onClaimStatusScheduleCHDone={handleScheduleCHDone}
             isCompletedWorkflow={viewingCompletedWorkflow}
             selfServeStepsActive={selfServeStepsActive}
             selfServeStepsType={selfServeStepsType}
@@ -2865,6 +2937,7 @@ export function RaiseClaimHelloView({
             onSendCommunicationComplete={handleSendCommunicationComplete}
             triggerManualAction={manualActionTrigger}
             triggerSelfServeTab={selfServeTabTrigger}
+            showRailLabels
           />
         </>
       )}

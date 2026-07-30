@@ -406,7 +406,7 @@ export const rajKapoorRoadSideAssistanceJtbd: JTBD = {
   askInChatPrefill: "",
 }
 
-/** UC2 — Claim status (Raj · Tata Nexon): timeline + previous context for Classic JTBD panel & Hello chat. */
+/** UC2 — Claim status (Raj · Tata Nexon): admissibility approved, first call done, pickup & survey pending. */
 export const rajKapoorClaimStatusNexonJtbd: JTBD = {
   id: "jtbd-raj-nexon-claim-status",
   type: "claim",
@@ -414,77 +414,88 @@ export const rajKapoorClaimStatusNexonJtbd: JTBD = {
   vehicle: "Tata Nexon",
   isActive: true,
   openingQuickSummary:
-    "Survey slot missed (12 Feb); claim active — repair estimate on hold until survey/Ops moves.",
+    "Admissibility approved, first call done — pickup & survey scheduled for 20 May 2026, 2–4 PM.",
   aiSummary: {
     bullets: [
-      "Last contact: customer confirmed the survey slot but could not receive the surveyor at the scheduled time.",
-      "Claim is active — repair estimate cannot proceed until the survey step is cleared or escalated.",
+      "Check Admissibility completed: documents uploaded and inspection done on 15 May 2026.",
+      "First call completed: surveyor Manjunath V (ACKO Crew) assigned; pickup scheduled for 2–4 PM on 20 May 2026.",
     ],
     sectionHeading: "Previous summary",
     headerIconVariant: "ai_summary",
     stackHeaderWithBullets: true,
     detailedSummaryTimeline: [
       {
-        title: "12 Feb'26, 10:12 — Arjun Mehta (CX)",
+        title: "12 May'26, 17:49 — Vipin Paul (CX)",
         detail:
-          "Raj confirmed his rear-bumper claim was registered. He asked about survey timing; agent shared the 2–4 PM slot and expectations for vehicle access.",
+          "First call completed. Vehicle location confirmed as Home/Office. Pickup & survey scheduled for 2–4 PM on 20 May 2026. Scheduled by Ram Kapoor.",
       },
       {
-        title: "12 Feb'26, 16:40 — Priya Nair (CX)",
+        title: "15 May'26 — System",
         detail:
-          "Survey marked missed in system — customer disputes availability. Agent documented the dispute and set expectation that Ops may need to reschedule or intervene.",
+          "Check Admissibility completed — document upload verified and inspection date set to 15 May 2026.",
       },
     ],
   },
   status: [
     {
-      step: "Claim registered",
+      step: "Check Admissibility",
       state: "completed",
-      date: "12 Feb'26",
-    },
-    {
-      step: "Survey scheduled",
-      state: "current",
-      date: "12 Feb'26",
+      date: "5:49 PM • 12 May 2026",
       calloutRows: [
-        { label: "Survey date", value: "12 Feb'26" },
-        { label: "Survey time slot", value: "2-4PM" },
-        { label: "Agent name", value: "Arun" },
-        { label: "Status", value: "Missed", variant: "error" },
+        { label: "Document upload status", value: "Completed" },
+        { label: "Inspection date", value: "15 May 2026" },
       ],
     },
     {
-      step: "Repair Estimate",
-      state: "pending",
+      step: "First call",
+      state: "completed",
+      date: "5:49 PM • 12 May 2026",
+      calloutRows: [
+        { label: "Requested by", value: "Vipin Paul" },
+        { label: "Vehicle location during first call", value: "Home/Office" },
+        { label: "Scheduled time", value: "2PM - 4PM | 20 May 2026" },
+        { label: "Scheduled by", value: "Ram Kapoor" },
+      ],
+    },
+    {
+      step: "Pickup & Survey",
+      state: "current",
+      date: "5:49 PM • 12 May 2026",
+      calloutRows: [
+        { label: "Surveyor", value: "Manjunath V  •  ACKO Crew" },
+        { label: "Scheduled time", value: "2PM - 4PM | 20 May 2026" },
+        { label: "Pickup Location", value: "11/3 Old Madras Road, Bhattarahalli Vironagar" },
+        { label: "Drop location", value: "Volkswagen Downtown Workshop, Kidwai Marg" },
+      ],
     },
   ],
   agentActions: [
     {
-      id: "raj-cs-escalate",
+      id: "raj-cs-schedule-ch",
       step: 1,
       description:
-        "Survey was missed — escalate to Ops so the claim can be rescheduled or manually progressed before repair estimate.",
-      cta: "Escalate to Ops",
+        "Pickup & survey is scheduled but pending — offer to schedule a claim handler callback to keep the customer informed and ensure a smooth handoff.",
+      cta: "Schedule CH Appointment",
       completed: false,
     },
     {
       id: "raj-cs-1",
       step: 2,
-      description: "Walk the customer through next steps in the ACKO app or send an ACKO Alert with the claim deep link.",
+      description: "Send the customer an ACKO Alert with the claim deep link and scheduled pickup details.",
       cta: "Send ACKO Alert",
       completed: false,
     },
     {
       id: "raj-cs-2",
       step: 3,
-      description: "If the customer wants hands-on help, schedule a claim handler callback.",
-      cta: "Schedule CH Appointment",
+      description: "Share the claim status update with the customer through their preferred communication channel.",
+      cta: "Send communication",
       completed: false,
     },
   ],
-  quickActions: ["Escalate to Ops", "Send communication", "Send ACKO Alert", "Schedule CH Appointment"],
+  quickActions: ["Schedule CH Appointment", "Send communication", "Send ACKO Alert"],
   askInChatPrefill:
-    "Raj's Nexon claim — survey slot was missed; how do we align with Ops and unblock repair estimate?",
+    "Raj's Nexon claim — admissibility approved, first call done. Pickup & survey pending for 20 May. How do we schedule a claim handler callback?",
 }
 
 export const policyActions: PolicyAction[] = [
@@ -1137,6 +1148,95 @@ const samplePolicies: Policy[] = [
 
 const emptyInactivePolicies: InactivePolicy[] = []
 
+// ─── Sumit Sharma (UC8 — Voicebot handover) ───────────────────────────────────
+
+const sumitSharma: Customer = {
+  id: "sumit-sharma",
+  name: "Sumit Sharma",
+  language: "Hindi",
+  phone: "91 ******765",
+  email: "su******ma.com",
+  appStatus: "installed",
+  tenureWithAcko: "2 years with ACKO",
+  kycStatus: "verified",
+  callContext: {
+    reason: "Edit name in policy",
+    vehicle: "Ecosport Titanium 2025",
+  },
+}
+
+const sumitSharmaActivePolicies: Policy[] = [
+  {
+    id: "sumit-policy-ecosport",
+    name: "Ecosport Titanium 2025",
+    type: "Motor Insurance",
+    policyNumber: "DCCR20571438920/00",
+    expiryDate: "31 Dec'26",
+    vehicle: "Ecosport Titanium 2025",
+    policyHolder: "Sumit Sharma",
+    planDisplayName: "Comprehensive",
+    productCode: "car_comprehensive",
+    policyPeriodLabel: "1 Jan 2026 - 31 Dec 2026",
+    tenureLabel: "1 Year",
+  },
+]
+
+// ─── Rajesh Kumar (Figma UC6 + UC7) ──────────────────────────────────────────
+
+const rajeshKumarFigma: Customer = {
+  id: "rajesh-kumar-figma",
+  name: "Rajesh Kumar",
+  language: "Hindi",
+  phone: "91 ******354",
+  email: "ra******34.com",
+  appStatus: "installed",
+  tenureWithAcko: "4 years",
+  kycStatus: "pending",
+  callContext: {
+    reason: "Raise a claim",
+    vehicle: "Ecosport Titanium 2025",
+  },
+}
+
+const rajeshKumarFigmaActivePolicies: Policy[] = [
+  {
+    id: "figma-policy-ecosport",
+    name: "Ecosport Titanium 2025",
+    type: "Motor Insurance",
+    policyNumber: "DCCR10462314331/00",
+    expiryDate: "31 Dec'26",
+    vehicle: "Ecosport Titanium 2025",
+    policyHolder: "Rajesh Kumar",
+    planDisplayName: "Comprehensive",
+    productCode: "car_comprehensive",
+    policyPeriodLabel: "1 Jan 2026 - 31 Dec 2026",
+    tenureLabel: "1 Year",
+  },
+  {
+    id: "figma-policy-activa",
+    name: "Honda Activa 2020",
+    type: "Motor Insurance",
+    policyNumber: "DCCR10462314331/00",
+    expiryDate: "31 Dec'26",
+    vehicle: "Honda Activa 2020",
+    policyHolder: "Rajesh Kumar",
+    planDisplayName: "Third Party",
+    policyPeriodLabel: "1 Jan 2026 - 31 Dec 2026",
+    tenureLabel: "1 Year",
+  },
+  {
+    id: "figma-policy-health",
+    name: "Corporate Health Plan",
+    type: "Health Insurance",
+    policyNumber: "1E06DF20251114",
+    expiryDate: "14 Nov'26",
+    policyHolder: "Rajesh Kumar",
+    planDisplayName: "Corporate Health",
+    policyPeriodLabel: "14 Nov 2025 - 13 Nov 2026",
+    tenureLabel: "1 Year",
+  },
+]
+
 export const mockCustomers: Record<
   string,
   { customer: Customer; jtbds: JTBD[]; activePolicies: Policy[]; inactivePolicies: InactivePolicy[] }
@@ -1199,6 +1299,18 @@ export const mockCustomers: Record<
     customer: simarpreetKaur,
     jtbds: simarpreetJTBDs,
     activePolicies: simarpreetActivePolicies,
+    inactivePolicies: emptyInactivePolicies,
+  },
+  "rajesh-kumar-figma": {
+    customer: rajeshKumarFigma,
+    jtbds: [],
+    activePolicies: rajeshKumarFigmaActivePolicies,
+    inactivePolicies: emptyInactivePolicies,
+  },
+  "sumit-sharma": {
+    customer: sumitSharma,
+    jtbds: [],
+    activePolicies: sumitSharmaActivePolicies,
     inactivePolicies: emptyInactivePolicies,
   },
   "rekha-gupta": {

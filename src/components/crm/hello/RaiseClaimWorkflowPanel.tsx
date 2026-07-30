@@ -120,13 +120,30 @@ export function RaiseClaimWorkflowPanel({
     }
     const target = refs[openStep]?.current
     if (!container || !target) return
+    let id2: ReturnType<typeof window.setTimeout> | undefined
     const id = window.setTimeout(() => {
-      scrollElementWithinContainer(container, target, {
-        behavior: "smooth",
-        topPadding: 6,
-      })
+      if (openStep === STEP_RAISE_CLAIM) {
+        // First pass — scroll to the step header as the accordion starts opening.
+        scrollElementWithinContainer(container, target, {
+          behavior: "smooth",
+          topPadding: 6,
+        })
+        // Second pass — wait for the accordion animation to finish then scroll
+        // all the way down so the full FNOL phone screen is visible.
+        id2 = window.setTimeout(() => {
+          container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+        }, 400)
+      } else {
+        scrollElementWithinContainer(container, target, {
+          behavior: "smooth",
+          topPadding: 6,
+        })
+      }
     }, WORKFLOW_STEP_SCROLL_INTO_VIEW_MS)
-    return () => window.clearTimeout(id)
+    return () => {
+      window.clearTimeout(id)
+      if (id2 !== undefined) window.clearTimeout(id2)
+    }
   }, [openStep, phase, scrollContainerRef])
 
   return (

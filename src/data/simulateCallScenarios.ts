@@ -77,6 +77,14 @@ const INCOMING_MODAL_LINES: Record<string, ModalExtra> = {
     showCallVehicle: true,
     showLastCall: true,
   },
+  "sumit-sharma": {
+    yearsWithAcko: "2 years with ACKO",
+    ongoingIssue: "Edit name in policy",
+    lastCallBadge: "Calm caller",
+    lastCallVariant: "default",
+    showCallVehicle: true,
+    showLastCall: false,
+  },
   "unknown-caller": {
     yearsWithAcko: "",
     ongoingIssue: "Unknown",

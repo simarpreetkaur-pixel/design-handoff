@@ -5,6 +5,7 @@ import type { Customer, Policy, EndorsementEditKind, InactivePolicy, JTBD } from
 import {
   ClaimStatusWorkflowPanel,
   type ClaimStatusWorkflowView,
+  type ScheduleCHSelection,
 } from "@/components/crm/hello/ClaimStatusWorkflowPanel"
 import { RaiseClaimWorkflowPanel } from "@/components/crm/hello/RaiseClaimWorkflowPanel"
 import { EditPolicyWorkflowPanel } from "@/components/crm/hello/EditPolicyWorkflowPanel"
@@ -24,6 +25,7 @@ import { SimpleManualTaskPanel } from "@/components/crm/hello/SimpleManualTaskPa
 import {
   HelloPowerToolsPanel,
   HelloRightPanelIconRail,
+  HelloEmptyRailPanel,
   HELLO_RIGHT_PANEL_RAIL_WIDTH,
   type HelloRightRailTab,
 } from "@/components/crm/hello/HelloRightPanelRail"
@@ -93,6 +95,7 @@ interface RightSidebarProps {
   } | null
   onClaimStatusWorkflowClose?: () => void
   onClaimStatusEscalationDone?: () => void
+  onClaimStatusScheduleCHDone?: (selection: ScheduleCHSelection) => void
   isCompletedWorkflow?: boolean
   selfServeStepsActive?: boolean
   selfServeStepsType?: "raise_claim" | "edit_policy" | null
@@ -120,6 +123,8 @@ interface RightSidebarProps {
   triggerManualAction?: { actionId: string; nonce: number } | null
   // Trigger creating self-serve steps tab from parent (similar to triggerManualAction)
   triggerSelfServeTab?: { stepType: string; title: string; nonce: number } | null
+  /** Show text labels beneath rail icons (matches UC7/UC6 Figma design). */
+  showRailLabels?: boolean
 }
 
 const documentTypes = [
@@ -449,6 +454,7 @@ export function RightSidebar({
   claimStatusWorkflow = null,
   onClaimStatusWorkflowClose,
   onClaimStatusEscalationDone,
+  onClaimStatusScheduleCHDone,
   isCompletedWorkflow = false,
   selfServeStepsActive = false,
   selfServeStepsType = null,
@@ -470,6 +476,7 @@ export function RightSidebar({
   onAgenticIntentProcessed,
   triggerManualAction = null,
   triggerSelfServeTab = null,
+  showRailLabels = false,
 }: RightSidebarProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -563,8 +570,10 @@ export function RightSidebar({
           }
           return
         }
-        if (isCollapsed) onToggle?.()
+        // Set the tab first so the panel renders immediately as power-tools
+        // when the sidebar expands — prevents a flash of the workflows/tabs view.
         setActiveRailTab("power-tools")
+        if (isCollapsed) onToggle?.()
         return
       }
 
@@ -1038,10 +1047,10 @@ export function RightSidebar({
         const tabId = createAIActionTab("similar_cases", "Similar Cases")
         setActiveTabId(tabId)
       }
+    } else if (actionId === "advisor-ui" || actionId === "network-garages" || actionId === "fnol" || actionId === "rap-tool") {
+      window.open("", "_blank", "noopener,noreferrer")
     } else if (actionId === "firefly") {
       window.open("https://firefly.acko.com", "_blank", "noopener,noreferrer")
-    } else if (actionId === "freshdesk") {
-      window.open("https://acko.freshdesk.com", "_blank", "noopener,noreferrer")
     } else if (actionId === "spectra") {
       window.open("https://spectra.acko.com", "_blank", "noopener,noreferrer")
     } else if (actionId === "create-child-ticket") {
@@ -1186,6 +1195,7 @@ export function RightSidebar({
           onTabChange={handleRailTabChange}
           manualMode={manualModeRailProps}
           isRailOnlyLayout
+          showLabels={showRailLabels}
           className="overflow-visible"
         />
       ) : (
@@ -1319,6 +1329,16 @@ export function RightSidebar({
             ) : activeRailTab === "power-tools" ? (
               /* AI mode power tools — fills entire content area */
               <HelloPowerToolsPanel onToolClick={handleManualActionClick} />
+            ) : activeRailTab === "existing-tickets" ? (
+              <HelloEmptyRailPanel
+                title="Existing tickets"
+                message="No existing tickets found for this case."
+              />
+            ) : activeRailTab === "similar-cases" ? (
+              <HelloEmptyRailPanel
+                title="Similar cases"
+                message="No similar cases found for this type of request."
+              />
             ) : (
               // Workflows rail tab — AI workflows + legacy manual-actions section
               <div>
@@ -1608,6 +1628,7 @@ export function RightSidebar({
                                 onClaimStatusWorkflowClose?.()
                               }}
                               onEscalationDone={onClaimStatusEscalationDone}
+                              onScheduleCHDone={(sel) => onClaimStatusScheduleCHDone?.(sel)}
                             />
                           )
                         }
@@ -1963,6 +1984,7 @@ export function RightSidebar({
             activeTab={activeRailTab}
             onTabChange={handleRailTabChange}
             manualMode={manualModeRailProps}
+            showLabels={showRailLabels}
             className="overflow-visible"
           />
         </div>

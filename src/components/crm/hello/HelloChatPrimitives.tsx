@@ -183,10 +183,12 @@ export function HelloTellCustomerLabel() {
 export function HelloClaimRaisedSuccessBody({
   headline,
   quotedLine,
+  claimId,
   onViewWorkflow,
 }: {
   headline: string
   quotedLine: string
+  claimId?: string
   onViewWorkflow?: () => void
 }) {
   return (
@@ -200,25 +202,18 @@ export function HelloClaimRaisedSuccessBody({
         </div>
         <p className="min-w-0 flex-1 font-euclid text-[14px] font-normal leading-5 text-omni-n500">
           {headline}
+          {claimId && (
+            <> <span className="font-semibold tabular-nums text-[#040222]">{claimId}</span></>
+          )}
         </p>
-      </div>
-      <div className={helloTellCustomerCalloutClass}>
-        <HelloTellCustomerLabel />
-        <p className="mt-1.5 font-euclid text-[14px] font-medium leading-6 text-[#36354c]">
-          <span className="text-[#8b87a3]">&ldquo;</span>
-          {quotedLine}
-          <span className="text-[#8b87a3]">&rdquo;</span>
-        </p>
-      </div>
-      {onViewWorkflow && (
-        <div className="flex justify-start mt-2">
+        {onViewWorkflow && (
           <button
             onClick={onViewWorkflow}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#7c47e1] bg-[#f8f7fc] hover:bg-[#f0f0f6] rounded-lg transition-colors"
+            className="ml-10 flex shrink-0 items-center gap-1.5 rounded-lg bg-[#f8f7fc] px-2.5 py-1.5 text-xs font-medium text-[#7c47e1] transition-colors hover:bg-[#f0f0f6]"
           >
             <svg
-              width="14"
-              height="14"
+              width="13"
+              height="13"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -231,8 +226,16 @@ export function HelloClaimRaisedSuccessBody({
             </svg>
             View
           </button>
-        </div>
-      )}
+        )}
+      </div>
+      <div className={helloTellCustomerCalloutClass}>
+        <HelloTellCustomerLabel />
+        <p className="mt-1.5 font-euclid text-[14px] font-medium leading-6 text-[#36354c]">
+          <span className="text-[#8b87a3]">&ldquo;</span>
+          {quotedLine}
+          <span className="text-[#8b87a3]">&rdquo;</span>
+        </p>
+      </div>
     </div>
   )
 }
@@ -304,11 +307,10 @@ export function HelloCxBubbleCard({
             <div
               className={cn(
                 "flex size-5 shrink-0 items-center justify-center overflow-hidden rounded",
-                "bg-gradient-to-br from-[#7c47e1] to-[#5a32c9]",
-                "shadow-[0px_2px_8px_rgba(92,50,201,0.25)] ring-1 ring-white/20",
+                "bg-[#efe9fb] border border-[#e7e7f0]",
               )}
             >
-              <User className="size-3 text-white" strokeWidth={2} aria-hidden />
+              <User className="size-3 text-[#36354c]" strokeWidth={2} aria-hidden />
             </div>
           ) : (
             <div className="size-5 shrink-0" />
@@ -316,7 +318,7 @@ export function HelloCxBubbleCard({
         </div>
         <Card
           className={cn(
-            "min-w-0 w-fit border-0 bg-gradient-to-br from-[#7c47e1] to-[#5a32c9] text-white shadow-[0px_2px_8px_rgba(92,50,201,0.25)]",
+            "min-w-0 w-fit border border-[#E7E7F0] bg-[#efe9fb] text-[#36354c] shadow-[0px_2px_8px_rgba(92,50,201,0.08)]",
             helloChatBubbleMinWidthClass,
             showIdentity
               ? "rounded-tr-[2px] rounded-tl-2xl rounded-b-2xl"
@@ -326,13 +328,13 @@ export function HelloCxBubbleCard({
           <CardContent className="p-3">
             {showIdentity ? (
               <div className="flex min-w-0 flex-col gap-2">
-                <p className="font-euclid text-[12px] font-normal leading-[18px] text-white/80">
+                <p className="font-euclid text-[12px] font-normal leading-[18px] text-[#36354c]/60">
                   {cxLabel}
                 </p>
-                <div className="min-w-0">{children}</div>
+                <div className="min-w-0 text-sm">{children}</div>
               </div>
             ) : (
-              <div className="min-w-0">{children}</div>
+              <div className="min-w-0 text-sm">{children}</div>
             )}
           </CardContent>
         </Card>

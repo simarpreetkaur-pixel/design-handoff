@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils"
 import type { RekhaSupportHistoryEntry } from "@/data/rekhaGuptaClaimStatusEscalated"
 
 const customerServiceIcon = "/icons/customer-service.png"
-const imgGroup = "https://www.figma.com/api/mcp/asset/8463fbe6-ab83-4203-a177-08e24c4dcb73"
+
 
 export type SupportHistoryEntry = RekhaSupportHistoryEntry
 
@@ -74,9 +74,6 @@ export function SupportHistoryModal({
           {entries.map((entry, index) => (
             <div key={`${entry.agent}-${entry.timestamp}-${index}`} className="flex w-full flex-col items-start">
               <div className="flex w-full gap-1 items-start">
-                <div className="relative mt-0.5 h-5 w-5 shrink-0 overflow-hidden">
-                  <img alt="" className="block h-full w-full object-contain" src={imgGroup} />
-                </div>
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
                   <div className="font-euclid text-xs font-medium leading-5 text-[#36354c]">
                     {entry.agent} • {entry.timestamp}

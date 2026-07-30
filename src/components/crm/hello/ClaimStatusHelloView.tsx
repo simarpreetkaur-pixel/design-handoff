@@ -54,8 +54,6 @@ import {
 } from "@/components/crm/hello/useHelloPolicyDetailPane"
 import { cn } from "@/lib/utils"
 
-const HELLO_CLAIM_STATUS_FLOW_OFFER_ID = "claim-status-hello-main-offer"
-
 const HELLO_CLAIM_STATUS_ESCALATE_TOAST = "Escalated to F-ops."
 
 function claimStatusPreviousCxSummaryCopy(jtbd: JTBD): string {
@@ -181,7 +179,6 @@ export function ClaimStatusHelloView({
   const [showTypingBeforeChoices, setShowTypingBeforeChoices] = useState(false)
   const [showChoices, setShowChoices] = useState(false)
 
-  const [spentFlowOfferIds, setSpentFlowOfferIds] = useState<Set<string>>(() => new Set())
   const [selectedFlowOfferKey, setSelectedFlowOfferKey] = useState<string | null>(null)
 
   const [opsEscalatePanelOpen, setOpsEscalatePanelOpen] = useState(false)
@@ -380,8 +377,6 @@ export function ClaimStatusHelloView({
 
   const handleClaimStatusFlowPick = useCallback(
     (key: string, userEchoLabel: string) => {
-      if (spentFlowOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID)) return
-      setSpentFlowOfferIds((prev) => new Set(prev).add(HELLO_CLAIM_STATUS_FLOW_OFFER_ID))
       setSelectedFlowOfferKey(key)
       setComposerAppend((prev) => [...prev, { id: `claim-flow-u-${Date.now()}`, role: "user", text: userEchoLabel }])
 
@@ -468,7 +463,6 @@ export function ClaimStatusHelloView({
       onHelloToast,
       pauseBeforeTypingMs,
       policyDetailPane,
-      spentFlowOfferIds,
       typingMs,
     ],
   )
@@ -560,8 +554,8 @@ export function ClaimStatusHelloView({
                   { key: "view_claim_status_timeline", label: "View claim status" },
                   { key: "something_else", label: "Customer calling for something else." },
                 ]}
-                disabled={spentFlowOfferIds.has(HELLO_CLAIM_STATUS_FLOW_OFFER_ID)}
-                selectedKey={selectedFlowOfferKey}
+                disabled={false}
+                selectedKey={null}
                 onPick={handleClaimStatusFlowPick}
               />
             </div>
@@ -582,7 +576,7 @@ export function ClaimStatusHelloView({
         nodes.push(
           <div key={row.id} className="w-full min-w-0">
             <HelloCxBubbleCard showIdentity={showIdentity}>
-              <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
+              <p className="text-left font-euclid text-[14px] font-medium leading-5 text-[#36354c]">
                 {row.text}
               </p>
             </HelloCxBubbleCard>

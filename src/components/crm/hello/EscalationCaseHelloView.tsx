@@ -463,7 +463,7 @@ export function EscalationCaseHelloView({
         nodes.push(
           <div key={row.id} className="w-full min-w-0">
             <HelloCxBubbleCard showIdentity={showIdentity}>
-              <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
+              <p className="text-left font-euclid text-[14px] font-medium leading-5 text-[#36354c]">
                 {row.text}
               </p>
             </HelloCxBubbleCard>

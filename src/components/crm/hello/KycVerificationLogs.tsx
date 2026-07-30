@@ -1,13 +1,4 @@
-import React from "react"
 import { ArrowLeft } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 
 interface KycLogEntry {
@@ -25,199 +16,188 @@ interface KycVerificationLogsProps {
   onBack: () => void
 }
 
-// Mock KYC verification logs data
 const mockKycLogs: KycLogEntry[] = [
   {
     id: "kyc_001",
     name: "SIMARPREET KAUR",
-    phoneNumber: "+91******9998",
-    createdOn: "19 Feb, 2026\n02:45 PM",
-    updatedOn: "20 Feb, 2026\n12:18 PM",
+    phoneNumber: "+91 ******9998",
+    createdOn: "19 Feb '26, 02:45 PM",
+    updatedOn: "20 Feb '26, 12:18 PM",
     status: "FAILED",
-    reason: "Not Applicable"
+    reason: "Not Applicable",
   },
   {
-    id: "kyc_002", 
+    id: "kyc_002",
     name: "SIMARPREET KAUR",
-    phoneNumber: "+91******9998",
-    createdOn: "19 Feb, 2026\n02:40 PM",
-    updatedOn: "19 Feb, 2026\n02:45 PM",
+    phoneNumber: "+91 ******9998",
+    createdOn: "19 Feb '26, 02:40 PM",
+    updatedOn: "19 Feb '26, 02:45 PM",
     status: "FAILED",
-    reason: "Not Applicable"
+    reason: "Not Applicable",
   },
   {
     id: "kyc_003",
     name: "SIMARPREET KAUR",
-    phoneNumber: "+91******9998", 
-    createdOn: "19 Feb, 2026\n02:36 PM",
-    updatedOn: "19 Feb, 2026\n02:36 PM",
+    phoneNumber: "+91 ******9998",
+    createdOn: "19 Feb '26, 02:36 PM",
+    updatedOn: "19 Feb '26, 02:36 PM",
     status: "INITIATED",
-    reason: "Not Applicable"
+    reason: "Not Applicable",
   },
   {
     id: "kyc_004",
     name: "SIMARPREET KAUR",
-    phoneNumber: "+91******9998",
-    createdOn: "16 Feb, 2026\n03:04 PM", 
-    updatedOn: "16 Feb, 2026\n03:06 PM",
+    phoneNumber: "+91 ******9998",
+    createdOn: "16 Feb '26, 03:04 PM",
+    updatedOn: "16 Feb '26, 03:06 PM",
     status: "FAILED",
-    reason: "User dropped off"
+    reason: "User dropped off",
   },
   {
     id: "kyc_005",
     name: "Simarpreet Kaur",
-    phoneNumber: "+91******9998",
-    createdOn: "25 Nov, 2025\n02:42 PM",
-    updatedOn: "11 Jan, 2026\n10:34 AM", 
+    phoneNumber: "+91 ******9998",
+    createdOn: "25 Nov '25, 02:42 PM",
+    updatedOn: "11 Jan '26, 10:34 AM",
     status: "SUCCESS",
-    reason: "Not Applicable"
+    reason: "Not Applicable",
   },
   {
     id: "kyc_006",
-    name: "Simarpreet Kaur", 
-    phoneNumber: "+91******9998",
-    createdOn: "25 Nov, 2025\n02:42 PM",
-    updatedOn: "11 Jan, 2026\n10:34 AM",
-    status: "SUCCESS", 
-    reason: "Not Applicable"
+    name: "Simarpreet Kaur",
+    phoneNumber: "+91 ******9998",
+    createdOn: "25 Nov '25, 02:42 PM",
+    updatedOn: "11 Jan '26, 10:34 AM",
+    status: "SUCCESS",
+    reason: "Not Applicable",
   },
   {
     id: "kyc_007",
     name: "Simarpreet Kaur",
-    phoneNumber: "+91******9998",
-    createdOn: "17 Nov, 2025\n04:49 PM",
-    updatedOn: "11 Jan, 2026\n10:34 AM",
+    phoneNumber: "+91 ******9998",
+    createdOn: "17 Nov '25, 04:49 PM",
+    updatedOn: "11 Jan '26, 10:34 AM",
     status: "SUCCESS",
-    reason: "Not Applicable"
+    reason: "Not Applicable",
   },
   {
     id: "kyc_008",
     name: "Simarpreet Kaur",
-    phoneNumber: "+91******9998", 
-    createdOn: "10 Jan, 2026\n06:52 PM",
-    updatedOn: "11 Jan, 2026\n10:34 AM",
+    phoneNumber: "+91 ******9998",
+    createdOn: "10 Jan '26, 06:52 PM",
+    updatedOn: "11 Jan '26, 10:34 AM",
     status: "SUCCESS",
-    reason: "Not Applicable"
-  }
+    reason: "Not Applicable",
+  },
 ]
 
-const getStatusColor = (status: KycLogEntry['status']) => {
-  switch (status) {
-    case "SUCCESS":
-      return "text-[#0fa457] bg-[#e8f5e8]"
-    case "FAILED":
-      return "text-[#dc2626] bg-[#fef2f2]"
-    case "INITIATED":
-      return "text-[#f59e0b] bg-[#fef3c7]"
-    default:
-      return "text-[#5b5675] bg-[#f8f7fc]"
-  }
+const STATUS_STYLES: Record<KycLogEntry["status"], string> = {
+  SUCCESS: "text-[#0fa457] bg-[#e8f5e8]",
+  FAILED: "text-[#dc2626] bg-[#fef2f2]",
+  INITIATED: "text-[#d97706] bg-[#fef3c7]",
 }
 
-const getReasonColor = (reason: string) => {
-  if (reason === "User dropped off") {
-    return "text-[#dc2626]"
-  }
-  return "text-[#0fa457]"
-}
-
-export function KycVerificationLogs({ customerName = "SIMARPREET KAUR", onBack }: KycVerificationLogsProps) {
+export function KycVerificationLogs({
+  customerName = "SIMARPREET KAUR",
+  onBack,
+}: KycVerificationLogsProps) {
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="shrink-0 border-b border-[#e7e7f0] px-4 py-3">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#e7e7f0] bg-white hover:bg-[#fafafa] transition-colors"
+            className="flex size-8 items-center justify-center rounded-lg border border-[#e7e7f0] bg-white transition-colors hover:bg-[#fafafa]"
           >
-            <ArrowLeft className="w-4 h-4 text-[#5b5675]" />
+            <ArrowLeft className="size-4 text-[#5b5675]" />
           </button>
           <div>
-            <h3 className="font-euclid text-lg font-semibold text-[#040222]">KYC Verification Logs</h3>
-            <p className="text-sm text-[#5b5675]">{customerName}</p>
+            <h3 className="font-euclid text-[15px] font-semibold text-[#040222]">KYC Verification Logs</h3>
+            <p className="font-euclid text-[12px] text-[#5b5675]">{customerName}</p>
           </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <div className="border border-[#e7e7f0] rounded-lg bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-[#e7e7f0] bg-[#fafafa]">
-                <TableHead className="font-euclid font-medium text-[#5b5675] text-sm">
-                  Name
-                </TableHead>
-                <TableHead className="font-euclid font-medium text-[#5b5675] text-sm">
-                  Phone Number
-                </TableHead>
-                <TableHead className="font-euclid font-medium text-[#5b5675] text-sm">
-                  Created On
-                </TableHead>
-                <TableHead className="font-euclid font-medium text-[#5b5675] text-sm">
-                  Updated On
-                </TableHead>
-                <TableHead className="font-euclid font-medium text-[#5b5675] text-sm">
-                  Status
-                </TableHead>
-                <TableHead className="font-euclid font-medium text-[#5b5675] text-sm">
-                  Reason
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockKycLogs.map((log) => (
-                <TableRow key={log.id} className="border-b border-[#e7e7f0] hover:bg-[#fafafa]">
-                  <TableCell className="font-euclid text-sm text-[#040222] font-medium">
+      {/* Table — compact 4-column layout that fits any panel width */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-[#e7e7f0] bg-[#fafafa]">
+              <th className="px-3 py-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#8b87a3]">
+                Name
+              </th>
+              <th className="px-3 py-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#8b87a3]">
+                Created
+              </th>
+              <th className="px-3 py-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#8b87a3]">
+                Updated
+              </th>
+              <th className="px-3 py-2.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#8b87a3]">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {mockKycLogs.map((log) => (
+              <tr
+                key={log.id}
+                className="border-b border-[#f0f0f6] transition-colors hover:bg-[#fafafa]"
+              >
+                {/* Name + phone stacked */}
+                <td className="px-3 py-2.5 align-top">
+                  <p className="font-euclid text-[12px] font-semibold leading-4 text-[#040222]">
                     {log.name}
-                  </TableCell>
-                  <TableCell className="font-euclid text-sm text-[#5b5675]">
+                  </p>
+                  <p className="mt-0.5 font-euclid text-[11px] leading-4 text-[#9c9aaf]">
                     {log.phoneNumber}
-                  </TableCell>
-                  <TableCell className="font-euclid text-sm text-[#5b5675] whitespace-pre-line">
-                    {log.createdOn}
-                  </TableCell>
-                  <TableCell className="font-euclid text-sm text-[#5b5675] whitespace-pre-line">
-                    {log.updatedOn}
-                  </TableCell>
-                  <TableCell>
-                    <span className={cn(
-                      "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium",
-                      getStatusColor(log.status)
-                    )}>
-                      {log.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className={cn(
-                    "font-euclid text-sm font-medium",
-                    getReasonColor(log.reason)
-                  )}>
-                    {log.reason}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                  </p>
+                </td>
 
-      {/* Empty State - if no logs */}
-      {mockKycLogs.length === 0 && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center py-12">
-            <div className="w-12 h-12 bg-[#f8f7fc] rounded-lg flex items-center justify-center mx-auto mb-4">
-              <div className="w-6 h-6 border-2 border-[#5b5675] rounded"></div>
+                {/* Created date */}
+                <td className="px-3 py-2.5 align-top">
+                  <p className="font-euclid text-[11px] leading-4 text-[#5b5675]">{log.createdOn}</p>
+                </td>
+
+                {/* Updated date */}
+                <td className="px-3 py-2.5 align-top">
+                  <p className="font-euclid text-[11px] leading-4 text-[#5b5675]">{log.updatedOn}</p>
+                </td>
+
+                {/* Status badge + reason stacked */}
+                <td className="px-3 py-2.5 align-top">
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-md px-1.5 py-0.5 font-euclid text-[10px] font-semibold",
+                      STATUS_STYLES[log.status],
+                    )}
+                  >
+                    {log.status}
+                  </span>
+                  <p
+                    className={cn(
+                      "mt-1 font-euclid text-[10px] leading-3",
+                      log.reason === "User dropped off" ? "text-[#dc2626]" : "text-[#9c9aaf]",
+                    )}
+                  >
+                    {log.reason}
+                  </p>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {mockKycLogs.length === 0 && (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-[#f8f7fc]">
+              <div className="size-6 rounded border-2 border-[#5b5675]" />
             </div>
-            <p className="font-euclid text-sm text-[#5b5675] mb-1">
-              No KYC verification logs found
-            </p>
-            <p className="font-euclid text-xs text-[#5b5675]">
-              KYC verification attempts will appear here
-            </p>
+            <p className="font-euclid text-sm text-[#5b5675]">No KYC verification logs found</p>
+            <p className="font-euclid text-xs text-[#9c9aaf]">KYC verification attempts will appear here</p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

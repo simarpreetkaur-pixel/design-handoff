@@ -76,7 +76,7 @@ export function mergeUseCaseIncomingPreview(
       vehicle: crmDemo.callContextOverride?.vehicle?.trim() || vm.vehicle,
       showCallVehicle: true,
       showLastCall: false,
-      callContextQuickSummary: rajKapoorClaimStatusNexonJtbd.openingQuickSummary,
+      callContextQuickSummary: undefined,
     }
   }
 
@@ -133,6 +133,47 @@ export function mergeUseCaseIncomingPreview(
       vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Honda City",
       showCallVehicle: true,
       showLastCall: false,
+    }
+  }
+
+  if (customerId === "rajesh-kumar-figma" && crmDemo?.chatMockCase === "rajesh_raise_claim_figma") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Raise a claim",
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Ecosport Titanium 2025",
+      showCallVehicle: true,
+      showLastCall: false,
+    }
+  }
+
+  if (customerId === "rajesh-kumar-figma" && crmDemo?.chatMockCase === "rajesh_phase1") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || ONGOING_RAISE_CLAIM,
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Ecosport Titanium 2025",
+      showCallVehicle: true,
+      showLastCall: false,
+    }
+  }
+
+  if (customerId === "rajesh-kumar-figma" && crmDemo?.chatMockCase === "rajesh_edit_policy_figma") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Add bank name in policy",
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Ecosport Titanium 2025",
+      showCallVehicle: true,
+      showLastCall: false,
+    }
+  }
+
+  if (customerId === "sumit-sharma" && crmDemo?.chatMockCase === "sumit_voicebot_handover") {
+    return {
+      ...vm,
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Edit name in policy",
+      vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Ecosport Titanium 2025",
+      showCallVehicle: true,
+      showLastCall: false,
+      callContextQuickSummary: "Customer faced technical error while changing the name through the app.",
     }
   }
 

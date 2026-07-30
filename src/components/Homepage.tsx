@@ -167,6 +167,18 @@ export function Homepage() {
   }
 
   const handleSelectUseCase = (selection: UseCaseSelection) => {
+    // Direct entry: skip the incoming call modal entirely.
+    if (selection.directEntry) {
+      const bundle = mockCustomers[selection.customerId]
+      if (!bundle) return
+      setUseCasesOpen(false)
+      callState.openCRMForCustomer(selection.customerId, bundle)
+      navigate(`/crm/call/${selection.customerId}`, {
+        state: { crmDemo: selection.crmDemo },
+      })
+      return
+    }
+
     if (selection.customerId !== "unknown-caller") {
       const bundle = mockCustomers[selection.customerId]
       if (!bundle) return
@@ -354,13 +366,11 @@ export function Homepage() {
         </div>
       </div>
 
-      {/* Ozontel Dialer Icon - Bottom Left */}
+      {/* Ozontel Dialer Icon - Bottom Left (non-interactive on homepage; no active call) */}
       <img
-        onClick={handleOpenOzontel}
         src="/icons/ozontel-dialer-icon.png"
         alt="Ozontel Dialer"
-        className="fixed bottom-6 left-6 z-[60] h-14 w-14 cursor-pointer object-contain"
-        title="Open Ozontel Dialer"
+        className="fixed bottom-6 left-6 z-[60] h-14 w-14 object-contain"
       />
 
 

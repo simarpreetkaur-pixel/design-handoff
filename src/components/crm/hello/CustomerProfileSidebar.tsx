@@ -3,13 +3,28 @@ import { useState } from "react"
 import type { SidebarActiveClaim } from "@/data/sidebarActiveClaim"
 import type { Customer, Policy, InactivePolicy } from "@/types/crm"
 import { cn } from "@/lib/utils"
+
+export interface ActiveCaseDetail {
+  label: string
+  value: string
+  /** When true, value is rendered as a blue hyperlink */
+  isLink?: boolean
+}
+
+export interface ActiveCaseData {
+  /** e.g. "Ongoing inspection" */
+  title: string
+  /** e.g. "646507 - Tata Nexon" */
+  subtitle: string
+  details: ActiveCaseDetail[]
+}
 import {
   SupportHistoryModal,
   type SupportHistoryEntry,
 } from "@/components/crm/hello/SupportHistoryModal"
 
 // Asset constants - using local icons
-const profileIcon = "https://www.figma.com/api/mcp/asset/c19639ff-1d1a-479f-922d-07df8c54c2a3" // Keep original for now
+const profileIcon = "/icons/profile-shield-icon.png"
 const relationshipIcon = "/icons/relationship.png"
 const customerServiceIcon = "/icons/customer-service.png"
 const pendingIcon = "/icons/pending.png"
@@ -32,10 +47,17 @@ interface CustomerProfileSidebarProps {
   activeClaim?: SidebarActiveClaim | null
   /** When there are no active policies, show this instead of the default empty copy (e.g. unknown-reason unlock). */
   emptyActivePoliciesMessage?: string
+  /** When true, shows Customer details / Support history tabs at the top (Figma UC6/UC7). */
+  showTabs?: boolean
+  /** Called when the agent clicks "View" on a policy document row. */
+  onViewPolicyDoc?: (policy: Policy) => void
+  /** UC1 (Edit Policy) — active cases shown between ACKO Relationship and Active Policies. */
+  activeCases?: ActiveCaseData[]
 }
 
 interface PolicyItemProps {
   policy: Policy
+  onViewPolicyDoc?: (policy: Policy) => void
 }
 
 function ActiveClaimDetailRow({ label, value }: { label: string; value: string }) {
@@ -121,7 +143,52 @@ function ActiveClaimItem({ claim }: { claim: SidebarActiveClaim }) {
   )
 }
 
-function PolicyItem({ policy }: PolicyItemProps) {
+function ActiveCaseItem({ item }: { item: ActiveCaseData }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="flex w-full flex-col gap-2 rounded-lg bg-[#f8f7fc] p-2">
+      <div
+        className="flex w-full cursor-pointer items-start justify-between"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsExpanded((prev) => !prev) }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+      >
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="font-euclid text-sm font-medium leading-5 text-[#36354c]">{item.title}</span>
+          <span className="font-euclid text-xs leading-[18px] text-[#5b5675]">{item.subtitle}</span>
+        </div>
+        <div className={cn("flex shrink-0 items-center justify-center transition-transform", isExpanded && "rotate-180")}>
+          <ChevronDown className="h-4 w-4 text-[#5b5675]" aria-hidden />
+        </div>
+      </div>
+
+      {isExpanded && (
+        <>
+          <div className="h-0 w-full border-t border-[#e7e7f0]" />
+          <div className="flex flex-col gap-3">
+            {item.details.map((detail) => (
+              <div key={detail.label} className="flex w-full items-center justify-between text-xs font-euclid leading-[18px]">
+                <span className="shrink-0 text-[#5b5675]">{detail.label}</span>
+                {detail.isLink ? (
+                  <span className="font-medium text-[#1b73e8]">{detail.value}</span>
+                ) : (
+                  <span className="text-right font-medium text-[#36354c]">{detail.value}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function PolicyItem({ policy, onViewPolicyDoc }: PolicyItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedFamilyMember, setExpandedFamilyMember] = useState<string | null>(null)
   const [coveredMembersExpanded, setCoveredMembersExpanded] = useState(false)
@@ -363,6 +430,22 @@ function PolicyItem({ policy }: PolicyItemProps) {
                 ))}
               </div>
             )}
+
+            {/* Policy document row — always shown in expanded state */}
+            <div className="flex items-center justify-between">
+              <span className="text-[#5b5675] text-xs font-euclid leading-[18px]">Policy document</span>
+              {onViewPolicyDoc ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onViewPolicyDoc(policy) }}
+                  className="text-[#7c47e1] text-xs font-medium font-euclid leading-[18px] hover:underline"
+                >
+                  View
+                </button>
+              ) : (
+                <span className="text-[#36354c] text-xs font-medium font-euclid leading-[18px]">View</span>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -386,8 +469,12 @@ export function CustomerProfileSidebar({
   supportHistoryEntries,
   activeClaim,
   emptyActivePoliciesMessage,
+  showTabs = false,
+  onViewPolicyDoc,
+  activeCases,
 }: CustomerProfileSidebarProps) {
   const [supportHistoryModalOpen, setSupportHistoryModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"customer_details" | "support_history">("customer_details")
 
   const handleViewConversations = () => {
     setSupportHistoryModalOpen(true)
@@ -438,125 +525,150 @@ export function CustomerProfileSidebar({
         className
       )}
     >
-      {/* Conditional Content - Show Modal or Sidebar */}
-      {supportHistoryModalOpen ? (
+      {/* Tabs — Customer details / Support history (Figma UC6/UC7) */}
+      {showTabs && (
+        <div className="shrink-0 px-3 pt-4">
+          <div className="flex h-[44px] items-center rounded-[10px] bg-[#fafafa] p-[3px]">
+            <button
+              type="button"
+              onClick={() => setActiveTab("customer_details")}
+              className={cn(
+                "flex h-full flex-1 items-center justify-center rounded-[8px] font-euclid text-[12px] font-medium transition-colors",
+                activeTab === "customer_details"
+                  ? "bg-[#f3e8ff] text-[#8b5cf6]"
+                  : "text-[#5b5675] hover:bg-[#f0f0f6]",
+              )}
+            >
+              Customer details
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("support_history")}
+              className={cn(
+                "flex h-full flex-1 items-center justify-center rounded-[8px] font-euclid text-[12px] font-medium transition-colors",
+                activeTab === "support_history"
+                  ? "bg-[#f3e8ff] text-[#8b5cf6]"
+                  : "text-[#5b5675] hover:bg-[#f0f0f6]",
+              )}
+            >
+              Support history
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Support history tab content */}
+      {showTabs && activeTab === "support_history" && (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-4">
+          {/* Entry 1 — GMC mother cataract */}
+          <div className="flex flex-col gap-2 rounded-xl border border-[#e7e7f0] bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-euclid text-[11px] text-[#9c9aaf]">CX Anita</span>
+              <span className="font-euclid text-[11px] text-[#9c9aaf]">45 days ago</span>
+            </div>
+            <p className="font-euclid text-[12px] leading-[18px] text-[#5b5675]">
+              Customer called to check claim status for their <span className="font-medium text-[#36354c]">GMC Policy</span> — mother's cataract operation reimbursement.
+            </p>
+            <div className="rounded-lg bg-[#f8f7fc] px-2.5 py-2">
+              <p className="font-euclid text-[11px] font-semibold text-[#7c47e1]">💡 Conversation tip</p>
+              <p className="mt-0.5 font-euclid text-[11px] leading-[16px] text-[#5b5675]">Ask the customer how their mother is doing.</p>
+            </div>
+          </div>
+          {/* Entry 2 — Policy renewal */}
+          <div className="flex flex-col gap-2 rounded-xl border border-[#e7e7f0] bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-euclid text-[11px] text-[#9c9aaf]">CX Rahul</span>
+              <span className="font-euclid text-[11px] text-[#9c9aaf]">3 months ago</span>
+            </div>
+            <p className="font-euclid text-[12px] leading-[18px] text-[#5b5675]">
+              Customer renewed their <span className="font-medium text-[#36354c]">Ecosport Titanium</span> motor policy. Asked about zero dep add-on.
+            </p>
+          </div>
+          {/* Entry 3 */}
+          <div className="flex flex-col gap-2 rounded-xl border border-[#e7e7f0] bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-euclid text-[11px] text-[#9c9aaf]">CX Sneha</span>
+              <span className="font-euclid text-[11px] text-[#9c9aaf]">6 months ago</span>
+            </div>
+            <p className="font-euclid text-[12px] leading-[18px] text-[#5b5675]">
+              Customer requested bank account update on their <span className="font-medium text-[#36354c]">Corporate Health Plan</span> policy.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Conditional Content - Show Modal or Sidebar (only when not on support history tab) */}
+      {(!showTabs || activeTab === "customer_details") && supportHistoryModalOpen ? (
         <SupportHistoryModal
           isOpen={supportHistoryModalOpen}
           onClose={handleCloseSupportHistory}
           entries={supportHistoryEntries}
         />
-      ) : (
+      ) : (!showTabs || activeTab === "customer_details") ? (
         <div className="flex flex-col gap-4 items-start pb-14 pt-4 px-3 h-full overflow-y-auto">
           {/* Customer Details Section */}
-          <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full shrink-0">
-        {/* Section Header */}
-        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
-          <div className="flex gap-1.5 items-center px-4 py-3.5">
-            <div className="overflow-hidden relative shrink-0 w-5 h-5">
-              <img alt="" className="block max-w-none w-full h-full object-contain" src={profileIcon} />
+          <div className="flex w-full shrink-0 flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]">
+            {/* Section Header */}
+            <div className="flex items-center gap-[8px] w-full">
+              <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+                <img alt="" className="block h-full w-full max-w-none object-contain" src={profileIcon} />
+              </div>
+              <div className="font-euclid text-[12px] font-medium text-[#36354c]">CUSTOMER DETAILS</div>
             </div>
-            <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
-              CUSTOMER DETAILS
-            </div>
-          </div>
-        </div>
-
-        {/* Customer Details Content */}
-        <div className="flex flex-col gap-3 items-start px-3 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              Name
-            </div>
-            <div className="flex flex-col justify-center text-[#36354c] text-sm font-medium font-euclid leading-6 text-right">
-              {customer.name}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              Date of birth
-            </div>
-            <div className="flex flex-col justify-center text-[#36354c] text-sm font-medium font-euclid leading-6 text-right">
-              {formatDateOfBirth(customer)}
+            {/* Content rows */}
+            <div className="flex flex-col gap-[12px] w-full">
+              <div className="flex items-center justify-between w-full">
+                <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">Name</div>
+                <div className="font-euclid text-[14px] font-medium text-[#36354c] leading-[24px] text-right">{customer.name}</div>
+              </div>
+              <div className="flex items-center justify-between w-full">
+                <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">Date of birth</div>
+                <div className="font-euclid text-[14px] font-medium text-[#36354c] leading-[24px] text-right">{formatDateOfBirth(customer)}</div>
+              </div>
+              <div className="flex items-center justify-between w-full">
+                <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">Preferred language</div>
+                <div className="font-euclid text-[14px] font-medium text-[#36354c] leading-[24px] text-right">{customer.language}</div>
+              </div>
+              <div className="flex items-center justify-between w-full">
+                <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">Location</div>
+                <div className="font-euclid text-[14px] font-medium text-[#36354c] leading-[24px] text-right">{formatLocation(customer)}</div>
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              Preferred language
-            </div>
-            <div className="flex flex-col justify-center text-[#36354c] text-sm font-medium font-euclid leading-6 text-right">
-              {customer.language}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              Location
-            </div>
-            <div className="flex flex-col justify-center text-[#36354c] text-sm font-medium font-euclid leading-6 text-right">
-              {formatLocation(customer)}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* ACKO Relationship Section */}
-      <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
+      <div className="flex w-full flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]">
         {/* Section Header */}
-        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
-          <div className="flex gap-1.5 items-center px-4 py-3.5">
-            <div className="overflow-hidden relative shrink-0 w-5 h-5">
-              <img alt="" className="block max-w-none w-full h-full object-contain" src={relationshipIcon} />
-            </div>
-            <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
-              ACKO RELATIONSHIP
-            </div>
+        <div className="flex items-center gap-[8px] w-full">
+          <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+            <img alt="" className="block h-full w-full max-w-none object-contain" src={relationshipIcon} />
           </div>
+          <div className="font-euclid text-[12px] font-medium text-[#36354c]">ACKO RELATIONSHIP</div>
         </div>
-
-        {/* ACKO Relationship Content */}
-        <div className="flex flex-col gap-3 items-start px-3 w-full">
+        {/* Content rows */}
+        <div className="flex flex-col gap-[12px] w-full">
           <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              Customer since
-            </div>
-            <div className="flex flex-col justify-center text-[#36354c] text-sm font-medium font-euclid leading-6 text-right">
-              {formatTenure(customer)}
+            <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">Customer since</div>
+            <div className="font-euclid text-[14px] font-medium text-[#36354c] leading-[24px] text-right">{formatTenure(customer)}</div>
+          </div>
+          <div className="flex items-center justify-between w-full">
+            <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">KYC status</div>
+            <div className="flex gap-[4px] items-center">
+              <div className="relative h-4 w-4 shrink-0 overflow-hidden">
+                <img alt="" className="block h-full w-full max-w-none object-contain" src={customer.kycStatus === "verified" ? checkIcon : pendingIcon} />
+              </div>
+              <div className={cn("font-euclid text-[14px] font-medium", kycStatusColor)}>{kycStatusText}</div>
             </div>
           </div>
-
           <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              KYC status
-            </div>
-            <div className="flex gap-1 items-center">
-              <div className="overflow-hidden relative shrink-0 w-4 h-4">
-                <img 
-                  alt="" 
-                  className="block max-w-none w-full h-full object-contain" 
-                  src={customer.kycStatus === "verified" ? checkIcon : pendingIcon} 
-                />
-              </div>
-              <div className={cn("flex flex-col justify-center text-sm font-medium font-euclid", kycStatusColor)}>
-                {kycStatusText}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col justify-center text-[#5b5675] text-sm font-euclid leading-6">
-              App installed
-            </div>
-            <div className="flex gap-1 items-center">
+            <div className="font-euclid text-[14px] text-[#5b5675] leading-[24px]">App installed</div>
+            <div className="flex gap-[4px] items-center">
               {customer.appStatus === "installed" && (
-                <div className="overflow-hidden relative shrink-0 w-4 h-4">
-                  <img alt="" className="block max-w-none w-full h-full object-contain" src={checkIcon} />
+                <div className="relative h-4 w-4 shrink-0 overflow-hidden">
+                  <img alt="" className="block h-full w-full max-w-none object-contain" src={checkIcon} />
                 </div>
               )}
-              <div className={cn("flex flex-col justify-center text-sm font-medium font-euclid", appStatusColor)}>
-                {appStatusText}
-              </div>
+              <div className={cn("font-euclid text-[14px] font-medium", appStatusColor)}>{appStatusText}</div>
             </div>
           </div>
         </div>
@@ -565,87 +677,87 @@ export function CustomerProfileSidebar({
       {/* Active Claim — claim-status flows (Figma 9367:22470 / 9367:22418) */}
       {activeClaim ? (
         <div
-          className="flex w-full flex-col items-start gap-2.5 rounded-xl border border-solid border-[#e7e7f0] bg-white pb-4"
+          className="flex w-full flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]"
           data-figma-ref="9367:22470"
         >
-          <div className="h-12 w-full shrink-0 rounded-t-xl bg-[#f8f7fc]">
-            <div className="flex items-center gap-1.5 px-4 py-3.5">
-              <div className="relative h-5 w-5 shrink-0 overflow-hidden">
-                <img
-                  alt=""
-                  className="block h-full w-full max-w-none object-contain"
-                  src={customerServiceIcon}
-                />
-              </div>
-              <div className="flex flex-col justify-center font-euclid text-xs font-medium leading-5 text-[#5b5675]">
-                ACTIVE CLAIM
-              </div>
+          <div className="flex items-center gap-[8px] w-full">
+            <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+              <img alt="" className="block h-full w-full max-w-none object-contain" src={customerServiceIcon} />
             </div>
+            <div className="font-euclid text-[12px] font-medium text-[#36354c]">ACTIVE CLAIM</div>
           </div>
-          <div className="flex w-full flex-col items-start gap-3 px-3">
+          <div className="flex w-full flex-col gap-[12px]">
             <ActiveClaimItem claim={activeClaim} />
           </div>
         </div>
       ) : null}
 
-      {/* Support History Section — Figma node 9207:24144 */}
-      <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
-        {/* Section Header */}
-        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
-          <div className="flex gap-1.5 items-center px-4 py-3.5">
-            <div className="overflow-hidden relative shrink-0 w-5 h-5">
-              <img alt="" className="block max-w-none w-full h-full object-contain" src={customerServiceIcon} />
+      {/* Active Cases — UC1 Edit Policy (Figma 2:3061 / 2:3250) */}
+      {activeCases && activeCases.length > 0 ? (
+        <div className="flex w-full flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]">
+          <div className="flex items-center gap-[8px] w-full">
+            <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+              <img alt="" className="block h-full w-full max-w-none object-contain" src={customerServiceIcon} />
             </div>
-            <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
-              SUPPORT HISTORY
-            </div>
+            <span className="font-euclid text-[12px] font-medium text-[#36354c]">ACTIVE CASES</span>
+            <span className="flex size-[18px] items-center justify-center rounded-full bg-[#7c47e1] font-euclid text-[12px] font-semibold leading-5 text-white">
+              {activeCases.length}
+            </span>
+          </div>
+          <div className="flex w-full flex-col gap-[12px]">
+            {activeCases.map((item) => (
+              <ActiveCaseItem key={item.subtitle} item={item} />
+            ))}
           </div>
         </div>
+      ) : null}
 
-        {/* Support History Content */}
-        <div className="flex flex-col gap-3 items-start px-3 w-full">
-          <div className="flex flex-col gap-1 w-full">
-            <div className="text-[#36354c] text-xs font-medium font-euclid leading-5">
-              {supportHistoryPreview.agent} • {supportHistoryPreview.timestamp}
+      {/* Support History Section — Figma node 9207:24144; hidden when showTabs is on (it moves to its own tab) */}
+      {!showTabs && (
+        <div className="flex w-full flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]">
+          <div className="flex items-center gap-[8px] w-full">
+            <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+              <img alt="" className="block h-full w-full max-w-none object-contain" src={customerServiceIcon} />
             </div>
-            <div className="text-[#5b5675] text-sm font-euclid leading-5">
-              {supportHistoryPreview.description}
-            </div>
+            <div className="font-euclid text-[12px] font-medium text-[#36354c]">SUPPORT HISTORY</div>
           </div>
-          
-          {/* View conversations link */}
-          <button 
-            onClick={handleViewConversations}
-            className="text-[#7c47e1] text-xs font-medium font-euclid leading-5 hover:underline"
-          >
-            View conversations
-          </button>
+          <div className="flex flex-col gap-[12px] w-full">
+            <div className="flex flex-col gap-1 w-full">
+              <div className="font-euclid text-[12px] font-medium text-[#36354c] leading-5">
+                {supportHistoryPreview.agent} • {supportHistoryPreview.timestamp}
+              </div>
+              <div className="font-euclid text-[14px] text-[#5b5675] leading-5">
+                {supportHistoryPreview.description}
+              </div>
+            </div>
+            <button
+              onClick={handleViewConversations}
+              className="font-euclid text-[12px] font-medium text-[#7c47e1] leading-5 hover:underline text-left"
+            >
+              View conversations
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Active Policies Section */}
-      <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
+      <div className="flex w-full flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]">
         {/* Section Header */}
-        <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
-          <div className="flex gap-1.5 items-center px-4 py-3.5">
-            <div className="overflow-hidden relative shrink-0 w-5 h-5">
-              <img alt="" className="block max-w-none w-full h-full object-contain" src={profileIcon} />
-            </div>
-            <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
-              ACTIVE POLICIES
-            </div>
+        <div className="flex items-center gap-[8px] w-full">
+          <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+            <img alt="" className="block h-full w-full max-w-none object-contain" src={profileIcon} />
           </div>
+          <div className="font-euclid text-[12px] font-medium text-[#36354c]">ACTIVE POLICIES</div>
         </div>
-
         {/* Policy Items */}
-        <div className="flex flex-col gap-3 items-start px-3 w-full">
+        <div className="flex flex-col gap-[12px] w-full">
           {activePolicies.length > 0 ? (
             activePolicies.map((policy) => (
-              <PolicyItem key={policy.id} policy={policy} />
+              <PolicyItem key={policy.id} policy={policy} onViewPolicyDoc={onViewPolicyDoc} />
             ))
           ) : (
-            <div className="bg-[#f8f7fc] p-2 rounded-lg w-full">
-              <div className="text-[#5b5675] text-sm font-euclid leading-5">
+            <div className="rounded-[8px] bg-[#f8f7fc] p-2 w-full">
+              <div className="font-euclid text-[14px] text-[#5b5675] leading-5">
                 {emptyActivePoliciesMessage ?? "No active policies"}
               </div>
             </div>
@@ -655,42 +767,35 @@ export function CustomerProfileSidebar({
 
       {/* Inactive Policies Section */}
       {inactivePolicies.length > 0 && (
-        <div className="bg-white border border-[#e7e7f0] border-solid flex flex-col gap-2.5 items-start pb-4 rounded-xl w-full">
+        <div className="flex w-full flex-col gap-[12px] rounded-[12px] border border-[#e7e7f0] bg-white p-[16px]">
           {/* Section Header */}
-          <div className="bg-[#f8f7fc] h-12 w-full rounded-t-xl">
-            <div className="flex gap-1.5 items-center px-4 py-3.5">
-              <div className="overflow-hidden relative shrink-0 w-5 h-5">
-                <img alt="" className="block max-w-none w-full h-full object-contain" src={profileIcon} />
-              </div>
-              <div className="flex flex-col justify-center text-[#5b5675] text-xs font-medium font-euclid leading-5">
-                INACTIVE POLICIES
-              </div>
+          <div className="flex items-center gap-[8px] w-full">
+            <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+              <img alt="" className="block h-full w-full max-w-none object-contain" src={profileIcon} />
             </div>
+            <div className="font-euclid text-[12px] font-medium text-[#36354c]">INACTIVE POLICIES</div>
           </div>
-
           {/* Inactive Policy Items */}
-          <div className="flex flex-col gap-3 items-start px-3 w-full">
+          <div className="flex flex-col gap-[12px] w-full">
             {inactivePolicies.map((inactivePolicy) => (
-              <div key={inactivePolicy.id} className="bg-[#f8f7fc] flex flex-col gap-2 p-2 rounded-lg w-full">
-                <div className="flex items-start justify-between cursor-pointer">
-                  <div className="flex gap-1 items-start">
-                    <div className="flex items-center py-0.5">
-                      <div className="overflow-hidden relative shrink-0 w-5 h-5">
-                        <img alt="" className="block max-w-none w-full h-full object-contain" src={carIcon} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1 items-start justify-center">
-                      <div className="text-[#36354c] text-sm font-medium font-euclid leading-5">
-                        {inactivePolicy.productTitle}
-                      </div>
-                      <div className="text-[#5b5675] text-xs font-euclid leading-[18px]">
-                        {inactivePolicy.policyNumber}
-                      </div>
+              <div key={inactivePolicy.id} className="flex items-start justify-between rounded-[8px] bg-[#f8f7fc] p-[8px] w-full cursor-pointer">
+                <div className="flex gap-[4px] items-start">
+                  <div className="flex items-center py-px">
+                    <div className="relative h-5 w-5 shrink-0 overflow-hidden">
+                      <img alt="" className="block h-full w-full max-w-none object-contain" src={carIcon} />
                     </div>
                   </div>
-                  <div className="flex items-center justify-center">
-                    <ChevronDown className="w-4 h-4 text-[#5b5675]" />
+                  <div className="flex flex-col gap-[4px] items-start justify-center">
+                    <div className="font-euclid text-[14px] font-medium text-[#36354c] leading-[20px]">
+                      {inactivePolicy.productTitle}
+                    </div>
+                    <div className="font-euclid text-[12px] text-[#5b5675] leading-[18px]">
+                      {inactivePolicy.policyNumber}
+                    </div>
                   </div>
+                </div>
+                <div className="relative h-5 w-5 shrink-0 overflow-hidden flex items-center justify-center">
+                  <ChevronDown className="h-4 w-4 text-[#5b5675]" />
                 </div>
               </div>
             ))}
@@ -698,7 +803,7 @@ export function CustomerProfileSidebar({
         </div>
       )}
       </div>
-      )}
+      ) : null}
     </div>
   )
 }

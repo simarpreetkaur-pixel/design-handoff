@@ -60,9 +60,6 @@ function SimilarCaseCard({ c, index }: { c: SimilarCase; index: number }) {
             <span className="rounded-md bg-[#f0f0f6] px-2 py-0.5 font-euclid text-[11px] font-semibold uppercase tracking-wide text-[#5b5675]">
               Case {index + 1}
             </span>
-            <span className="font-euclid text-[12px] text-[#9c9aaf]">
-              {c.caseId} · {c.date}
-            </span>
           </div>
           <p className="font-euclid text-[13px] font-semibold leading-5 text-[#040222]">
             {c.title}

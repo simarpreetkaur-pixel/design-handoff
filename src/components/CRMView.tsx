@@ -28,6 +28,11 @@ import { RaiseClaimHelloView } from "@/components/crm/hello/RaiseClaimHelloView"
 import { RoadsideAssistanceHelloView } from "@/components/crm/hello/RoadsideAssistanceHelloView"
 import { EscalationCaseHelloView } from "@/components/crm/hello/EscalationCaseHelloView"
 import { LiveListeningRaiseClaimHelloView } from "@/components/crm/hello/LiveListeningRaiseClaimHelloView"
+import { RaiseClaimFigmaHelloView } from "@/components/crm/hello/RaiseClaimFigmaHelloView"
+import { EditPolicyFigmaHelloView } from "@/components/crm/hello/EditPolicyFigmaHelloView"
+import { CapabilityShowcaseHelloView } from "@/components/crm/hello/CapabilityShowcaseHelloView"
+import { Phase1FigmaHelloView } from "@/components/crm/hello/Phase1FigmaHelloView"
+import { VoicebotHandoverHelloView } from "@/components/crm/hello/VoicebotHandoverHelloView"
 import { EditPhoneDialog } from "@/components/crm/EditPhoneDialog"
 import { AIChatPanel, type AIChatCaseContext, type ChatMockCase } from "@/components/crm/AIChatPanel"
 import {
@@ -315,6 +320,21 @@ export function CRMView() {
 
   const isSunilEscalationRefundFlow =
     customerId === "sunil-gupta" && resolvedChatMockCase === "sunil_escalation_refund_payment"
+
+  const isRajeshRaiseClaimFigmaFlow =
+    customerId === "rajesh-kumar-figma" && resolvedChatMockCase === "rajesh_raise_claim_figma"
+
+  const isRajeshEditPolicyFigmaFlow =
+    customerId === "rajesh-kumar-figma" && resolvedChatMockCase === "rajesh_edit_policy_figma"
+
+  const isRajeshCapabilityShowcaseFlow =
+    customerId === "rajesh-kumar-figma" && resolvedChatMockCase === "rajesh_capability_showcase"
+
+  const isRajeshPhase1Flow =
+    customerId === "rajesh-kumar-figma" && resolvedChatMockCase === "rajesh_phase1"
+
+  const isVoicebotHandoverFlow =
+    customerId === "sumit-sharma" && resolvedChatMockCase === "sumit_voicebot_handover"
 
   /** Use case 3 only — Hello inbound copy + implied Swift motor policy (does not apply to Unknown reason / homepage Sunil default). */
   const sunilEditPolicyUc3HelloInbound = useMemo(() => {
@@ -1010,6 +1030,51 @@ export function CRMView() {
           displayPhone={displayLookupPhone}
           inboundEditPolicyContext={sunilEditPolicyUc3HelloInbound}
           isUnknownReasonCase={isSunilEditPolicyHelloFlowCase4}
+          className="h-full min-h-0 overflow-hidden"
+        />
+      </div>
+      ) : isRajeshRaiseClaimFigmaFlow ? (
+      <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+        <RaiseClaimFigmaHelloView
+          customer={profileCustomer}
+          activePolicies={activePolicies}
+          inactivePolicies={inactivePolicies}
+          className="h-full min-h-0 overflow-hidden"
+        />
+      </div>
+      ) : isRajeshEditPolicyFigmaFlow ? (
+      <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+        <EditPolicyFigmaHelloView
+          customer={profileCustomer}
+          activePolicies={activePolicies}
+          inactivePolicies={inactivePolicies}
+          className="h-full min-h-0 overflow-hidden"
+        />
+      </div>
+      ) : isRajeshCapabilityShowcaseFlow ? (
+      <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+        <CapabilityShowcaseHelloView
+          customer={profileCustomer}
+          activePolicies={activePolicies}
+          inactivePolicies={inactivePolicies}
+          className="h-full min-h-0 overflow-hidden"
+        />
+      </div>
+      ) : isRajeshPhase1Flow ? (
+      <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+        <Phase1FigmaHelloView
+          customer={profileCustomer}
+          activePolicies={activePolicies}
+          inactivePolicies={inactivePolicies}
+          className="h-full min-h-0 overflow-hidden"
+        />
+      </div>
+      ) : isVoicebotHandoverFlow ? (
+      <div className="h-[calc(100vh-72px)] min-h-0 w-full overflow-hidden">
+        <VoicebotHandoverHelloView
+          customer={profileCustomer}
+          activePolicies={activePolicies}
+          inactivePolicies={inactivePolicies}
           className="h-full min-h-0 overflow-hidden"
         />
       </div>

@@ -24,9 +24,12 @@ export type CrmTaskId =
   | "payment-history"
   | "kyc-logs"
   | "nearby-garages"
+  | "advisor-ui"
+  | "network-garages"
+  | "fnol"
   | "firefly"
-  | "freshdesk"
   | "spectra"
+  | "rap-tool"
 
 export interface CrmTaskDefinition {
   id: CrmTaskId
@@ -169,6 +172,34 @@ export const CRM_TASKS: CrmTaskDefinition[] = [
     manualFlow: true,
     aiCapable: true,
   },
+  // POWER TOOLS — AUTO
+  {
+    id: "advisor-ui",
+    label: "Advisor UI",
+    description: "Open Advisor UI for policy changes",
+    category: "power-tools",
+    requiresPolicy: false,
+    manualFlow: false,
+    aiCapable: false,
+  },
+  {
+    id: "network-garages",
+    label: "Network Garages",
+    description: "Find and manage network garages",
+    category: "power-tools",
+    requiresPolicy: false,
+    manualFlow: false,
+    aiCapable: false,
+  },
+  {
+    id: "fnol",
+    label: "FNOL",
+    description: "First Notice of Loss tool",
+    category: "power-tools",
+    requiresPolicy: false,
+    manualFlow: false,
+    aiCapable: false,
+  },
   {
     id: "firefly",
     label: "Firefly",
@@ -178,19 +209,20 @@ export const CRM_TASKS: CrmTaskDefinition[] = [
     manualFlow: false,
     aiCapable: false,
   },
+  // POWER TOOLS — HEALTH
   {
-    id: "freshdesk",
-    label: "Freshdesk",
-    description: "Tool for track the tickets",
+    id: "spectra",
+    label: "Spectra",
+    description: "Tool for all health claim queries",
     category: "power-tools",
     requiresPolicy: false,
     manualFlow: false,
     aiCapable: false,
   },
   {
-    id: "spectra",
-    label: "Spectra",
-    description: "Tool for all health claim queries",
+    id: "rap-tool",
+    label: "RAP tool",
+    description: "Health reimbursement and pre-auth tool",
     category: "power-tools",
     requiresPolicy: false,
     manualFlow: false,

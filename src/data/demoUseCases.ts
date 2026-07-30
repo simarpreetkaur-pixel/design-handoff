@@ -1,19 +1,13 @@
 import type { CrmDemoState } from "@/types/navigation"
-import {
-  rajKapoorClaimStatusNexonJtbd,
-  rekhaGuptaClaimStatusEscalatedJtbd,
-  sunilGuptaRefundEscalationJtbd,
-  sunilGuptaSwiftDzireEditNameJtbd,
-} from "@/data/mockCustomers"
-import {
-  SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
-  SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
-} from "@/data/sunilEditPolicyUseCases"
+import { rajKapoorClaimStatusNexonJtbd } from "@/data/mockCustomers"
+import { SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK } from "@/data/sunilEditPolicyUseCases"
 
 export type DemoPillConfig = {
   label: string
   customerId: string
   crmDemo: CrmDemoState
+  /** Skip the incoming call modal and navigate directly to CRM (for non-call demo flows). */
+  directEntry?: boolean
 }
 
 export type DemoUseCaseSection = {
@@ -26,20 +20,44 @@ export type DemoUseCaseSection = {
 
 export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
   {
-    id: "raise-claim",
+    id: "raise-claim-figma",
     number: 1,
     title: "Raise a claim",
     pills: [
       {
-        label: "Raj Kapoor",
-        customerId: "raj-kapoor",
-        crmDemo: { chatMockCase: "raj_raise_claim_nexon_gmc" },
+        label: "Rajesh Kumar",
+        customerId: "rajesh-kumar-figma",
+        crmDemo: {
+          chatMockCase: "rajesh_raise_claim_figma",
+          callContextOverride: {
+            reason: "Raise a claim",
+            vehicle: "Ecosport Titanium 2025",
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: "edit-policy-figma",
+    number: 2,
+    title: "Edit policy",
+    pills: [
+      {
+        label: "Rajesh Kumar",
+        customerId: "rajesh-kumar-figma",
+        crmDemo: {
+          chatMockCase: "rajesh_edit_policy_figma",
+          callContextOverride: {
+            reason: "Add bank name in policy",
+            vehicle: "Ecosport Titanium 2025",
+          },
+        },
       },
     ],
   },
   {
     id: "claim-status",
-    number: 2,
+    number: 3,
     title: "Claim Status",
     pills: [
       {
@@ -57,64 +75,8 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
     ],
   },
   {
-    id: "policy-endorsement",
-    number: 3,
-    title: "Edit Policy",
-    pills: [
-      {
-        label: "Sunil Gupta",
-        customerId: "sunil-gupta",
-        crmDemo: {
-          chatMockCase: SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
-          initialSelectedJtbdId: sunilGuptaSwiftDzireEditNameJtbd.id,
-          callContextOverride: {
-            reason: "Edit Policy",
-            vehicle: "Maruti Suzuki Swift Dzire 2024",
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: "road-side-assistance",
-    number: 4,
-    title: "Road Side assistance",
-    pills: [
-      {
-        label: "Raj Kapoor",
-        customerId: "raj-kapoor",
-        crmDemo: {
-          chatMockCase: "raj_road_side_assistance",
-          callContextOverride: {
-            reason: "Road Side Assistance",
-            vehicle: "Tata Nexon",
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: "escalation-case-refund",
-    number: 5,
-    title: "Escalation case",
-    pills: [
-      {
-        label: "Sunil Gupta",
-        customerId: "sunil-gupta",
-        crmDemo: {
-          chatMockCase: "sunil_escalation_refund_payment",
-          initialSelectedJtbdId: sunilGuptaRefundEscalationJtbd.id,
-          callContextOverride: {
-            reason: "Refund Status",
-            vehicle: "Honda City",
-          },
-        },
-      },
-    ],
-  },
-  {
     id: "sunil-unknown-reason",
-    number: 6,
+    number: 4,
     title: "Unknown reason",
     pills: [
       {
@@ -131,7 +93,7 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
   },
   {
     id: "unknown-caller",
-    number: 7,
+    number: 5,
     title: "Unknown caller",
     pills: [
       {
@@ -144,67 +106,51 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
     ],
   },
   {
-    id: "live-listening-raise-claim",
-    number: 8,
-    title: "Live listening",
+    id: "capability-showcase",
+    number: 6,
+    title: "Capability showcase",
     pills: [
       {
-        label: "Raj Kapoor",
-        customerId: "raj-kapoor",
+        label: "Rajesh Kumar",
+        customerId: "rajesh-kumar-figma",
+        directEntry: true,
         crmDemo: {
-          chatMockCase: "raj_live_listening_raise_claim",
+          chatMockCase: "rajesh_capability_showcase",
+        },
+      },
+    ],
+  },
+  {
+    id: "phase-1",
+    number: 7,
+    title: "Phase-1",
+    pills: [
+      {
+        label: "Rajesh Kumar",
+        customerId: "rajesh-kumar-figma",
+        crmDemo: {
+          chatMockCase: "rajesh_phase1",
           callContextOverride: {
             reason: "Raise a claim",
-            vehicle: "Tata Nexon",
+            vehicle: "Ecosport Titanium 2025",
           },
         },
       },
     ],
   },
   {
-    id: "claim-status-escalated",
-    number: 9,
-    title: "Claim status escalated",
+    id: "voicebot-handover",
+    number: 8,
+    title: "Voicebot handover",
     pills: [
       {
-        label: "Rekha Gupta",
-        customerId: "rekha-gupta",
+        label: "Sumit Sharma",
+        customerId: "sumit-sharma",
         crmDemo: {
-          chatMockCase: "rekha_claim_status_escalated",
-          initialSelectedJtbdId: rekhaGuptaClaimStatusEscalatedJtbd.id,
+          chatMockCase: "sumit_voicebot_handover",
           callContextOverride: {
-            reason: "Claim Status",
-            vehicle: "Tata Nexon",
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: "raise-claim-v2",
-    number: 10,
-    title: "Raise a claim v2",
-    pills: [
-      {
-        label: "Raj Kapoor",
-        customerId: "raj-kapoor",
-        crmDemo: { chatMockCase: "raj_raise_claim_v2" },
-      },
-    ],
-  },
-  {
-    id: "unable-to-select-garage",
-    number: 11,
-    title: "Unable to select garage",
-    pills: [
-      {
-        label: "Raj Kapoor",
-        customerId: "raj-kapoor",
-        crmDemo: {
-          chatMockCase: "raj_unable_select_garage",
-          callContextOverride: {
-            reason: "Unable to select garage",
-            vehicle: "Tata Nexon",
+            reason: "Edit name in policy",
+            vehicle: "Ecosport Titanium 2025",
           },
         },
       },

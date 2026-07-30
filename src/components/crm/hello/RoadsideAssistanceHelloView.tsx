@@ -162,7 +162,7 @@ export function RoadsideAssistanceHelloView({
         nodes.push(
           <div key={line.id} className="flex w-full min-w-0 justify-end">
             <HelloCxBubbleCard showIdentity={streak.nextCxBubbleShowIdentity()}>
-              <p className="text-left font-euclid text-[14px] font-medium leading-5 text-white">
+              <p className="text-left font-euclid text-[14px] font-medium leading-5 text-[#36354c]">
                 {line.text}
               </p>
             </HelloCxBubbleCard>
