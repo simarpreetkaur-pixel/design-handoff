@@ -792,7 +792,7 @@ export function EditPolicyFigmaHelloView({
           <HelloAiBubbleCard showIdentity>
             <p className="font-euclid text-[14px] leading-5 text-[#36354c]">
               Customer is calling to know the status on{" "}
-              <span className="font-semibold text-[#040222]">ongoing bank name endorsement</span>{" "}
+              <span className="font-semibold text-[#040222]">ongoing Chassis Number endorsement</span>{" "}
               in the policy document of{" "}
               <span className="font-semibold text-[#040222]">{vehicleLabel}</span>
             </p>

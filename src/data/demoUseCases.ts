@@ -48,7 +48,7 @@ export const DEMO_USE_CASE_SECTIONS: DemoUseCaseSection[] = [
         crmDemo: {
           chatMockCase: "rajesh_edit_policy_figma",
           callContextOverride: {
-            reason: "Add bank name in policy",
+            reason: "Add Chassis Number in policy",
             vehicle: "Ecosport Titanium 2025",
           },
         },
