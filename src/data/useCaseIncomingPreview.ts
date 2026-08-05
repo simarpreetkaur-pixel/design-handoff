@@ -159,7 +159,7 @@ export function mergeUseCaseIncomingPreview(
   if (customerId === "rajesh-kumar-figma" && crmDemo?.chatMockCase === "rajesh_edit_policy_figma") {
     return {
       ...vm,
-      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Add Chassis Number in policy",
+      ongoingIssue: crmDemo.callContextOverride?.reason?.trim() || "Edit Chassis Number in policy",
       vehicle: crmDemo.callContextOverride?.vehicle?.trim() || "Ecosport Titanium 2025",
       showCallVehicle: true,
       showLastCall: false,
