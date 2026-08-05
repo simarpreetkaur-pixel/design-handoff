@@ -620,12 +620,15 @@ export function RaiseClaimFigmaHelloView({
   const typingMs = HELLO_RAISE_CLAIM_TYPING_INDICATOR_MS
   const pauseMs = HELLO_BOT_REPLY_AFTER_USER_MS
   const introTypingLabelId = useId()
+  const empathyTypingLabelId = useId()
   const optionsTypingLabelId = useId()
   const replyTypingLabelId = useId()
 
   // Staggered initial load
   const [showIntroTyping, setShowIntroTyping] = useState(true)
   const [showBubble1, setShowBubble1] = useState(false)
+  const [showTypingBeforeBubble2, setShowTypingBeforeBubble2] = useState(false)
+  const [showBubble2, setShowBubble2] = useState(false)
   const [showTypingBeforeOptions, setShowTypingBeforeOptions] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   // Typing indicator after user picks
@@ -685,7 +688,7 @@ export function RaiseClaimFigmaHelloView({
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, showBubble1, showOptions, aiTyping])
+  }, [messages, showBubble1, showBubble2, showOptions, aiTyping])
 
   // Close quick drawer on outside click
   useEffect(() => {
@@ -699,15 +702,20 @@ export function RaiseClaimFigmaHelloView({
     return () => document.removeEventListener("mousedown", handleClick)
   }, [quickDrawerOpen])
 
-  // Stagger the initial two AI messages with typing indicators
+  // Stagger the initial AI messages with typing indicators
   useEffect(() => {
     let cancelled = false
     const schedule = (fn: () => void, ms: number) =>
       setTimeout(() => { if (!cancelled) fn() }, ms)
     const t0 = typingMs
+    // Bubble 1 — claim context
     schedule(() => { setShowIntroTyping(false); setShowBubble1(true) }, t0)
-    schedule(() => setShowTypingBeforeOptions(true), t0 + pauseMs)
-    schedule(() => { setShowTypingBeforeOptions(false); setShowOptions(true) }, t0 + pauseMs + typingMs)
+    // Bubble 2 — empathy nudge
+    schedule(() => setShowTypingBeforeBubble2(true), t0 + pauseMs)
+    schedule(() => { setShowTypingBeforeBubble2(false); setShowBubble2(true) }, t0 + pauseMs + typingMs)
+    // Options
+    schedule(() => setShowTypingBeforeOptions(true), t0 + pauseMs * 2 + typingMs)
+    schedule(() => { setShowTypingBeforeOptions(false); setShowOptions(true) }, t0 + pauseMs * 2 + typingMs * 2)
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1240,6 +1248,17 @@ export function RaiseClaimFigmaHelloView({
         <div className="min-h-0 flex flex-1 flex-col items-start gap-3 overflow-y-auto overscroll-y-contain px-10 py-5">
           {showIntroTyping && <TypingIndicator labelId={introTypingLabelId} showIdentity />}
           {showBubble1 && renderMessage({ id: "intro", role: "ai", content: "intro" })}
+          {showTypingBeforeBubble2 && <TypingIndicator labelId={empathyTypingLabelId} showIdentity={false} />}
+          {showBubble2 && (
+            <div className="min-w-0 max-w-full">
+              <HelloAiBubbleCard showIdentity={false}>
+                <p className="font-euclid text-[14px] leading-5 text-[#36354c]">
+                  Before proceeding, check on the customer —{" "}
+                  <span className="font-semibold text-[#040222]">ask if they are okay and ensure nobody is hurt.</span>
+                </p>
+              </HelloAiBubbleCard>
+            </div>
+          )}
           {showTypingBeforeOptions && <TypingIndicator labelId={optionsTypingLabelId} showIdentity={false} />}
           {showOptions && renderMessage({ id: "options", role: "ai", content: "options" })}
           {messages.map(renderMessage)}
