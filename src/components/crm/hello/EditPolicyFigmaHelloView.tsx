@@ -48,7 +48,7 @@ const MAIN_ACTIONS = [
   "Raise a health claim",
 ]
 
-const EDIT_SUB_ACTIONS = ["Chassis number", "Bank name", "Engine number", "Policy start date"]
+const EDIT_SUB_ACTIONS = ["Chassis number", "Engine number", "Policy start date"]
 
 type SendState = "idle" | "sending" | "sent"
 
@@ -844,7 +844,7 @@ export function EditPolicyFigmaHelloView({
             <p className="font-euclid text-[14px] leading-5 text-[#36354c]">
               To send a self-serve link, send a ACKO alert and select main action as{" "}
               <span className="font-semibold text-[#040222]">"Edit policy"</span> and sub action as{" "}
-              <span className="font-semibold text-[#040222]">"Bank name"</span>.
+              <span className="font-semibold text-[#040222]">"Chassis number"</span>.
             </p>
           </HelloAiBubbleCard>
         </div>
@@ -966,7 +966,7 @@ export function EditPolicyFigmaHelloView({
             title: "Ongoing endorsement",
             subtitle: "Ecosport Titanium 2025",
             details: [
-              { label: "Endorsement",       value: "Bank name" },
+              { label: "Endorsement",       value: "Chassis number" },
               { label: "Endorsement date",  value: "30th May 2026" },
               { label: "Policy holder",     value: customer.name },
               { label: "Policy document",   value: "Link", isLink: true },
