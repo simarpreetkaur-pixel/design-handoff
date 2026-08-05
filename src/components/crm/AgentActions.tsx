@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react"
 
 import type { AgentAction, JTBDType } from "@/types/crm"
+import { asset } from "@/lib/assets"
 
 interface AgentActionsProps {
   actions: AgentAction[]
@@ -130,7 +131,7 @@ export function AgentActions({
               className="group flex w-full items-center justify-between rounded-[6px] bg-white px-5 py-3.5 text-left transition-shadow duration-300 hover:shadow-md"
             >
               <div className="flex min-w-0 items-center gap-1">
-                <img src="/icons/ai-icon.png" alt="" className="h-5 w-5 shrink-0" width={20} height={20} />
+                <img src={asset("/icons/ai-icon.png")} alt="" className="h-5 w-5 shrink-0" width={20} height={20} />
                 <p className="font-euclid text-[14px] font-normal leading-[20px] text-[#5b5675]">
                   Confused about any step?
                 </p>

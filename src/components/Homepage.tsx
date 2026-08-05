@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { asset } from "@/lib/assets"
 import { Search, AlertCircle, Menu } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 
@@ -270,7 +271,7 @@ export function Homepage() {
         {/* ACKO Logo */}
         <div className="flex h-10 items-center">
           <img
-            src="/acko-logo.png"
+            src={asset("/acko-logo.png")}
             alt="ACKO"
             className="h-10 w-auto object-contain"
           />
@@ -368,7 +369,7 @@ export function Homepage() {
 
       {/* Ozontel Dialer Icon - Bottom Left (non-interactive on homepage; no active call) */}
       <img
-        src="/icons/ozontel-dialer-icon.png"
+        src={asset("/icons/ozontel-dialer-icon.png")}
         alt="Ozontel Dialer"
         className="fixed bottom-6 left-6 z-[60] h-14 w-14 object-contain"
       />

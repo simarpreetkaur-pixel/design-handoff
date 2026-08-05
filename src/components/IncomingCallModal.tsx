@@ -24,12 +24,14 @@ import type { CrmDemoState } from "@/types/navigation"
  * {@link INCOMING_CALL_FIGMA_URL}
  * Node `8278:63809` (Iteration 12) in OMNI — Post-Sales.
  */
+import { asset } from "@/lib/assets"
+
 const ICONS = {
-  phone: "/icons/call-indicator.png",
-  timer: "/icons/timer-indicator.png", 
-  avatar: "/icons/user-avatar.png",
-  translate: "/icons/translate-icon.png",
-  award: "/icons/award-icon.png",
+  phone: asset("/icons/call-indicator.png"),
+  timer: asset("/icons/timer-indicator.png"),
+  avatar: asset("/icons/user-avatar.png"),
+  translate: asset("/icons/translate-icon.png"),
+  award: asset("/icons/award-icon.png"),
 } as const
 
 type IncomingCallModalProps = {
@@ -344,7 +346,7 @@ export function IncomingCallModal({
                   >
                     <div className="flex items-start gap-2">
                       <img
-                        src="/icons/sparkle-icon.png"
+                        src={asset("/icons/sparkle-icon.png")}
                         alt=""
                         width={12}
                         height={24}

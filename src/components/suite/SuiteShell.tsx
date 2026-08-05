@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useNavigate } from "react-router-dom"
+import { asset } from "@/lib/assets"
 import { useAuth, issuiteAdminRole } from "@/contexts/AuthContext"
 import { Sidebar } from "./Sidebar"
 
@@ -27,7 +28,7 @@ export function SuiteShell() {
       {/* Top navigation bar — logo only */}
       <header className="shrink-0 flex items-center h-[72px] bg-white border-b border-[#e7e7f0] px-10 shadow-[0px_2px_5px_rgba(0,0,0,0.08)] z-20">
         <div className="flex items-center gap-4">
-          <img src="/acko-logo.png" alt="ACKO" className="h-7 w-auto object-contain" />
+          <img src={asset("/acko-logo.png")} alt="ACKO" className="h-7 w-auto object-contain" />
           <div className="h-6 w-px bg-[#e7e7f0]" />
           <span className="text-[#2c2067] text-2xl font-normal leading-none tracking-tight">
             OMNI Suite

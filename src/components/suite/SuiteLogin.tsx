@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { asset } from "@/lib/assets"
 import { useNavigate } from "react-router-dom"
 import { useAuth, issuiteAdminRole } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -168,7 +169,7 @@ export function SuiteLogin() {
         <div className="relative z-10 flex flex-col items-center gap-[31px] px-8">
           {/* ACKO horizontal logo (white version) */}
           <img
-            src="/acko-logo-white.png"
+            src={asset("/acko-logo-white.png")}
             alt="ACKO"
             className="h-[58px] w-auto object-contain shrink-0"
           />

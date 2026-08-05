@@ -45,6 +45,7 @@ import { Pencil, PhoneForwarded, Search, AlertCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 import { performCustomerSearch } from "@/utils/customerSearch"
 import {
   SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
@@ -800,7 +801,7 @@ export function CRMView() {
       <div className="relativez-60 flex h-[72px] w-full items-center gap-[14px] bg-white px-[40px] py-[18px] border-b border-[#e7e7f0] shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
         <div className="flex h-[36px] w-[158px] items-center overflow-hidden">
           <img
-            src="/acko-logo.png"
+            src={asset("/acko-logo.png")}
             alt="ACKO"
             className="h-[36px] w-auto object-contain"
           />
@@ -843,7 +844,7 @@ export function CRMView() {
 
       <img
         onClick={handleOzontelClick}
-        src="/icons/ozontel-dialer-icon.png"
+        src={asset("/icons/ozontel-dialer-icon.png")}
         alt="Ozontel Dialer"
         className="fixed bottom-6 left-6 z-[60] h-14 w-14 cursor-pointer object-contain"
         title={isCrmOngoingSessionUnknown ? "End Call" : "Open Dialer"}
@@ -895,7 +896,7 @@ export function CRMView() {
       <div className="relativez-60 flex h-[72px] w-full items-center gap-[14px] bg-white px-[40px] py-[18px] border-b border-[#e7e7f0] shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
       <div className="flex h-[36px] w-[158px] items-center overflow-hidden">
         <img
-          src="/acko-logo.png"
+          src={asset("/acko-logo.png")}
           alt="ACKO"
           className="h-[36px] w-auto object-contain"
         />
@@ -1083,7 +1084,7 @@ export function CRMView() {
       {/* Ozontel Dialer - always show */}
       <img
         onClick={handleOzontelClick}
-        src="/icons/ozontel-dialer-icon.png"
+        src={asset("/icons/ozontel-dialer-icon.png")}
         alt="Ozontel Dialer"
         className="fixed bottom-6 left-6 z-[60] h-14 w-14 cursor-pointer object-contain"
         title={isCrmOngoingSession ? "End Call" : "Open Dialer"}

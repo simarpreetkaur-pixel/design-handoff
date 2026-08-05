@@ -5,6 +5,7 @@ import { HELLO_POLICIES_PANEL_COLLAPSE_BEFORE_OPEN_MS } from "@/components/crm/h
 import type { HelloProfilePolicyRibbonAction } from "@/components/crm/hello/helloRaiseClaimCopy"
 
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 import type { Customer, InactivePolicy, Policy } from "@/types/crm"
 import { Button } from "@/components/ui/button"
 
@@ -298,7 +299,7 @@ export function HelloCustomerProfileBar({
                   {customer.appStatus === "installed" ? (
                     <>
                       <img
-                        src="/icons/profile-card-tick.png"
+                        src={asset("/icons/profile-card-tick.png")}
                         alt=""
                         className="size-4 shrink-0 object-contain"
                         width={16}
@@ -325,7 +326,7 @@ export function HelloCustomerProfileBar({
                   {kycDisplay.tone === "success" ? (
                     <>
                       <img
-                        src="/icons/profile-card-tick.png"
+                        src={asset("/icons/profile-card-tick.png")}
                         alt=""
                         className="size-4 shrink-0 object-contain"
                         width={16}
@@ -339,7 +340,7 @@ export function HelloCustomerProfileBar({
                   ) : kycDisplay.tone === "pending" ? (
                     <>
                       <img
-                        src="/icons/profile-card-kyc-pending.png"
+                        src={asset("/icons/profile-card-kyc-pending.png")}
                         alt=""
                         className="size-4 shrink-0 object-contain"
                         width={16}

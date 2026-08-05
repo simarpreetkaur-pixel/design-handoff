@@ -27,6 +27,7 @@ import { buildRaiseClaimWizardBootstrap, parseRaiseClaimChatIntent } from "@/lib
 import { RaiseClaimChatGuidanceSection } from "@/components/crm/RaiseClaimGuidanceUI"
 import { WorkflowOfferPick } from "@/components/crm/WorkflowOfferPick"
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 import {
   SUNIL_EDIT_POLICY_USE_CASE_3_CHAT_MOCK,
   SUNIL_EDIT_POLICY_USE_CASE_4_UNKNOWN_REASON_CHAT_MOCK,
@@ -1167,7 +1168,7 @@ export function AIChatPanel({
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
             <img
-              src="/icons/ai-companion-header.png"
+              src={asset("/icons/ai-companion-header.png")}
               alt="AI Companion"
               width={40}
               height={40}
@@ -1212,7 +1213,7 @@ export function AIChatPanel({
                     aria-hidden
                   >
                     <img
-                      src="/icons/ai-companion-message.png"
+                      src={asset("/icons/ai-companion-message.png")}
                       alt=""
                       width={20}
                       height={20}

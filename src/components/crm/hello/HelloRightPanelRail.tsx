@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { type LucideIcon, Bot, PanelsTopLeft, Settings2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 import type { CrmTaskId } from "@/lib/crmTasks"
 
 export type HelloRightRailTab = "workflows" | "power-tools" | "manual-mode" | "similar-cases" | "existing-tickets"
@@ -275,7 +276,7 @@ export function HelloRightPanelIconRail({
       {showLabels ? (
         isInManualMode
           ? <RailLucideIcon icon={Bot} />               /* "back to AI" — bot icon */
-          : <img src="/icons/rail-manual-mode.png" alt="" className={RAIL_ICON_CLASS} />
+          : <img src={asset("/icons/rail-manual-mode.png")} alt="" className={RAIL_ICON_CLASS} />
       ) : (
         isInManualMode
           ? <RailLucideIcon icon={Bot} />
@@ -304,7 +305,7 @@ export function HelloRightPanelIconRail({
             onClick={() => onTabChange("workflows")}
           >
             {showLabels ? (
-              <img src="/icons/rail-all-tabs.png" alt="" className={RAIL_ICON_CLASS} />
+              <img src={asset("/icons/rail-all-tabs.png")} alt="" className={RAIL_ICON_CLASS} />
             ) : (
               <RailLucideIcon icon={PanelsTopLeft} />
             )}
@@ -321,7 +322,7 @@ export function HelloRightPanelIconRail({
             onClick={() => onTabChange("existing-tickets")}
             showBadge={hasExistingTickets}
           >
-            <img src="/icons/rail-existing-tickets.png" alt="" className={RAIL_ICON_CLASS} />
+            <img src={asset("/icons/rail-existing-tickets.png")} alt="" className={RAIL_ICON_CLASS} />
           </RailIconButton>
         )}
 
@@ -335,7 +336,7 @@ export function HelloRightPanelIconRail({
             onClick={() => onTabChange("similar-cases")}
             showBadge={hasSimilarCases}
           >
-            <img src="/icons/rail-similar-cases.png" alt="" className={RAIL_ICON_CLASS} />
+            <img src={asset("/icons/rail-similar-cases.png")} alt="" className={RAIL_ICON_CLASS} />
           </RailIconButton>
         )}
 
@@ -348,7 +349,7 @@ export function HelloRightPanelIconRail({
           onClick={() => onTabChange("power-tools")}
         >
           {showLabels ? (
-            <img src="/icons/rail-power-tools.png" alt="" className={RAIL_ICON_CLASS} />
+            <img src={asset("/icons/rail-power-tools.png")} alt="" className={RAIL_ICON_CLASS} />
           ) : (
             <RailPowerToolsIcon />
           )}

@@ -2,6 +2,7 @@ import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { CalendarDays, Check, Send, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 import { helloAiResponderLabel, helloCxResponderName } from "@/components/crm/hello/helloRaiseClaimCopy"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -131,7 +132,7 @@ export function HelloAiBubbleCard({
         {showIdentity ? (
           <div className="size-5 shrink-0 overflow-hidden rounded bg-[#f5f3fc] ring-1 ring-[#e7e7f0]">
             <img
-              src="/icons/ai-companion-header.png"
+              src={asset("/icons/ai-companion-header.png")}
               alt=""
               width={20}
               height={20}
