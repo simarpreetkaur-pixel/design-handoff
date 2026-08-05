@@ -442,27 +442,27 @@ function ExistingTicketsPanel() {
 const SIMILAR_CASES = [
   {
     id: "SC-001",
-    title: "Policy start date change – Hyundai Creta",
-    context: "Customer requested endorsement to shift start date by 6 days. Resolved after 36 hours.",
+    title: "Chassis number update – Hyundai Creta",
+    context: "Customer requested chassis number correction after RC reissue. Endorsement processed within 24 hours.",
     status: "Resolved",
     resolvedAgo: "2 days ago",
-    outcome: "Confirmed endorsement processed; customer notified via app.",
+    outcome: "Chassis number updated successfully; customer notified via app.",
   },
   {
     id: "SC-002",
-    title: "Endorsement update pending – Honda City",
-    context: "Policy start date edit stuck in processing. Escalated to underwriting for manual review.",
+    title: "Chassis number mismatch – Honda City",
+    context: "Chassis number on policy did not match RC copy. Escalated to underwriting for manual verification and update.",
     status: "Resolved",
     resolvedAgo: "1 week ago",
-    outcome: "Underwriting team manually applied changes within 12 hrs of escalation.",
+    outcome: "Underwriting team verified RC and applied chassis number correction within 12 hrs.",
   },
   {
     id: "SC-003",
-    title: "Policy edit delayed – Maruti Brezza",
-    context: "Customer queried why endorsement not visible on app after 24 hours. Server sync delay identified.",
+    title: "Chassis number edit delayed – Maruti Brezza",
+    context: "Customer queried why chassis number change was not reflected on app after 48 hours. Backend sync issue identified.",
     status: "Resolved",
     resolvedAgo: "3 days ago",
-    outcome: "Cache cleared on backend; policy reflected within 2 hours.",
+    outcome: "Sync issue resolved on backend; updated chassis number reflected within 2 hours.",
   },
 ]
 
