@@ -444,7 +444,7 @@ function PolicyItem({ policy, onViewPolicyDoc }: PolicyItemProps) {
                   View
                 </button>
               ) : (
-                <span className="text-[#36354c] text-xs font-medium font-euclid leading-[18px]">View</span>
+                <span className="text-[#2563eb] text-xs font-medium font-euclid leading-[18px]">View</span>
               )}
             </div>
           </div>
