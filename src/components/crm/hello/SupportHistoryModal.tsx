@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 import type { RekhaSupportHistoryEntry } from "@/data/rekhaGuptaClaimStatusEscalated"
 
-const customerServiceIcon = "/icons/customer-service.png"
+const customerServiceIcon = asset("/icons/customer-service.png")
 
 
 export type SupportHistoryEntry = RekhaSupportHistoryEntry

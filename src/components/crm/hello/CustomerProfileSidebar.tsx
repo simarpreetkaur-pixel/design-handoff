@@ -3,6 +3,7 @@ import { useState } from "react"
 import type { SidebarActiveClaim } from "@/data/sidebarActiveClaim"
 import type { Customer, Policy, InactivePolicy } from "@/types/crm"
 import { cn } from "@/lib/utils"
+import { asset } from "@/lib/assets"
 
 export interface ActiveCaseDetail {
   label: string
@@ -24,15 +25,15 @@ import {
 } from "@/components/crm/hello/SupportHistoryModal"
 
 // Asset constants - using local icons
-const profileIcon = "/icons/profile-shield-icon.png"
-const relationshipIcon = "/icons/relationship.png"
-const customerServiceIcon = "/icons/customer-service.png"
-const pendingIcon = "/icons/pending.png"
-const checkIcon = "/icons/verified.png"
-const carIcon = "/icons/car.png"
-const bikeIcon = "/icons/bike.png"
-const healthIcon = "/icons/health.png"
-const policyIcon = "/icons/health.png" // Default to health icon
+const profileIcon = asset("/icons/profile-shield-icon.png")
+const relationshipIcon = asset("/icons/relationship.png")
+const customerServiceIcon = asset("/icons/customer-service.png")
+const pendingIcon = asset("/icons/pending.png")
+const checkIcon = asset("/icons/verified.png")
+const carIcon = asset("/icons/car.png")
+const bikeIcon = asset("/icons/bike.png")
+const healthIcon = asset("/icons/health.png")
+const policyIcon = asset("/icons/health.png")
 
 interface CustomerProfileSidebarProps {
   customer: Customer
