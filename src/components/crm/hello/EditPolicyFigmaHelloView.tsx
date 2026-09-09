@@ -617,26 +617,6 @@ export function EditPolicyFigmaHelloView({
       }
       return
     }
-    if (tab === "existing-tickets") {
-      if (activeRailTab === "existing-tickets") {
-        setActiveRailTab("workflows")
-        setRightPanelOpen(false)
-      } else {
-        setActiveRailTab("existing-tickets")
-        setRightPanelOpen(true)
-      }
-      return
-    }
-    if (tab === "similar-cases") {
-      if (activeRailTab === "similar-cases") {
-        setActiveRailTab("workflows")
-        setRightPanelOpen(false)
-      } else {
-        setActiveRailTab("similar-cases")
-        setRightPanelOpen(true)
-      }
-      return
-    }
     // workflows / all-tabs
     if (activeRailTab === "workflows" && rightPanelOpen) {
       setRightPanelOpen(false)
@@ -723,9 +703,9 @@ export function EditPolicyFigmaHelloView({
         setTimeout(() => {
           setAiTyping(false)
           setMessages((prev) => [...prev, { id: "ai-ct-ack", role: "ai", content: "ai_ticket_opened" }])
-          // Open the existing tickets panel in the rail
+          // Open the workflows panel in the rail
           setTimeout(() => {
-            setActiveRailTab("existing-tickets")
+            setActiveRailTab("workflows")
             setRightPanelOpen(true)
           }, 450)
         }, typingMs)
@@ -1044,15 +1024,6 @@ export function EditPolicyFigmaHelloView({
             <HelloPowerToolsPanel onToolClick={() => {}} />
           )}
 
-          {/* Existing tickets */}
-          {activeRailTab === "existing-tickets" && (
-            <ExistingTicketsPanel />
-          )}
-
-          {/* Similar cases */}
-          {activeRailTab === "similar-cases" && (
-            <SimilarCasesPanel />
-          )}
 
           {/* Workflow panels — Chrome-style persistent tab bar */}
           {activeRailTab === "workflows" && (
@@ -1196,8 +1167,8 @@ export function EditPolicyFigmaHelloView({
         manualMode={manualModeProps}
         isRailOnlyLayout={!showRightContentArea}
         showLabels
-        hasExistingTickets
-        hasSimilarCases
+        hideExistingTickets
+        hideSimilarCases
       />
     </div>
   )
